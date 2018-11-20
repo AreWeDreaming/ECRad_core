@@ -90,7 +90,7 @@ do i = 1, m
   call abs_Albajar(svec, omega, mode, ds, c_abs_Alb, dummy_1)
   call calculate_em(svec, omega, dummy_1, dummy_2, c_abs_Hutch)
   c_abs_warm_disp = abs_Al_tor_abs(svec, omega, mode, N_gray)
-  abs_crude_approx =  get_upper_limit_tau(svec, omega, 1.d0, 0.5d0)
+  abs_crude_approx =  get_upper_limit_tau(svec, omega, 1.d0)
   write(81,"(7(E18.10E3,A1),E18.10E3)") &
           omega / (svec%freq_2X * Pi), " ", c_abs_Alb, " ", c_abs_Hutch, " ",&
           c_abs_warm_disp, " ", abs_crude_approx, " ", N_cold, " ", N_cor, " ", N_gray
@@ -109,7 +109,7 @@ do i = 1, m
   call abs_Albajar(svec, omega, mode, ds, c_abs_Alb, dummy_1)
   call calculate_em(svec, omega, dummy_1, dummy_2, c_abs_Hutch)
   c_abs_warm_disp = abs_Al_tor_abs(svec, omega, mode, N_gray)
-  abs_crude_approx =  get_upper_limit_tau(svec, omega, 1.d0, 0.5d0)
+  abs_crude_approx =  get_upper_limit_tau(svec, omega, 1.d0)
   write(81,"(7(E18.10E3,A1),E18.10E3)") &
           omega / (svec%freq_2X * Pi), " ", c_abs_Alb, " ", c_abs_Hutch, " ",&
           c_abs_warm_disp, " ", abs_crude_approx, " ", N_cold, " ", N_cor, " ", N_gray
@@ -130,7 +130,7 @@ do i = 1, m
   call abs_Albajar(svec, omega, mode, ds, c_abs_Alb, dummy_1)
   call calculate_em(svec, omega, dummy_1, dummy_2, c_abs_Hutch)
   c_abs_warm_disp = abs_Al_tor_abs(svec, omega, mode, N_gray)
-  abs_crude_approx =  get_upper_limit_tau(svec, omega, 1.d0, 0.5d0)
+  abs_crude_approx =  get_upper_limit_tau(svec, omega, 1.d0)
   write(81,"(7(E18.10E3,A1),E18.10E3)") &
           omega / (svec%freq_2X * Pi), " ", c_abs_Alb, " ", c_abs_Hutch, " ",&
           c_abs_warm_disp, " ", abs_crude_approx, " ", N_cold, " ", N_cor, " ", N_gray
@@ -150,7 +150,7 @@ do i = 1, m
   call abs_Albajar(svec, omega, mode, ds, c_abs_Alb, dummy_1)
   call calculate_em(svec, omega, dummy_1, dummy_2, c_abs_Hutch)
   c_abs_warm_disp = abs_Al_tor_abs(svec, omega, mode, N_gray)
-  abs_crude_approx =  get_upper_limit_tau(svec, omega, 1.d0, 0.5d0)
+  abs_crude_approx =  get_upper_limit_tau(svec, omega, 1.d0)
   write(81,"(7(E18.10E3,A1),E18.10E3)") &
           omega / (svec%freq_2X * Pi), " ", c_abs_Alb, " ", c_abs_Hutch, " ",&
           c_abs_warm_disp, " ", abs_crude_approx, " ", N_cold, " ", N_cor, " ", N_gray
@@ -169,7 +169,7 @@ do i = 1, m
   call abs_Albajar(svec, omega, mode, ds, c_abs_Alb, dummy_1)
   call calculate_em(svec, omega, dummy_1, dummy_2, c_abs_Hutch)
   c_abs_warm_disp = abs_Al_tor_abs(svec, omega, mode, N_gray)
-  abs_crude_approx =  get_upper_limit_tau(svec, omega, 1.d0, 0.5d0)
+  abs_crude_approx =  get_upper_limit_tau(svec, omega, 1.d0)
   write(81,"(7(E18.10E3,A1),E18.10E3)") &
           omega / (svec%freq_2X * Pi), " ", c_abs_Alb, " ", c_abs_Hutch, " ",&
           c_abs_warm_disp, " ", abs_crude_approx, " ", N_cold, " ", N_cor, " ", N_gray
@@ -190,7 +190,7 @@ do i = 1, m
   call abs_Albajar(svec, omega, mode, ds, c_abs_Alb, dummy_1)
   call calculate_em(svec, omega, dummy_1, dummy_2, c_abs_Hutch)
   c_abs_warm_disp = abs_Al_tor_abs(svec, omega, mode, N_gray)
-  abs_crude_approx =  get_upper_limit_tau(svec, omega, 1.d0, 0.5d0)
+  abs_crude_approx =  get_upper_limit_tau(svec, omega, 1.d0)
   write(81,"(7(E18.10E3,A1),E18.10E3)") &
           omega / (svec%freq_2X * Pi), " ", c_abs_Alb, " ", c_abs_Hutch, " ",&
           c_abs_warm_disp," ", abs_crude_approx, " ", N_cold, " ", N_cor, " ", N_gray
@@ -775,12 +775,17 @@ character(120)               :: cur_filename
 character(20)                :: ich_str
 real(rkind), dimension(3) :: em, ab, em_secondary, ab_secondary
 real(rkind)    :: k1, k2, k3, k4, em_diff, dummy, N_cor, smallest_rhop_on_LOS, &
-                  ab_diff,trans_coeff,trans_coeff_secondary,  omega, N_est, delta, Trad_0
+                  ab_diff,trans_coeff,trans_coeff_secondary,  omega, N_est, delta
 integer(ikind) :: i, j, k, ich_tot, last_index_inside, i_smallest_rhop_on_LOS
 logical        :: first, eval_pol_coeff, debug_internal
 !call benchmark_abs_and_N()
 !stop "benchmark"
 error = 0
+! initialization
+Trad     =  0.d0
+Trad_secondary =  0.d0
+tau      =  0.d0
+tau_secondary  =  0.d0
 debug_internal = .false.
 if(present(debug)) debug_internal = debug
 if(.not. rad_ray_freq%use_external_pol_coeff .and. mode_cnt > 1) then
@@ -802,7 +807,6 @@ tau_array(1) = ab(k)
 smallest_rhop_on_LOS = 2.d0
 last_index_inside = -1
 i_smallest_rhop_on_LOS = -1
-Trad_0 = Trad
 !if(mode > 0) print*, "Solving for X-mode"
 !if(mode < 0) print*, "Solving for O-mode"
 if(output_level) tau_secondary_array(1) = 0.5d0 * ab_secondary(k) * ds2
@@ -854,7 +858,7 @@ do i = 1, rad_ray_freq%total_LOS_points-2, 2           ! integration over every 
   k3   = em(2) - ab(2) * (Trad + k2*ds2)
   k4   = em(3) - ab(3) * (Trad + k3*ds)
   if(rad_ray_freq%svec(j)%N_cold <= 0) then  ! Cut_pff
-    Trad = Trad_0
+    Trad = 0.d0
     tau_array(1:i + 1) = 0.d0
     if(output_level) then
       rad_ray_freq%svec_extra_output(1:i + 1)%ab = 0.d0
@@ -916,7 +920,7 @@ do i = 1, rad_ray_freq%total_LOS_points-2, 2           ! integration over every 
     k3   = em_secondary(2) - (ab_secondary(2)) * (Trad_secondary + k2*ds2)
     k4   = em_secondary(3) - (ab_secondary(3)) * (Trad_secondary + k3*ds )
     if(rad_ray_freq%svec(j)%N_cold <= 0) then  ! Cut_off
-      Trad_secondary = Trad_0
+      Trad_secondary = 0.d0
       tau_secondary_array(1:i + 1) = 0.d0
       rad_ray_freq%svec_extra_output(1:i + 1)%ab_secondary = 0.d0
       rad_ray_freq%svec_extra_output(1:i + 1)%em_secondary = 0.d0
@@ -961,7 +965,7 @@ do i = 1, rad_ray_freq%total_LOS_points-2, 2           ! integration over every 
     print*, "theta", rad_ray_freq%svec(j)%theta / pi * 180, rad_ray_freq%svec(j+1)%theta / pi * 180, rad_ray_freq%svec(j+2)%theta / pi * 180
     print*, "freq_2X", rad_ray_freq%svec(j)%freq_2X, rad_ray_freq%svec(j+1)%freq_2X, rad_ray_freq%svec(j+2)%freq_2X
   end if
-  if(Trad /= Trad .or. Trad > max(rad_ray_freq%svec(j)%Te * 10.0, 1.d9)) then !/= Trad ! .or. tau_array(i + 2) < 0.d0
+  if(Trad /= Trad .or. Trad > max(rad_ray_freq%svec(j)%Te * 10.0, 1.d9) .or. tau_array(i + 2) < 0.d0) then !/= Trad
     ! Trad >> 1 MeV => much larer than saturation value of most ECEs
     j = i
     if(j + 2 > rad_ray_freq%total_LOS_points) j = rad_ray_freq%total_LOS_points - 2

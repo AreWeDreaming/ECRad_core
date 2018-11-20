@@ -1,6 +1,0 @@
-#!/bin/tcsh
-
-cd Library/@sys
-make
-cd -
-make

@@ -47,7 +47,7 @@ type spl_type_1d
   real*8, dimension(:), allocatable   :: c !spline
   real*8, dimension(:), allocatable     :: wrk ! work array for the spline routine
   integer*4, dimension(:), allocatable  :: iwrk ! integer work array for fitpack
-  integer*4                             :: iopt_int = 0 ! needed for profile interpolation
+  integer*4                             :: iopt_int = 0 ! needed for rectangular grid
   real*8                               :: x_start, x_end
 end type spl_type_1d
 ! antenna and LOS parameters (not time-dependent)
@@ -64,7 +64,6 @@ type ant_diag_ch_type
   real(rkind)                      :: f_ECE      ! mean frequency of ECE channel [Hz]
   real(rkind)                      :: df_ECE     ! bandwidth of ECE frequencies  [Hz]
   real(rkind)                      :: dist_focus, width ! distance between launch and focus and FWHM of the antenna
-  real(rkind)                      :: focus_shift
   !integer(ikind)                   :: N_freq     ! number of frequencies per ECE channels
   !integer(ikind)                   :: N_ray      ! number of rays
   real(rkind),  dimension(:), allocatable :: freq, freq_weight ! analyzed frequencies and weights for the integration
@@ -141,8 +140,8 @@ type rad_diag_ch_mode_ray_freq_type
   real(rkind)                      :: tau_secondary
   real(rkind)                      :: pol_coeff
   real(rkind)                      :: pol_coeff_secondary
-!  real(rkind)                      :: X_refl ! fraction of O-mode converted to X-mode
-!  real(rkind)                      :: X_refl_secondary ! fraction of O-mode converted to X-mode
+  real(rkind)                      :: X_refl ! fraction of O-mode converted to X-mode
+  real(rkind)                      :: X_refl_secondary ! fraction of O-mode converted to X-mode
   real(rkind)                      :: s_res ! each ray and frequency have individual resonances
   real(rkind)                      :: R_res ! each ray and frequency have individual resonances
   real(rkind)                      :: z_res ! each ray and frequency have individual resonances
@@ -180,7 +179,6 @@ type rad_diag_ch_mode_ray_type
   real(rkind)                      :: rel_rhop_res_secondary
   real(rkind)                      :: rel_R_res_secondary  ! relativistic resonance position [m]
   real(rkind)                      :: rel_z_res_secondary  ! relativistic resonance position [m]
-  logical                          :: contributes ! False for channels that do not cross the vessel
 end type rad_diag_ch_mode_ray_type
 
 type rad_diag_ch_mode_ray_extra_output_type
@@ -198,8 +196,8 @@ type rad_diag_ch_mode_type
   real(rkind)                      :: tau_secondary
   real(rkind)                      :: pol_coeff
   real(rkind)                      :: pol_coeff_secondary
-!  real(rkind)                      :: X_refl ! fraction of O-mode converted to X-mode
-!  real(rkind)                      :: X_refl_secondary ! fraction of O-mode converted to X-mode
+  real(rkind)                      :: X_refl ! fraction of O-mode converted to X-mode
+  real(rkind)                      :: X_refl_secondary ! fraction of O-mode converted to X-mode
   integer(ikind)                   :: mode ! - 1 O-mode, +1 X-mode
   real(rkind)                      :: s_res
   real(rkind)                      :: R_res ! modes have different propagation
@@ -215,7 +213,6 @@ type rad_diag_ch_mode_type
   real(rkind)                      :: rel_z_res_secondary
   type(rad_diag_ch_mode_ray_type),      dimension(:), allocatable :: ray
   type(rad_diag_ch_mode_ray_extra_output_type),      dimension(:), allocatable :: ray_extra_output
-  real(rkind)                      :: Trad_mode_frac, Trad_mode_frac_secondary
 end type rad_diag_ch_mode_type
 
 type rad_diag_ch_mode_extra_output_type
@@ -248,6 +245,7 @@ type rad_diag_ch_type
   type(rad_diag_ch_mode_extra_output_type),      dimension(:), allocatable :: mode_extra_output
   logical                          :: eval_ch
   real(rkind)                      :: pol_coeff_norm, pol_coeff_secondary_norm
+  real(rkind)                      :: Trad_mode_frac, Trad_mode_frac_secondary
 end type rad_diag_ch_type
 
 
@@ -393,17 +391,6 @@ type ray_element_full_type
   real(rkind)                                       :: sigma
 end type ray_element_full_type
 
-type reflec_equ_type
-! Parameters for wall plasma equilibrium reflection model - reflec_model = 1
-real(rkind), dimension(:), allocatable  :: f, X_Trad_equ, O_Trad_equ
-type(spl_type_1d)                       :: X_Trad_equ_spl, O_Trad_equ_spl
-real(rkind)                             :: f_min, f_max
-integer(ikind)                          :: N_f
-#ifdef NAG
-  type(nag_spline_1d_comm_wp)            :: X_Trad_equ_spl_nag, O_Trad_equ_spl_nag
-#endif
-end type
-
 type plasma_params_type
   logical                                           :: on_the_fly_raytracing = .false.
                                                        ! If .true. raytracing and radiation transport are solved simultaneously
@@ -438,12 +425,13 @@ type plasma_params_type
   logical                                           :: w_ripple = .true. ! Input
                                                     ! .true. -> weakly relativistic. false -> cold disperion for ray tracing
   real(rkind)                                       :: Btf0 = -1.d2, R0 = -1.d0 ! Required for the ripple correction
+  real(rkind)                                       :: R_ripple_boundary = 2.25d0 ! If R >  R_ripple_boundary the ripple will be ignored
   logical                                           :: precise_interpolation = .false. !*
                                                     ! if true use splines for svec interpolation in OERT - SLOW!
                                                     ! if false use linear interpolation (much faster)
   logical                                           :: Te_ne_mat = .false. ! If true an externally given matrix of Te and ne is used instead of the
                                                                               ! Te/ ne profile
-  integer(ikind)                                    :: Debug_level = 1 !* Controls the amount of output from OERT
+  integer(ikind)                                    :: Debug_level = 0 !* Controls the amount of output from OERT
                                                       ! (0) No output, (1) some output regarding spline interpolation, (2) much output and stop at first interesting point
   real(rkind)                                       :: h = 1.d-3 !* step size for raytracing - WARNING small values will increase the error!
   real(rkind)                                       :: Y_res = 0.5d0!* Y for strongest contributing harmonic, default is 0.5d0 -> 2nd harmonic
@@ -456,8 +444,6 @@ type plasma_params_type
   real(rkind)                                       :: R_ax, z_ax, R_sep, z_sep, B_ax ! for debugging purposes
   real(rkind)                                       :: pf_sxp, pf_mag ! needed for B_min on rho contour, and j on rho_contour
   real(rkind)                                       :: rhop_entry = 1.2d0 !*
-  real(rkind)                                       :: rhop_inside = 0.99d0, rhop_exit = 1.05d0 !* Stop if rhop < rhop exit
-                                                                                                !  and rhop_inside was reached before
   real(rkind)                                       :: X_entry = 0.04 !*
   real(rkind)                                       :: rhop_emit = 1.03 !* Specifies upper limit for the fine grid
                                                        ! This avoids having the small grid for channels with resonances in the SOL
@@ -473,8 +459,8 @@ type plasma_params_type
   integer(ikind)                                    :: rad_transp_solver_order = 4 ! Has to be four (at least) since we use Rk4
   real(rkind)                                       :: tau_max = 9 !* If tau > tau_max the radiation transport is deemed finished
                                                        ! tau = 5 corresponds to a reabsorption of more than 99% of all radiation
-                                                       ! => good enough for thermal plasmas
-  real(rkind)                                       :: angle_threshold = 90.d0 / 180.d0 * pi !2.d0 * pi !90.d0 / 180.d0 * pi !* maximum allowed change in
+                                                       ! => good enough for thermal palsmas
+  real(rkind)                                       :: angle_threshold = 90.d0 / 180.d0 * pi !* maximum allowed change in
                                                        ! 2.d0 * pi ! no threshhold
                                                        ! propagation with respect to launch (avoids internal reflections)
   real(rkind)                                       :: btf_corr_fact_ext = -1.d0 ! Scaling factor for B_t
@@ -488,7 +474,6 @@ end type plasma_params_type
   type(rad_type)                     :: rad
   type(plasma_params_type)           :: plasma_params
   type(ripple_params_type)           :: ripple_params
-  type(reflec_equ_type)              :: reflec_equ
   character(5)                       :: ode_integrator = "Rk4" !*
   character(200)                     :: data_folder
   character(200)                     :: ray_out_folder ! folder that saves the result of ray tracing
@@ -512,8 +497,6 @@ end type plasma_params_type
   real(rkind)                        :: ne_max = 1.d21 ! Grid points with densities larger than this will be ignored
   real(rkind)                        :: reflec_X
   real(rkind)                        :: reflec_O
-  integer(ikind)                     :: reflec_model = 0
-  real(rkind)                        :: vessel_plasma_ratio
   logical                            :: OERT, straight
   logical                            :: Analytical = .False., Lambda_star = .False.,&
                                         LSODE = .true., old_cutoff = .False. !*
@@ -533,9 +516,7 @@ end type plasma_params_type
   character(3), dimension(:), allocatable :: diagnostics
   real(rkind)                        :: h_x_glob = 1.d-5 !*
   character(4)                       :: Hamil ="Dani"!"Stix"! !*! !
-  logical                            :: UH_stop = .true. !* If true raytracing concludes when approaching the UH resonance (only X-mode affected)
-  logical                            :: one_sigma_width = .true. !* Rays are spanned over one beam widths -- useful for benchmarking, but could lead wrong results
-  real(rkind)                        :: ECE_fcous_shift = 0.2d0 ! Shifts ECE focus point towards HFS -> better agreement with TORBEAM rays at magnetic axis
+  logical                            :: UH_stop = .true. !* If true raytracing will concludes when approaching the UH resonance
   real(rkind)                        :: h_check
   real(rkind)                        :: h_glob = 1.d-4 !*
   real(rkind)                        :: eps = 1.d-4!* for minimal substitution in S
@@ -551,7 +532,6 @@ end type plasma_params_type
   logical                            :: static_grid = .false. ! Prevents the grid for radiation transport to be recomputed
                                                               ! in the case of numerical instability
   logical                            :: double_check_splines = .false. !*
-  logical                            :: output_all_ray_data = .true.
   ! The next two options are overwritten if ida is used
   logical                            :: stand_alone = .true. !* Whether the model is used as part of IDA or as a standalone program
   logical                            :: use_ida_spline_Te = .false., use_ida_spline_ne = .false.  !* whether IDA splines are used

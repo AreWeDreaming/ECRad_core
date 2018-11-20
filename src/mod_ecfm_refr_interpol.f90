@@ -41,6 +41,8 @@ module mod_ecfm_refr_interpol
     end if
     if(present(iopt)) then
       spl%iopt_int = int(iopt,4)
+    else
+      spl%iopt_int = 0 !
     end if
     if(spl%iopt_int == 0) then !
       spl%nuest= m + 4
@@ -124,6 +126,8 @@ module mod_ecfm_refr_interpol
     if(m <= spl%k) spl%k = 1
     if(present(iopt)) then
       spl%iopt_int = iopt
+    else
+      spl%iopt_int = 0
     end if
     w(:) = 1.d0
     if(spl%iopt_int == 0) then !
