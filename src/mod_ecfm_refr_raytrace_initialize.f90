@@ -194,7 +194,7 @@ module mod_ecfm_refr_raytrace_initialize
         stop "Input Error! Check input and run again"
       end if
   end subroutine read_Te_ne_matrix
-#ifdef AUG
+#ifdef IDA
   subroutine setup_eq_from_shotfile(plasma_params, R, z, rhop, Br, Bt, Bz, R0_out, Btf0)
     use f90_kind
     use mod_ecfm_refr_types,        only: output_level, m_eq, n_eq, plasma_params_type
@@ -350,7 +350,6 @@ module mod_ecfm_refr_raytrace_initialize
 subroutine setup_eq_from_shotfile(plasma_params, R, z, rhop, Br, Bt, Bz, R0_out, Btf0)
     use f90_kind
     use mod_ecfm_refr_types,        only: output_level, m_eq, n_eq, plasma_params_type
-    use eqi_mod,                    only: Bt_btf_corrected
     implicit none
     type(plasma_params_type), intent(inout)     :: plasma_params
     real(rkind), dimension(:), allocatable, intent(inout) :: R, z
@@ -493,10 +492,17 @@ end subroutine setup_eq_from_shotfile
         call read_Te_ne_matrix(plasma_params, plasma_params%R, plasma_params%z, T_e, n_e)
         plasma_params%rhop_max = plasma_params%rhop_entry !
       end if
+#ifdef IDA
     else
       call setup_eq_from_shotfile(plasma_params, &
                                   plasma_params%R, plasma_params%z, plasma_params%rhop, B_r, B_t, B_z, R0, Btf0)
     end if
+#else
+    else
+      print*, "Direct loading of AUG shot files is only supported within the IDA framework"
+      call abort()
+    end if
+#endif
     plasma_params%m = size(plasma_params%R)
     plasma_params%n = size(plasma_params%z)
 !    do j = 1, plasma_params%n

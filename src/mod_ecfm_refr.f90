@@ -16,7 +16,7 @@ public :: simulate_ida, &
 private :: save_data_to_ASCII
 
 contains
-
+#ifdef IDA
 subroutine simulate_ida(working_dir)
 use mod_ecfm_refr_types,        only: n_e_filename, T_e_filename, &
                                       ant, plasma_params, rad, output_level, &
@@ -236,6 +236,8 @@ character(250)                          :: filename
   call pre_initialize_ecfm(working_dir, ida, "clean")
   deallocate(rhop, n_e, T_e, par, par_ne, par_scal, ne_test)
 end subroutine simulate_ida
+#endif
+
 
 subroutine initialize_stand_alone(working_dir, flag)
 ! Simulates the structure used in IDA
@@ -446,7 +448,8 @@ integer(ikind)                :: idiag, ich
   end if
 end subroutine initialize_stand_alone
 
-subroutine pre_initialize_ecfm(working_dir_in, ida, flag, ece_strut, parallelization_mode)
+#ifdef IDA
+subroutine pre_initialize_ecfm(working_dir_in, parallelization_mode, f, df, R, phi, z, tor, pol, dist foc, width)
 ! Everything that is absolutely static in time is done over here
 
 use ece_types,                  only: ece_type
@@ -462,9 +465,8 @@ use mod_ecfm_refr_raytrace,               only: dealloc_rad
 use ida_types,                  only:ida_type
 implicit none
 character(*), intent(in)      :: working_dir_in, flag
-type(ida_type), intent(in)    :: ida
-type(ece_type), intent(in), optional  :: ece_strut
 integer(ikind), intent(in), optional  :: parallelization_mode
+real(rkind), dimension, intent(in), optional :: f, df, R, phi, z, tor, pol, dist foc, width
 integer(ikind)                :: idiag
 !call abort("ECFM disabled")
 if(trim(flag) == "init" .or. trim(flag) == "load") then
@@ -488,11 +490,11 @@ if(trim(flag) == "init" .or. trim(flag) == "load") then
       print*, "pre_initialize_ecfm must be called with ece_strut present if flag == init"
       call abort()
     end if
-    call prepare_ECE_diag(working_dir=working_dir, ida=ida, ece_strut=ece_strut)
-    ! loads everything from the ida structure and then creates an input files
+    call prepare_ECE_diag(working_dir=working_dir, f, df, R, phi, z, tor, pol, dist foc, width)
+    ! parses info from info then creates an input file
   else
-    call load_ECE_diag_data(ida, ant, rad)
-    ! load the file the routine 4 lines above create
+    call load_ECE_diag_data(ant, rad)
+    ! load the file the routine 4 lines above creates
   end if
 else if(trim(flag) == "clean") then
   !TODO: Implement clean up routine
@@ -810,6 +812,7 @@ subroutine update_svecs(rad, par, par_ne, par_scal, rhop, Te)
   end do
   if(present(par_ne) .and. present(par_scal) .and. present(rhop) .and. present(Te)) use_ida_spline_Te = .True.
 end subroutine update_svecs
+#endif
 
 subroutine make_ece_rad_temp()
 use mod_ecfm_refr_types,        only: dstf, reflec_X, reflec_O, OERT, mode_cnt, modes, N_ray, N_freq, plasma_params, use_maximum_for_warm_res, &
@@ -1274,6 +1277,7 @@ end do ! N_diag
 if(output_level) call save_data_to_ASCII()
 end subroutine make_ece_rad_temp
 
+#ifdef IDA
 subroutine make_BPD(idiag) ! to be used within IDA, calculates all birthplace distribution for one diagnostic
 use mod_ecfm_refr_types,        only: dstf, reflec_X, reflec_O, OERT, mode_cnt, modes, N_ray, N_freq, plasma_params, use_maximum_for_warm_res, &
                                       rad, ant, data_folder, output_level, Ich_name, dstf_comp, max_points_svec, mode_conv
@@ -1375,7 +1379,7 @@ endif ! (ece_flag_reflec)
 
 !stop "sub make_ece_flag_reflec"
 end subroutine make_ece_flag_reflec
-
+#endif
 subroutine save_data_to_ASCII()
 use mod_ecfm_refr_types,        only: dstf, OERT, mode_cnt, N_ray, N_freq, plasma_params, data_name, &
                                       rad, ant, data_folder, Ich_name, dstf_comp, ray_out_folder, data_secondary_name

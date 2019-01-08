@@ -39,7 +39,7 @@ program ecfm_model
     !stand_alone = .False.
     eval = 0
     not_eval = 0
-    if(stand_alone) then
+!    if(stand_alone) then
     !stop "Sanity check"
       call initialize_stand_alone(working_dir, "init")
       call make_ece_rad_temp()
@@ -93,9 +93,9 @@ program ecfm_model
         close(69)
         close(70)
       end if
-    else
-      call simulate_ida(working_dir)
-    end if
+!    else
+!      call simulate_ida(working_dir)
+!    end if
 !    if(output_level .and. eval + not_eval > 0)  print*, "Saved", not_eval, " of ", not_eval + eval, "evaluations: ", real(not_eval,8) / real( eval + not_eval,8) * 100.d0, "%"
 !    if(dstf == "numeric" .or. dstf_comp == "O1") then
 !      dstf = "relamax"

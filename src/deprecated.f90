@@ -328,3 +328,306 @@ print*, "Make make_j uses AUG specific routines - TCV replacements required"
 call abort()
 end subroutine make_j
 #endif
+
+!*******************************************************************************
+#ifdef IDA
+subroutine make_CEC_diag_from_shotfile(diag, rad_diag, wg, z_lens)
+! calculate weight for each LOS and theta for each aufp along LOS:
+!    ant%ch(ich)%ray(ir)%aufp(:)%theta, ant%ch(ich)%ray(ir)%weight
+use mod_ecfm_refr_types,        only: ant_diag_type, rad_diag_type, plasma_params, modes, mode_cnt, &
+                                      N_ray, N_freq, CEC_exp, CEC_ed, output_level, max_points_svec, &
+                                      output_level, stand_alone
+use constants,                  only: pi
+use aug_db_routines,            only : read_ece, read_rmd
+implicit none
+type(ant_diag_type) , intent(inout)         :: diag
+type(rad_diag_type) , intent(inout)         :: rad_diag
+integer(ikind), dimension(:), allocatable, intent(out)   :: wg
+real(rkind),  intent(out)                   :: z_lens
+!real(rkind)    :: d                                ! distance of antenna to perpendicular
+!                                                   ! (through center of lense)
+!real(rkind)    :: l1                               ! distance from torus center to intersection
+!                                                   ! of LOS with perpendicular
+!real(rkind)    :: l2                               ! distance from intersection of LOS with
+!                                                   ! perpendicular to lense (= focal length)
+integer(ikind)                    :: ich, imode, ir, ifreq, N_ch, useful_ch, useless_cnt, cur_ifgroup, wg_index,N_R_z
+integer(ikind), dimension(:), allocatable :: available, wg_temp, ifgroup
+real(rkind), dimension(:), allocatable :: f, df
+character(4)   :: flag
+! calculate angle between LOS and Btor
+diag%expname = trim(CEC_exp)
+diag%edition = CEC_ed
+if(diag%diag_name == "CEC") then
+  call read_ece(shot         = plasma_params%shot,           & ! in
+              expnam       = diag%expname,     & ! in
+              ed           = diag%edition,     & ! in
+              ed_out       = diag%edition,       & ! out
+              f            = f,              & ! inout
+              df           = df,             & ! inout
+              N_ch         = N_ch,        & ! out
+              zlens        = z_lens,         & ! out
+              ifgroup      = ifgroup,        & ! out
+              waveguid     = wg_temp,       & ! inout
+              availabl     = available) ! inout
+else
+  call read_RMD(shot       = plasma_params%shot,           & ! in
+              expnam       = diag%expname,     & ! in
+              ed           = diag%edition,     & ! in
+              ed_out       = diag%edition,       & ! out
+              f            = f,              & ! inout
+              df           = df,             & ! inout
+              N_ch         = N_ch,        & ! out
+              zlens        = z_lens,         & ! out
+              ifgroup      = ifgroup,        & ! out
+              waveguid     = wg_temp,       & ! inout
+              availabl     = available) ! inout
+end if
+useful_ch = 0
+do ich = 1, N_ch
+  if(available(ich) > 0) useful_ch = useful_ch + 1
+end do
+diag%N_ch = useful_ch
+if(output_level .and. stand_alone) print*, "Found", useful_ch, " useful channels for ", diag%diag_name
+allocate(diag%ch(useful_ch), wg(useful_ch))
+allocate(rad_diag%ch(useful_ch))
+useless_cnt = 0
+wg_index = 1
+cur_ifgroup = ifgroup(1)
+do ich = 1, diag%N_ch
+  allocate(diag%ch(ich)%freq(N_freq))
+  allocate(diag%ch(ich)%freq_weight(N_freq))
+  allocate(rad_diag%ch(ich)%mode(mode_cnt))
+  if(output_level) allocate(rad_diag%ch(ich)%mode_extra_output(mode_cnt))
+  do imode = 1, mode_cnt
+    if((imode == 2 .and. modes == 3) .or. &
+        modes == 2) then
+      rad_diag%ch(ich)%mode(imode)%mode = -1 ! O-mode
+    else
+      rad_diag%ch(ich)%mode(imode)%mode = +1 ! X-mode
+    end if
+    allocate(rad_diag%ch(ich)%mode(imode)%ray(N_ray))
+    if(output_level) allocate(rad_diag%ch(ich)%mode(imode)%ray_extra_output(N_ray))
+    do ir = 1, N_ray
+      allocate(rad_diag%ch(ich)%mode(imode)%ray(ir)%freq(N_freq))
+      do ifreq = 1, N_freq
+          allocate(rad_diag%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%svec(max_points_svec))
+          if(output_level) allocate(rad_diag%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%svec_extra_output(max_points_svec))
+      end do
+    end do
+  end do
+  allocate(diag%ch(ich)%ray_launch(N_ray))
+end do
+do ich = 1, useful_ch
+  do while(available(ich + useless_cnt) == 0)
+    useless_cnt = useless_cnt + 1
+  end do
+  diag%ch(ich)%f_ECE = f(ich + useless_cnt)
+  diag%ch(ich)%df_ECE = df(ich + useless_cnt)
+  if(diag%ch(ich)%f_ECE < 1.d9) then
+    print*,"Warning an ECE channel has a frequency below 1 GHz"
+  end if
+  if(cur_ifgroup /= ifgroup(ich + useless_cnt)) then
+    wg_index = wg_index + 1
+    cur_ifgroup = ifgroup(ich + useless_cnt)
+  end if
+  wg(ich) = wg_temp(wg_index)
+end do !ich
+deallocate(wg_temp)
+end subroutine make_CEC_diag_from_shotfile
+
+subroutine make_CEC_diag_from_ida(diag, rad_diag, ida, ece_strut, wg, z_lens)
+use mod_ecfm_refr_types,        only : rad_diag_type, ant_diag_type, output_level, working_dir, &
+                                       modes, mode_cnt, N_ray, N_freq, max_points_svec, stand_alone
+use ece_types, only : ece_type
+use ida_types, only : ida_type
+use constants,                  only : pi
+implicit none
+type(ant_diag_type), intent(inout)                       :: diag
+type(rad_diag_type), intent(inout)                       :: rad_diag
+type(ida_type), intent(in)                               :: ida
+type(ece_type), intent(in)                               :: ece_strut
+integer(ikind), dimension(:), allocatable, intent(out)   :: wg
+real(rkind),  intent(out)                                :: z_lens
+character(200)                                           :: cur_filename
+integer(ikind)                                           :: ich, imode, ir, ifreq
+real(rkind)                                              :: N_abs, temp, temp1, temp2, phi_radial
+  mode_cnt = 1
+  if(modes == 3) mode_cnt = 2
+  diag%expname = ece_strut%exp_ece
+  diag%diag_name = ece_strut%diag_ece
+  diag%edition = ece_strut%ed_ece
+  diag%N_ch = ece_strut%N_ch
+  allocate(diag%ch(diag%N_ch))
+  allocate(rad_diag%ch(diag%N_ch))
+  do ich = 1, diag%N_ch
+    allocate(diag%ch(ich)%freq(N_freq))
+    allocate(diag%ch(ich)%freq_weight(N_freq))
+    allocate(rad_diag%ch(ich)%mode(mode_cnt))
+    do imode = 1, mode_cnt
+      if((imode == 2 .and. modes == 3) .or. &
+          modes == 2) then
+        rad_diag%ch(ich)%mode(imode)%mode = -1 ! O-mode
+      else
+        rad_diag%ch(ich)%mode(imode)%mode = +1 ! X-mode
+      end if
+      allocate(rad_diag%ch(ich)%mode(imode)%ray(N_ray))
+      do ir = 1, N_ray
+        allocate(rad_diag%ch(ich)%mode(imode)%ray(ir)%freq(N_freq))
+        do ifreq = 1, N_freq
+          allocate(rad_diag%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%svec(max_points_svec))
+        end do
+      end do
+    end do
+    allocate(diag%ch(ich)%ray_launch(N_ray))
+    diag%ch(ich)%f_ECE = ece_strut%ch(ich)%freq
+    diag%ch(ich)%df_ECE = ece_strut%ch(ich)%dfreq
+    if(diag%ch(ich)%f_ECE < 1.d9) then
+      print*,"Warning an ECE channel has a frequency below 1 GHz"
+    end if
+  end do
+  allocate(wg(diag%N_ch))
+  wg = ece_strut%ch(:)%waveguide
+  z_lens = ece_strut%z_lens
+end subroutine make_CEC_diag_from_ida
+
+subroutine make_CEC_diag_geometry(diag, wg, z_lens)
+! calculate weight for each LOS and theta for each aufp along LOS:
+!    ant%ch(ich)%ray(ir)%aufp(:)%theta, ant%ch(ich)%ray(ir)%weight
+use mod_ecfm_refr_types,        only: ant_diag_type, plasma_params
+use constants,                  only: pi
+implicit none
+type(ant_diag_type) , intent(inout)        :: diag
+integer(ikind), dimension(:),  intent(in)  :: wg
+real(rkind),  intent(in)                   :: z_lens
+integer(ikind)                             :: ich, N_R_z
+real(rkind)                                :: N_abs
+real(rkind)                                :: dRds, dzds, R1, R2, z1, z2, phi_tor_add
+real(4), dimension(:), allocatable         :: R_4, z_4
+  N_R_z = 200 ! only needed for N_launch - low resolution sufficient
+  allocate(R_4(N_R_z), z_4(N_R_z + N_R_z))
+  phi_tor_add = 0.d0
+  do ich = 1, diag%N_ch
+    ! old setup: one lense
+    if (plasma_params%shot <= 24202) then
+      print*, "LOS geometry of discharges with shotno. <= 24202 is not yet implemented"
+      print*, "WARNING - LOS geometry of fwd. model by S. Rathgeber. inconsistent with new LOS geometry."
+      call abort
+    ! new setup: three lenses
+    else if (plasma_params%shot > 24202 .and. plasma_params%shot <= 33724) then
+    ! 7.7.16 Changed launch point to the point of the last lens
+    ! From the matlab geometry this then results in the following toroidal angles
+      if(phi_tor_add /= 0.d0) print*, "WARNING!! The ECE antenna pattern was tampered with for testing purposes"
+      ! Negative angles mean ctr-injection of the rays launched at the antenae
+      if (wg(ich) == 4 .or. wg(ich) == 12) then
+        diag%ch(ich)%ray_launch(1)%phi_tor = -(2.1798d0 + phi_tor_add) * pi / 180.d0
+        diag%ch(ich)%ray_launch(1)%phi = -0.28d0 * pi / 180.d0 ! neglegible -> Documentation purposes
+      else if(wg(ich) == 9) then
+        diag%ch(ich)%ray_launch(1)%phi_tor = +(2.1798d0 + phi_tor_add) * pi / 180.d0
+        diag%ch(ich)%ray_launch(1)%phi = 0.28d0 * pi / 180.d0 ! neglegible -> Documentation purposes
+      else if (wg(ich) == 10) then
+        diag%ch(ich)%ray_launch(1)%phi_tor = +(0.7265d0 + phi_tor_add) * pi / 180.d0
+        diag%ch(ich)%ray_launch(1)%phi = 0.04d0 * pi / 180.d0 ! neglegible-> Documentation purposes
+      else
+        print*, "subroutine make_theta_los: something wrong with wg(ich) for 24202 < shotno. <= 33724!"
+        print*, "wg", wg(ich)
+        call abort
+      endif
+    else
+      if (wg(ich) == 4 .or. wg(ich) == 12) then
+        diag%ch(ich)%ray_launch(1)%phi_tor = -(2.1798d0  + phi_tor_add) * pi / 180.d0
+        diag%ch(ich)%ray_launch(1)%phi = -0.28d0 * pi / 180.d0 ! neglegible -> Documentation purposes
+      else if (wg(ich) == 10) then
+        diag%ch(ich)%ray_launch(1)%phi_tor = +(0.7265d0  + phi_tor_add) * pi / 180.d0
+        diag%ch(ich)%ray_launch(1)%phi = -0.04d0 * pi / 180.d0 ! neglegible -> Documentation purposes
+      else if (wg(ich) == 11 .or. wg(ich) == 3) then
+        diag%ch(ich)%ray_launch(1)%phi_tor = -(0.7265d0  + phi_tor_add) * pi / 180.d0
+        diag%ch(ich)%ray_launch(1)%phi = 0.04d0 * pi / 180.d0 ! neglegible -> Documentation purposes
+      else
+        print*, "subroutine make_theta_los: something wrong with wg(ich) for shotno. > 33724!"
+        print*, "wg", wg(ich)
+        call abort
+      endif
+    endif
+    ! /afs/ipp/u/eced/CEC/libece/geo_los.c
+    ! (/afs/ipp/home/w/wls/d/ece2/libece/geo_los.c)
+    call geo_los(int(plasma_params%shot, 4),                      & ! in
+                 int(wg(ich),4),            & ! in
+                 real(z_lens,4),               & ! in
+                 int(N_R_z,4), & ! in
+                 R_4, z_4)
+    ! Copy over the emd points of the LOS from geolos
+    R1 = real(R_4(1), 8)
+    R2 = real(R_4(N_R_z), 8)
+    z1 = real(z_4(1), 8)
+    z2 = real(z_4(N_R_z), 8)
+    ! Extend rays to the lens position R
+    ! This automatically deals with cold resonances near the vessel wall
+    diag%ch(ich)%ray_launch(1)%R = 3.9d0 ! position of the last lens
+                                         ! for this position both the initial beamwidth
+                                         ! and the distance to focus is defined
+    dRds = (R1 - R2) / &
+        sqrt((R1 - R2)**2 + (z1 - z2)**2)
+    dzds = (z1 - z2) / &
+        sqrt((R1 - R2)**2 + (z1 - z2)**2)
+    diag%ch(ich)%ray_launch(1)%z = (diag%ch(ich)%ray_launch(1)%R - R1)  / dRds * dzds  + z1
+    ! According to W. Suttrop and M. Willensdorfer the ECE sits exactly in the middle of sector 9
+    ! Phi is defined counter-clockwise and the sector number defined clockwise:
+    diag%ch(ich)%ray_launch(1)%phi = diag%ch(ich)%ray_launch(1)%phi + (8.5d0) * 22.5 / 180.0 * pi
+    diag%ch(ich)%ray_launch(1)%theta_pol = acos((z2 - diag%ch(ich)%ray_launch(1)%z) / &
+      sqrt((R2 - diag%ch(ich)%ray_launch(1)%R)**2 + &
+      (z2 - diag%ch(ich)%ray_launch(1)%z)**2 )) - pi / 2.d0
+    if(diag%ch(ich)%ray_launch(1)%theta_pol /= 0) &
+      diag%ch(ich)%ray_launch(1)%theta_pol = diag%ch(ich)%ray_launch(1)%theta_pol - plasma_params%theta_pol_cor
+    diag%ch(ich)%ray_launch(1)%weight = 1.d0 ! assuming just one ray
+  enddo ! ich = 1, diag%N_ch
+  ! From matlab geometry
+  diag%ch(:)%dist_focus  = 2.131
+  diag%ch(:)%width = 17.17d-2
+end subroutine make_CEC_diag_geometry
+
+# else
+
+subroutine make_CEC_diag_from_shotfile(diag, rad_diag, wg, z_lens)
+! calculate weight for each LOS and theta for each aufp along LOS:
+!    ant%ch(ich)%ray(ir)%aufp(:)%theta, ant%ch(ich)%ray(ir)%weight
+use mod_ecfm_refr_types,        only: ant_diag_type, rad_diag_type, plasma_params, N_ray, N_freq
+implicit none
+type(ant_diag_type) , intent(inout)      :: diag
+type(rad_diag_type) , intent(inout)      :: rad_diag
+! To suppress warnings on out variables not being set inout instead of out
+integer(ikind), dimension(:),  intent(inout)  :: wg
+real(rkind), intent(inout)               :: z_lens
+  print*, "The subroutine make_CEC_diag is AUG specific and must not be called on non-AUG systems"
+  call abort()
+end subroutine make_CEC_diag_from_shotfile
+
+subroutine make_CEC_diag_from_ida(diag, rad_diag, ida, ece_strut, wg, z_lens)
+use mod_ecfm_refr_types,        only : plasma_params_type, ant_diag_type, rad_diag_type
+use ece_types, only : ece_type
+use ida_types, only : ida_type
+use constants,                  only : pi
+implicit none
+type(ida_type), intent(in)               :: ida
+type(ece_type), intent(in)               :: ece_strut
+type(ant_diag_type) , intent(inout)      :: diag
+type(rad_diag_type) , intent(inout)      :: rad_diag
+! To suppress warnings on out variables not being set inout instead of out
+integer(ikind), dimension(:),  intent(inout)  :: wg
+real(rkind) , intent(inout)              :: z_lens
+  print*, "The subroutine prepare_ECE_diag_data_from_ida is IDA specific and must not be called on non-AUG systems"
+  call abort()
+end subroutine make_CEC_diag_from_ida
+
+subroutine make_CEC_diag_geometry(diag, wg, z_lens)
+use mod_ecfm_refr_types,        only : plasma_params_type, ant_diag_type
+use ece_types, only : ece_type
+use ida_types, only : ida_type
+use constants,                  only : pi
+implicit none
+type(ant_diag_type), intent(in)           :: diag
+integer(ikind), dimension(:),  intent(in)  :: wg
+real(rkind), intent(in)               :: z_lens
+  print*, "The subroutine make_CEC_diag_geometry is AUG specific and must not be called on non-AUG systems"
+  call abort()
+end subroutine make_CEC_diag_geometry
+#endif

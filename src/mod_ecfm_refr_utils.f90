@@ -13,15 +13,14 @@ public :: make_ecfm_LOS_grid,      &
           export_all_ece_data, &        ! Writes all the data needed for the forward modelling into files
           read_input_file, &
           prepare_ECE_diag, &         ! angle between LOS and toroidal direction (phi)
+#ifdef IDA
           parse_ecfm_settings_from_ida, &
+#endif
           retrieve_T_e_mat_single, &
           retrieve_T_e_mat_vector, &
           retrieve_n_e_mat_single, &
           retrieve_n_e_mat_vector, &
           bin_ray_BPD_to_common_rhop
-private :: make_CEC_diag_from_shotfile, &
-           make_CEC_diag_from_ida, &
-           make_CEC_diag_geometry
 
     interface retrieve_T_e
       module procedure retrieve_T_e_single, retrieve_T_e_vector
@@ -200,83 +199,20 @@ character(200)                     :: input_filename
   end if
 end subroutine read_input_file
 
-#ifdef AUG
-subroutine prepare_ece_strut(ida, ece_strut)
-! To simulate usage within IDA
-use ece_types, only : ece_type
-use ida_types, only : ida_type
-use aug_db_routines,            only : read_ece, read_rmd
-implicit none
-type(ida_type), intent(in) :: ida
-type(ece_type), intent(out)      :: ece_strut
-integer(ikind)                    :: idiag, ich, imode, ir, ifreq, N_ch, useful_ch, useless_cnt, cur_ifgroup, wg_index
-real(rkind)                       :: z_lens, N_abs, temp, temp1, temp2, phi_radial
-integer(ikind), dimension(:), allocatable :: available, wg_temp, ifgroup
-real(rkind), dimension(:), allocatable :: f, df
-idiag = 1
-ece_strut%exp_ece = ida%ece%expnam
-ece_strut%diag_ece = ida%ece%diag
-!print*, "diagnostic: ",ida%shot, ece_strut%exp_ece, ece_strut%diag_ece
-ece_strut%ed_ece = ida%ece%edition
-  if(ece_strut%diag_ece == "CEC" .or. ece_strut%diag_ece == "RMD" ) then
-    if(ece_strut%diag_ece == "CEC") then
-      call read_ece(shot         = ida%shot,           & ! in
-                  expnam       = trim(ece_strut%exp_ece),     & ! in
-                  ed           = ece_strut%ed_ece,     & ! in
-                  ed_out       = ece_strut%ed_ece,       & ! out
-                  f            = f,              & ! inout
-                  df           = df,             & ! inout
-                  N_ch         = N_ch,        & ! out
-                  zlens        = z_lens,         & ! out
-                  ifgroup      = ifgroup,        & ! out
-                  waveguid     = wg_temp,       & ! inout
-                  availabl     = available) ! inout
-    else
-      call read_RMD(shot       = ida%shot,           & ! in
-                  expnam       = trim(ece_strut%exp_ece),     & ! in
-                  ed           = ece_strut%ed_ece,     & ! in
-                  ed_out       = ece_strut%ed_ece,       & ! out
-                  f            = f,              & ! inout
-                  df           = df,             & ! inout
-                  N_ch         = N_ch,        & ! out
-                  zlens        = z_lens,         & ! out
-                  ifgroup      = ifgroup,        & ! out
-                  waveguid     = wg_temp,       & ! inout
-                  availabl     = available) ! inout
-    end if
-  else
-    print*, "wrong diag name in prepapre_ece_strut"
-    call abort
-  end if
-  useful_ch = 0
-  do ich = 1, N_ch
-    if(available(ich) > 0) useful_ch = useful_ch + 1
-  end do
-  ece_strut%N_ch = useful_ch
-  allocate(ece_strut%ch(useful_ch), ece_strut%waveguid(useful_ch))
-  useless_cnt = 0
-  wg_index = 1
-  cur_ifgroup = ifgroup(1)
-  do ich = 1, useful_ch
-    ece_strut%ch(ich)%freq = f(ich + useless_cnt)
-    ece_strut%ch(ich)%dfreq  = df(ich + useless_cnt)
-    if(ece_strut%ch(ich)%freq < 1.d9) then
-      print*,"Warning an ECE channel has a frequency below 1 GHz"
-    end if
-    if(cur_ifgroup /= ifgroup(ich + useless_cnt)) then
-      wg_index = wg_index + 1
-      cur_ifgroup = ifgroup(ich + useless_cnt)
-    end if
-    ece_strut%waveguid(ich) = wg_temp(wg_index)
-    ece_strut%ch(ich)%waveguide =  wg_temp(wg_index)
-  end do !ich
-  deallocate(wg_temp)
-  allocate(ece_strut%time(1), ece_strut%timerz(1))
-  allocate(ece_strut%time(1)%ch(ece_strut%N_ch), ece_strut%timerz(1)%ch(ece_strut%N_ch))
-end subroutine prepare_ece_strut
-
-subroutine parse_ecfm_settings_from_ida(ida, plasma_params, parallelization_mode)
-use ida_types,                  only : ida_type
+#ifdef IDA
+subroutine parse_ecfm_settings_from_ida(plasma_params, &
+                                        ecrad_verbose, shot, ray_tracing, ecrad_Bt_ripple, &
+                                        rhopol_max_spline_knot, ecrad_weak_rel, &
+                                        ecrad_ratio_for_third_harmonic, &
+                                        ecrad_modes, reflec_X_mode, reflec_O_mode, ece_1O_flag, &
+                                        ecrad_max_points_svec, & ! (modes = 1 -> pure X-mode, 2 -> pure O-mode, 3 both modes and filter
+                                        ecrad_O2X_mode_conversion, & ! mode conversion ratio from O-X due to wall reflections
+                                        ! Scaling of rhop axis for shifting on ne or Te
+                                        ! Every rhop value obtained in ray tracing will be multiplied by the corresponding scaling value when evaluating Te/ne
+                                        rhopol_scal_te, rhopol_scal_ne, btf_corr_fact_ext, &
+                                        ecrad_ds_large, ecrad_ds_small, ecrad_R_shift, &    ! Allows shifting the equilbrium - moves entire flux matrix
+                                        ecrad_z_shift, &    ! Allows shifting the equilbrium - moves entire flux matrix
+                                        ecrad_N_ray, ecrad_N_freq, parallelization_mode)
 #ifdef OMP
 use omp_lib
 #endif OMP
@@ -287,14 +223,19 @@ use mod_ecfm_refr_types,        only : plasma_params_type, ant, rad, OERT, outpu
                                        stand_alone, dstf_comp, use_ida_spline_Te, use_ida_spline_ne, &
                                        max_points_svec
 implicit none
-type(ida_type), intent(in)                 :: ida
 type(plasma_params_type), intent(inout)    :: plasma_params
+real(rkind), intent(in)                    :: rhopol_max_spline_knot, ecrad_ratio_for_third_harmonic, &
+                                              reflec_X_mode, reflec_O_mode, ecrad_O2X_mode_conversion, &
+                                              rhopol_scal_te, rhopol_scal_ne, btf_corr_fact_ext, &
+                                              ecrad_ds_large, ecrad_ds_small, ecrad_R_shift, ecrad_z_shift
+integer(ikind), intent(in)                 :: shot, ecrad_modes, ecrad_max_points_svec, ecrad_N_ray, ecrad_N_freq
+logical, intent(in)                        :: ecrad_verbose, ray_tracing, ecrad_weak_rel
 integer(ikind), intent(in), optional       :: parallelization_mode
   allocate(diagnostics(1))
   ant%N_diag = 1
   allocate(ant%diag(ant%N_diag), rad%diag(ant%N_diag))
-  output_level = ida%ece%ecrad_verbose
-  plasma_params%shot = ida%shot
+  output_level = verbose
+  plasma_params%shot = shot
   ! time is not yet determined when this routine is called
   plasma_params%time =  -1.d0
   plasma_params%time_beg = -1.d0
@@ -302,7 +243,7 @@ integer(ikind), intent(in), optional       :: parallelization_mode
   OERT = .true. ! always true
   dstf = "relamax"
   dstf_comp = "TB"
-  plasma_params%eq_exp = ida%exp_eq
+  plasma_params%eq_diag = "IDA"
 #ifdef OMP
   if(present(parallelization_mode)) then
   ! If multiple IDA runs are done simulatenously we want no parallezation of the model
@@ -311,41 +252,39 @@ integer(ikind), intent(in), optional       :: parallelization_mode
     end if
   end if
 #endif
-  plasma_params%eq_diag = ida%diag_eq
-  plasma_params%eq_ed = ida%ed_eq
-  straight = .not. ida%ece%ray_tracing
+  straight = .not. ! ida%ece%ray_tracing
   ! Overwrite the settings for stand_alone usage with the settings for library usage/ ida usage
   use_ida_spline_Te = .true.
   use_ida_spline_ne = .true.
   stand_alone = .false.
-  plasma_params%w_ripple = ida%ece%ecrad_Bt_ripple
-  plasma_params%rhop_max = ida%rhopol_max_spline_knot
-  warm_plasma            = ida%ece%ecrad_weak_rel
+  plasma_params%w_ripple = ecrad_Bt_ripple !ida%ece%ecrad_Bt_ripple
+  plasma_params%rhop_max = rhopol_max_spline_knot !ida%rhopol_max_spline_knot
+  warm_plasma            = ecrad_weak_rel !ida%ece%ecrad_weak_rel
   ! cut off correction incompatible with cold dispersion used in alabajar model
-  ratio_for_third_harmonic = ida%ece%ecrad_ratio_for_third_harmonic ! (omega_c / omega = 0.4 => n = 2.5)
-  reflec_X = ida%ece%reflec_X_mode
-  reflec_O = ida%ece%reflec_O_mode
-  flag_1O = ida%ece%ece_1O_flag
-  max_points_svec = ida%ece%ecrad_max_points_svec
-  modes =  ida%ece%ecrad_modes ! (modes = 1 -> pure X-mode, 2 -> pure O-mode, 3 both modes and filter
-  mode_conv = ida%ece%ecrad_O2X_mode_conversion ! mode conversion ratio from O-X due to wall reflections
+  ratio_for_third_harmonic = ecrad_ratio_for_third_harmonic !ida%ece%ecrad_ratio_for_third_harmonic ! (omega_c / omega = 0.4 => n = 2.5)
+  reflec_X = reflec_X_mode !ida%ece%reflec_X_mode
+  reflec_O = reflec_O_mode! ida%ece%reflec_O_mode
+  flag_1O = ece_1O_flag ! ida%ece%ece_1O_flag
+max_points_svec = ecrad_max_points_svec ! ida%ece%ecrad_max_points_svec
+  modes =  ecrad_modes ! ida%ece%ecrad_modes ! (modes = 1 -> pure X-mode, 2 -> pure O-mode, 3 both modes and filter
+  mode_conv = ecrad_O2X_mode_conversion ! ida%ece%ecrad_O2X_mode_conversion ! mode conversion ratio from O-X due to wall reflections
   ! Scaling of rhop axis for shifting on ne or Te
   ! Every rhop value obtained in ray tracing will be multiplied by the corresponding scaling value when evaluating Te/ne
-  plasma_params%rhop_scale_Te = ida%ece%rhopol_scal_te
-  plasma_params%rhop_scale_ne = ida%ece%rhopol_scal_ne
-  plasma_params%btf_corr_fact_ext = ida%btf_corr_fact_ext
-  plasma_params%dist_large        = ida%ece%ecrad_ds_large
-  plasma_params%dist_small        = ida%ece%ecrad_ds_small
-  plasma_params%R_shift           = ida%ece%ecrad_R_shift    ! Allows shifting the equilbrium - moves entire flux matrix
-  plasma_params%z_shift           = ida%ece%ecrad_z_shift    ! Allows shifting the equilbrium - moves entire flux matrix
-  plasma_params%btf_mode = ida%ece%btf_mode
-  N_freq = ida%ece%N_freq ! N_freq > 1 -> consider bandwith
+  plasma_params%rhop_scale_Te = rhopol_scal_te ! ida%ece%rhopol_scal_te
+  plasma_params%rhop_scale_ne = rhopol_scal_ne ! ida%ece%rhopol_scal_ne
+  plasma_params%btf_corr_fact_ext = btf_corr_fact_ext! ida%btf_corr_fact_ext
+  plasma_params%dist_large        = ecrad_ds_large ! ida%ece%ecrad_ds_large
+  plasma_params%dist_small        = ecrad_ds_small ! ida%ece%ecrad_ds_small
+  plasma_params%R_shift           = ecrad_R_shift! ida%ece%ecrad_R_shift    ! Allows shifting the equilbrium - moves entire flux matrix
+  plasma_params%z_shift           = ecrad_z_shift! ida%ece%ecrad_z_shift    ! Allows shifting the equilbrium - moves entire flux matrix
+  plasma_params%btf_mode = btf_mode !ida%ece%btf_mode
+  N_freq = ecrad_N_freq ! ida%ece%N_freq N_freq > 1 -> consider bandwith
   if( int(real(N_freq + 1,8)/ 2.d0) /= real(N_freq + 1,8)/ 2.d0) then
     print*, "Please chose an odd N_freq in the input file"
     print*, "N_freq must be odd"
     call abort
   end if
-  N_ray = ida%ece%N_ray !  N_ray > 1 -> consider VOS instead of LOS
+  N_ray = ecrad_N_ray ! ida%ece% N_ray > 1 -> consider VOS instead of LOS
   if( int(sqrt(real(N_ray - 1,8))) /= sqrt(real(N_ray - 1,8))) then
     print*, "Please chose an N_ray = N**2 + 1 with N an integer in the input file"
     print*, "sqrt(N_ray - 1) must be an integer"
@@ -356,16 +295,14 @@ integer(ikind), intent(in), optional       :: parallelization_mode
 end subroutine parse_ecfm_settings_from_ida
 
 
-subroutine load_ECE_diag_data(ida, ant, rad)
+subroutine load_ECE_diag_data(ant, rad)
 ! ece_strut is not available in the optimization loop
 ! Therefore, the antenna pattern is here loaded from a launch file
 use mod_ecfm_refr_types,        only : plasma_params_type, ant_type, rad_type, output_level, working_dir, &
                                        modes, mode_cnt, N_ray, N_freq, max_points_svec, stand_alone
-use ida_types, only : ida_type
 use aug_db_routines,            only : read_ece, read_rmd
 use constants,                  only : pi
 implicit none
-type(ida_type), intent(in)           :: ida
 type(ant_type), intent(inout)        :: ant
 type(rad_type), intent(inout)        :: rad
 character(200)                       :: cur_filename
@@ -377,9 +314,7 @@ integer(ikind), dimension(:), allocatable :: available, wg_temp, ifgroup
   if(modes == 3) mode_cnt = 2
   ant%N_diag = 1 ! Only 1D ECE in IDA
   idiag = 1
-  ant%diag(idiag)%expname = ida%ece%expnam
-  ant%diag(idiag)%diag_name = ida%ece%diag
-  ant%diag(idiag)%edition = ida%ece%edition
+  ant%diag(idiag)%diag_name = "IDA"
   if(ant%diag(idiag)%diag_name == "CEC" .or. ant%diag(idiag)%diag_name == "RMD" ) then
     cur_filename = trim(working_dir) // "ece_launch.txt"
     open(76, file = trim(cur_filename))
@@ -437,84 +372,37 @@ integer(ikind), dimension(:), allocatable :: available, wg_temp, ifgroup
     call abort
   end if
 end subroutine load_ECE_diag_data
-#else
-! Dummy functions to allow easy compilation
-subroutine prepare_ece_strut(ida, ece_strut)
-! To simulate usage within IDA
-use ece_types, only : ece_type
-use ida_types, only : ida_type
-implicit none
-type(ida_type), intent(in) :: ida
-type(ece_type), intent(inout)      :: ece_strut
-  print*, "The subroutine prepare_ece_strut is IDA specific and must not be called on non-AUG systems"
-  call abort()
-end subroutine prepare_ece_strut
-
-subroutine parse_ecfm_settings_from_ida(ida, plasma_params, parallelization_mode)
-use ida_types,                  only : ida_type
-use mod_ecfm_refr_types,        only : plasma_params_type
-#ifdef OMP
-use omp_lib
-#endif OMP
-implicit none
-type(ida_type), intent(in)                 :: ida
-type(plasma_params_type), intent(inout)    :: plasma_params
-integer(ikind), intent(in), optional       :: parallelization_mode
-print*, "The subroutine parse_ecfm_settings_from_ida is IDA specific and must not be called on non-AUG systems"
-  call abort()
-end subroutine parse_ecfm_settings_from_ida
-
-subroutine load_ECE_diag_data(ida, ant, rad)
-! ece_strut is not available in the optimization loop
-! Therefore, the antenna pattern is here loaded from a launch file
-use ida_types, only : ida_type
-use mod_ecfm_refr_types,        only : ant_type, rad_type
-implicit none
-type(ida_type), intent(in)           :: ida
-type(ant_type), intent(inout)        :: ant
-type(rad_type), intent(inout)        :: rad
-  print*, "The subroutine load_ECE_diag_data is IDA specific and must not be called on non-AUG systems"
-  call abort()
-end subroutine load_ECE_diag_data
 #endif
 
-subroutine prepare_ECE_diag(working_dir, ece_strut, ida)
+subroutine prepare_ECE_diag(working_dir, f, df, R, phi, z, tor, pol, dist_foc, width)
 ! Reads f, df from shot files and also prepares the launching positions and angles
   use mod_ecfm_refr_types,            only: plasma_params, ant, rad, &
-                                         max_points_svec, mode_cnt, modes, N_ray, N_freq, &
-                                         diagnostics, CEC_exp, CEC_ed, ray_launch_file, output_level, stand_alone
+                                            max_points_svec, mode_cnt, modes, N_ray, N_freq, &
+                                            diagnostics, CEC_exp, CEC_ed, ray_launch_file, output_level, stand_alone
   use constants,                      only: pi
-  use ece_types,                      only: ece_type
-  use ida_types, only : ida_type
 #ifdef NAG
   use nag_quad_util,                  only: nag_quad_gs_wt_absc
   USE nag_error_handling
 #endif
   use quadrature,                     only: cgqf, cdgqf
   character(*), intent(in), optional         :: working_dir
-  type(ece_type), intent(in), optional       :: ece_strut
-  type(ida_type), intent(in), optional       :: ida
-  integer(ikind), dimension(:), allocatable  :: wg
+  real(rkind), dimension(:), optional        :: f, df, R, phi, z, tor, pol, dist_foc, width ! angles in deg.
   integer(ikind)                             :: idiag, ich, imode, ir, ifreq, N_ch
-  real(rkind)                                :: z_lens, N_abs, temp, temp1, temp2, phi_radial, temp_freq, temp_freq_2
+  real(rkind)                                :: N_abs, temp, temp1, temp2, phi_radial, temp_freq, temp_freq_2
   real(rkind), dimension(3)                  :: x_0, N_0, x1_orth, x2_orth, x_temp, R_temp, R_focus, x_focus
 #ifdef NAG
-  real(rkind), dimension(:), allocatable     :: x, dx, x_check, dx_check, freq_check, freq_weight_check
+  real(rkind), dimension(:), allocatable     :: x, dx, x_check, dx_check, freq_check, freq_weight_check ! for beam discretication
 #else
   real(rkind), dimension(:), allocatable     :: x, dx
 #endif
-  real(rkind)                                :: w,norm, sum_of_weights
+  real(rkind)                                :: w, norm, sum_of_weights
   real(rkind)                                :: phi_tor_add
   character(200)                             :: cur_filename
   character(1)                               :: sep
 #ifdef NAG
   type(nag_error)                            :: error
 #endif
-  integer(ikind)                         :: i,j, N_x
-  if(.not. (present(working_dir) .or. (present(ida) .and. present(ece_strut)))) then
-    print*,"Incorrect usage of prepare_ECE_diag"
-    print*,"Either working_dir must be present or ida and ece_strut"
-  end if
+  integer(ikind)                         :: i, j, N_x
   if(output_level .and. stand_alone) open(66,file = trim(ray_launch_file))
   if(output_level .and. stand_alone) &
     write(66,"(A122)") "f [GHz]        df [GHz]      x [cm]        y [cm]        z [cm]        tor [deg]     pol [deg]     dist foc[cm]  width [cm]"
@@ -535,26 +423,15 @@ subroutine prepare_ECE_diag(working_dir, ece_strut, ida)
 #ifdef NAG
   if(N_freq > 1) allocate(freq_check(N_freq - 1), freq_weight_check(N_freq - 1))
 #endif
-  if(present(ece_strut)) then
-    !print*, "ida ece data", ece_strut%exp_ece, ece_strut%diag, ece_strut%ed_ece
-    ant%diag(1)%expname = ece_strut%exp_ece
-    diagnostics(1)= ece_strut%diag_ece
-    ant%diag(1)%edition = ece_strut%ed_ece
+  if(.not. stand_alone .and. present(f)) then
+    diagnostics(1)= "IDA"
   end if
-
   do idiag = 1, ant%N_diag
     ant%diag(idiag)%diag_name = diagnostics(idiag)
     !print*,"next diag", ant%diag(idiag)%diag_name
     if(output_level .and. stand_alone) print*, "Initializing: ", ant%diag(idiag)%diag_name
-    if(output_level) print*, "Requested shotfile for ECE ", ant%diag(idiag)%diag_name, " ", ant%diag(idiag)%expname, " ", ant%diag(idiag)%edition
-    if(ant%diag(idiag)%diag_name == "CEC" .or. ant%diag(idiag)%diag_name == "RMD" ) then
-      if(present(ece_strut) .and. present(ida)) then
-        call make_CEC_diag_from_ida(ant%diag(idiag), rad%diag(idiag), ida, ece_strut, wg, z_lens)
-      else
-        call make_CEC_diag_from_shotfile(ant%diag(idiag), rad%diag(idiag), wg, z_lens)
-      end if
-      call make_CEC_diag_geometry(ant%diag(idiag), wg, z_lens)
-      deallocate(wg)
+    if(ant%diag(idiag)%diag_name == "IDA") then
+      ant%diag(idiag)%N_ch = size(f)
     else
       cur_filename = trim(working_dir) // "ecfm_data/" // trim(ant%diag(idiag)%diag_name) // "_launch.dat"
       if(trim(ant%diag(idiag)%diag_name) == "CTA" .or. &
@@ -565,32 +442,44 @@ subroutine prepare_ECE_diag(working_dir, ece_strut, ida)
       if(output_level .and. stand_alone) print*, "Reading ", ant%diag(idiag)%diag_name, " from external file: ", cur_filename
       open(77, file=trim(cur_filename))
       read(77, "(I5.5)") ant%diag(idiag)%N_ch
-      allocate(ant%diag(idiag)%ch(ant%diag(idiag)%N_ch))
-      allocate(rad%diag(idiag)%ch(ant%diag(idiag)%N_ch))
-      do ich = 1, ant%diag(idiag)%N_ch
-        allocate(ant%diag(idiag)%ch(ich)%freq(N_freq))
-        allocate(ant%diag(idiag)%ch(ich)%freq_weight(N_freq))
-        allocate(rad%diag(idiag)%ch(ich)%mode(mode_cnt))
-        if(output_level) allocate(rad%diag(idiag)%ch(ich)%mode_extra_output(mode_cnt))
-        do imode = 1, mode_cnt
-          if((imode == 2 .and. modes == 3) .or. &
-              modes == 2) then
-            rad%diag(idiag)%ch(ich)%mode(imode)%mode = -1 ! O-mode
-          else
-            rad%diag(idiag)%ch(ich)%mode(imode)%mode = +1 ! X-mode
-          end if
-          allocate(rad%diag(idiag)%ch(ich)%mode(imode)%ray(N_ray))
-          if(output_level) allocate(rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(N_ray))
-          do ir = 1, N_ray
-            allocate(rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(N_freq))
-            do ifreq = 1, N_freq
-                allocate(rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%svec(max_points_svec))
-                if(output_level) allocate(rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%svec_extra_output(max_points_svec))
-            end do
+    end if
+    do ich = 1, ant%diag(idiag)%N_ch
+      allocate(ant%diag(idiag)%ch(ich)%freq(N_freq))
+      allocate(ant%diag(idiag)%ch(ich)%freq_weight(N_freq))
+      allocate(rad%diag(idiag)%ch(ich)%mode(mode_cnt))
+      if(output_level) allocate(rad%diag(idiag)%ch(ich)%mode_extra_output(mode_cnt))
+      do imode = 1, mode_cnt
+        if((imode == 2 .and. modes == 3) .or. &
+            modes == 2) then
+          rad%diag(idiag)%ch(ich)%mode(imode)%mode = -1 ! O-mode
+        else
+          rad%diag(idiag)%ch(ich)%mode(imode)%mode = +1 ! X-mode
+        end if
+        allocate(rad%diag(idiag)%ch(ich)%mode(imode)%ray(N_ray))
+        if(output_level) allocate(rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(N_ray))
+        do ir = 1, N_ray
+          allocate(rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(N_freq))
+          do ifreq = 1, N_freq
+              allocate(rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%svec(max_points_svec))
+              if(output_level) allocate(rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%svec_extra_output(max_points_svec))
           end do
         end do
-        allocate(ant%diag(idiag)%ch(ich)%ray_launch(N_ray))
       end do
+      allocate(ant%diag(idiag)%ch(ich)%ray_launch(N_ray))
+    end do
+    if(ant%diag(idiag)%diag_name == "IDA") then
+      do ich = 1, ant%diag(idiag)%N_ch
+        ant%diag(idiag)%ch(ich)%f_ECE = f(ich)
+        ant%diag(idiag)%ch(ich)%df_ECE = df(ich)
+        ant%diag(idiag)%ch(ich)%ray_launch(1)%R = R(ich)
+        ant%diag(idiag)%ch(ich)%ray_launch(1)%phi = phi(ich) / 180.d0 * pi
+        ant%diag(idiag)%ch(ich)%ray_launch(1)%z = z(ich)
+        ant%diag(idiag)%ch(ich)%ray_launch(1)%phi_tor = tor(ich) / 180.d0 * pi
+        ant%diag(idiag)%ch(ich)%ray_launch(1)%theta_pol = pol(ich) / 180.d0 * pi
+        ant%diag(idiag)%ch(ich)%width = width(ich)
+        ant%diag(idiag)%ch(ich)%dist_focus = dist_foc(ich)
+      end do
+    else
       do ich = 1, ant%diag(idiag)%N_ch
       ! Launching is mode independent - read this only once
         read(77, "(E17.10E2A1E17.10E2A1E17.10E2A1E17.10E2A1E17.10E2A1E17.10E2A1E17.10E2A1E17.10E2A1E17.10E2A1E17.10E2)")  &
@@ -838,7 +727,7 @@ subroutine prepare_ECE_diag(working_dir, ece_strut, ida)
           1.d2 * ant%diag(idiag)%ch(ich)%width
        end do !N_ray
     end do !N_ch
-    if(present(ece_strut) .and. present(ida) .and. present(working_dir)) then
+    if(present(f) .and. present(working_dir)) then
       cur_filename = trim(working_dir) // "ece_launch.txt"
       open(76, file = trim(cur_filename))
       cur_filename = trim(working_dir) // "ece_freqs.txt"
@@ -872,314 +761,9 @@ subroutine prepare_ECE_diag(working_dir, ece_strut, ida)
   if(output_level .and. stand_alone) close(66)
 end subroutine prepare_ECE_diag
 
-!*******************************************************************************
-#ifdef AUG
-subroutine make_CEC_diag_from_shotfile(diag, rad_diag, wg, z_lens)
-! calculate weight for each LOS and theta for each aufp along LOS:
-!    ant%ch(ich)%ray(ir)%aufp(:)%theta, ant%ch(ich)%ray(ir)%weight
-use mod_ecfm_refr_types,        only: ant_diag_type, rad_diag_type, plasma_params, modes, mode_cnt, &
-                                      N_ray, N_freq, CEC_exp, CEC_ed, output_level, max_points_svec, &
-                                      output_level, stand_alone
-use constants,                  only: pi
-use aug_db_routines,            only : read_ece, read_rmd
-implicit none
-type(ant_diag_type) , intent(inout)         :: diag
-type(rad_diag_type) , intent(inout)         :: rad_diag
-integer(ikind), dimension(:), allocatable, intent(out)   :: wg
-real(rkind),  intent(out)                   :: z_lens
-!real(rkind)    :: d                                ! distance of antenna to perpendicular
-!                                                   ! (through center of lense)
-!real(rkind)    :: l1                               ! distance from torus center to intersection
-!                                                   ! of LOS with perpendicular
-!real(rkind)    :: l2                               ! distance from intersection of LOS with
-!                                                   ! perpendicular to lense (= focal length)
-integer(ikind)                    :: ich, imode, ir, ifreq, N_ch, useful_ch, useless_cnt, cur_ifgroup, wg_index,N_R_z
-integer(ikind), dimension(:), allocatable :: available, wg_temp, ifgroup
-real(rkind), dimension(:), allocatable :: f, df
-character(4)   :: flag
-! calculate angle between LOS and Btor
-diag%expname = trim(CEC_exp)
-diag%edition = CEC_ed
-if(diag%diag_name == "CEC") then
-  call read_ece(shot         = plasma_params%shot,           & ! in
-              expnam       = diag%expname,     & ! in
-              ed           = diag%edition,     & ! in
-              ed_out       = diag%edition,       & ! out
-              f            = f,              & ! inout
-              df           = df,             & ! inout
-              N_ch         = N_ch,        & ! out
-              zlens        = z_lens,         & ! out
-              ifgroup      = ifgroup,        & ! out
-              waveguid     = wg_temp,       & ! inout
-              availabl     = available) ! inout
-else
-  call read_RMD(shot       = plasma_params%shot,           & ! in
-              expnam       = diag%expname,     & ! in
-              ed           = diag%edition,     & ! in
-              ed_out       = diag%edition,       & ! out
-              f            = f,              & ! inout
-              df           = df,             & ! inout
-              N_ch         = N_ch,        & ! out
-              zlens        = z_lens,         & ! out
-              ifgroup      = ifgroup,        & ! out
-              waveguid     = wg_temp,       & ! inout
-              availabl     = available) ! inout
-end if
-useful_ch = 0
-do ich = 1, N_ch
-  if(available(ich) > 0) useful_ch = useful_ch + 1
-end do
-diag%N_ch = useful_ch
-if(output_level .and. stand_alone) print*, "Found", useful_ch, " useful channels for ", diag%diag_name
-allocate(diag%ch(useful_ch), wg(useful_ch))
-allocate(rad_diag%ch(useful_ch))
-useless_cnt = 0
-wg_index = 1
-cur_ifgroup = ifgroup(1)
-do ich = 1, diag%N_ch
-  allocate(diag%ch(ich)%freq(N_freq))
-  allocate(diag%ch(ich)%freq_weight(N_freq))
-  allocate(rad_diag%ch(ich)%mode(mode_cnt))
-  if(output_level) allocate(rad_diag%ch(ich)%mode_extra_output(mode_cnt))
-  do imode = 1, mode_cnt
-    if((imode == 2 .and. modes == 3) .or. &
-        modes == 2) then
-      rad_diag%ch(ich)%mode(imode)%mode = -1 ! O-mode
-    else
-      rad_diag%ch(ich)%mode(imode)%mode = +1 ! X-mode
-    end if
-    allocate(rad_diag%ch(ich)%mode(imode)%ray(N_ray))
-    if(output_level) allocate(rad_diag%ch(ich)%mode(imode)%ray_extra_output(N_ray))
-    do ir = 1, N_ray
-      allocate(rad_diag%ch(ich)%mode(imode)%ray(ir)%freq(N_freq))
-      do ifreq = 1, N_freq
-          allocate(rad_diag%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%svec(max_points_svec))
-          if(output_level) allocate(rad_diag%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%svec_extra_output(max_points_svec))
-      end do
-    end do
-  end do
-  allocate(diag%ch(ich)%ray_launch(N_ray))
-end do
-do ich = 1, useful_ch
-  do while(available(ich + useless_cnt) == 0)
-    useless_cnt = useless_cnt + 1
-  end do
-  diag%ch(ich)%f_ECE = f(ich + useless_cnt)
-  diag%ch(ich)%df_ECE = df(ich + useless_cnt)
-  if(diag%ch(ich)%f_ECE < 1.d9) then
-    print*,"Warning an ECE channel has a frequency below 1 GHz"
-  end if
-  if(cur_ifgroup /= ifgroup(ich + useless_cnt)) then
-    wg_index = wg_index + 1
-    cur_ifgroup = ifgroup(ich + useless_cnt)
-  end if
-  wg(ich) = wg_temp(wg_index)
-end do !ich
-deallocate(wg_temp)
-end subroutine make_CEC_diag_from_shotfile
-
-subroutine make_CEC_diag_from_ida(diag, rad_diag, ida, ece_strut, wg, z_lens)
-use mod_ecfm_refr_types,        only : rad_diag_type, ant_diag_type, output_level, working_dir, &
-                                       modes, mode_cnt, N_ray, N_freq, max_points_svec, stand_alone
-use ece_types, only : ece_type
-use ida_types, only : ida_type
-use constants,                  only : pi
-implicit none
-type(ant_diag_type), intent(inout)                       :: diag
-type(rad_diag_type), intent(inout)                       :: rad_diag
-type(ida_type), intent(in)                               :: ida
-type(ece_type), intent(in)                               :: ece_strut
-integer(ikind), dimension(:), allocatable, intent(out)   :: wg
-real(rkind),  intent(out)                                :: z_lens
-character(200)                                           :: cur_filename
-integer(ikind)                                           :: ich, imode, ir, ifreq
-real(rkind)                                              :: N_abs, temp, temp1, temp2, phi_radial
-  mode_cnt = 1
-  if(modes == 3) mode_cnt = 2
-  diag%expname = ece_strut%exp_ece
-  diag%diag_name = ece_strut%diag_ece
-  diag%edition = ece_strut%ed_ece
-  diag%N_ch = ece_strut%N_ch
-  allocate(diag%ch(diag%N_ch))
-  allocate(rad_diag%ch(diag%N_ch))
-  do ich = 1, diag%N_ch
-    allocate(diag%ch(ich)%freq(N_freq))
-    allocate(diag%ch(ich)%freq_weight(N_freq))
-    allocate(rad_diag%ch(ich)%mode(mode_cnt))
-    do imode = 1, mode_cnt
-      if((imode == 2 .and. modes == 3) .or. &
-          modes == 2) then
-        rad_diag%ch(ich)%mode(imode)%mode = -1 ! O-mode
-      else
-        rad_diag%ch(ich)%mode(imode)%mode = +1 ! X-mode
-      end if
-      allocate(rad_diag%ch(ich)%mode(imode)%ray(N_ray))
-      do ir = 1, N_ray
-        allocate(rad_diag%ch(ich)%mode(imode)%ray(ir)%freq(N_freq))
-        do ifreq = 1, N_freq
-          allocate(rad_diag%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%svec(max_points_svec))
-        end do
-      end do
-    end do
-    allocate(diag%ch(ich)%ray_launch(N_ray))
-    diag%ch(ich)%f_ECE = ece_strut%ch(ich)%freq
-    diag%ch(ich)%df_ECE = ece_strut%ch(ich)%dfreq
-    if(diag%ch(ich)%f_ECE < 1.d9) then
-      print*,"Warning an ECE channel has a frequency below 1 GHz"
-    end if
-  end do
-  allocate(wg(diag%N_ch))
-  wg = ece_strut%ch(:)%waveguide
-  z_lens = ece_strut%z_lens
-end subroutine make_CEC_diag_from_ida
-
-subroutine make_CEC_diag_geometry(diag, wg, z_lens)
-! calculate weight for each LOS and theta for each aufp along LOS:
-!    ant%ch(ich)%ray(ir)%aufp(:)%theta, ant%ch(ich)%ray(ir)%weight
-use mod_ecfm_refr_types,        only: ant_diag_type, plasma_params
-use constants,                  only: pi
-implicit none
-type(ant_diag_type) , intent(inout)        :: diag
-integer(ikind), dimension(:),  intent(in)  :: wg
-real(rkind),  intent(in)                   :: z_lens
-integer(ikind)                             :: ich, N_R_z
-real(rkind)                                :: N_abs
-real(rkind)                                :: dRds, dzds, R1, R2, z1, z2, phi_tor_add
-real(4), dimension(:), allocatable         :: R_4, z_4
-  N_R_z = 200 ! only needed for N_launch - low resolution sufficient
-  allocate(R_4(N_R_z), z_4(N_R_z + N_R_z))
-  phi_tor_add = 0.d0
-  do ich = 1, diag%N_ch
-    ! old setup: one lense
-    if (plasma_params%shot <= 24202) then
-      print*, "LOS geometry of discharges with shotno. <= 24202 is not yet implemented"
-      print*, "WARNING - LOS geometry of fwd. model by S. Rathgeber. inconsistent with new LOS geometry."
-      call abort
-    ! new setup: three lenses
-    else if (plasma_params%shot > 24202 .and. plasma_params%shot <= 33724) then
-    ! 7.7.16 Changed launch point to the point of the last lens
-    ! From the matlab geometry this then results in the following toroidal angles
-      if(phi_tor_add /= 0.d0) print*, "WARNING!! The ECE antenna pattern was tampered with for testing purposes"
-      ! Negative angles mean ctr-injection of the rays launched at the antenae
-      if (wg(ich) == 4 .or. wg(ich) == 12) then
-        diag%ch(ich)%ray_launch(1)%phi_tor = -(2.1798d0 + phi_tor_add) * pi / 180.d0
-        diag%ch(ich)%ray_launch(1)%phi = -0.28d0 * pi / 180.d0 ! neglegible -> Documentation purposes
-      else if(wg(ich) == 9) then
-        diag%ch(ich)%ray_launch(1)%phi_tor = +(2.1798d0 + phi_tor_add) * pi / 180.d0
-        diag%ch(ich)%ray_launch(1)%phi = 0.28d0 * pi / 180.d0 ! neglegible -> Documentation purposes
-      else if (wg(ich) == 10) then
-        diag%ch(ich)%ray_launch(1)%phi_tor = +(0.7265d0 + phi_tor_add) * pi / 180.d0
-        diag%ch(ich)%ray_launch(1)%phi = 0.04d0 * pi / 180.d0 ! neglegible-> Documentation purposes
-      else
-        print*, "subroutine make_theta_los: something wrong with wg(ich) for 24202 < shotno. <= 33724!"
-        print*, "wg", wg(ich)
-        call abort
-      endif
-    else
-      if (wg(ich) == 4 .or. wg(ich) == 12) then
-        diag%ch(ich)%ray_launch(1)%phi_tor = -(2.1798d0  + phi_tor_add) * pi / 180.d0
-        diag%ch(ich)%ray_launch(1)%phi = -0.28d0 * pi / 180.d0 ! neglegible -> Documentation purposes
-      else if (wg(ich) == 10) then
-        diag%ch(ich)%ray_launch(1)%phi_tor = +(0.7265d0  + phi_tor_add) * pi / 180.d0
-        diag%ch(ich)%ray_launch(1)%phi = -0.04d0 * pi / 180.d0 ! neglegible -> Documentation purposes
-      else if (wg(ich) == 11 .or. wg(ich) == 3) then
-        diag%ch(ich)%ray_launch(1)%phi_tor = -(0.7265d0  + phi_tor_add) * pi / 180.d0
-        diag%ch(ich)%ray_launch(1)%phi = 0.04d0 * pi / 180.d0 ! neglegible -> Documentation purposes
-      else
-        print*, "subroutine make_theta_los: something wrong with wg(ich) for shotno. > 33724!"
-        print*, "wg", wg(ich)
-        call abort
-      endif
-    endif
-    ! /afs/ipp/u/eced/CEC/libece/geo_los.c
-    ! (/afs/ipp/home/w/wls/d/ece2/libece/geo_los.c)
-    call geo_los(int(plasma_params%shot, 4),                      & ! in
-                 int(wg(ich),4),            & ! in
-                 real(z_lens,4),               & ! in
-                 int(N_R_z,4), & ! in
-                 R_4, z_4)
-    ! Copy over the emd points of the LOS from geolos
-    R1 = real(R_4(1), 8)
-    R2 = real(R_4(N_R_z), 8)
-    z1 = real(z_4(1), 8)
-    z2 = real(z_4(N_R_z), 8)
-    ! Extend rays to the lens position R
-    ! This automatically deals with cold resonances near the vessel wall
-    diag%ch(ich)%ray_launch(1)%R = 3.9d0 ! position of the last lens
-                                         ! for this position both the initial beamwidth
-                                         ! and the distance to focus is defined
-    dRds = (R1 - R2) / &
-        sqrt((R1 - R2)**2 + (z1 - z2)**2)
-    dzds = (z1 - z2) / &
-        sqrt((R1 - R2)**2 + (z1 - z2)**2)
-    diag%ch(ich)%ray_launch(1)%z = (diag%ch(ich)%ray_launch(1)%R - R1)  / dRds * dzds  + z1
-    ! According to W. Suttrop and M. Willensdorfer the ECE sits exactly in the middle of sector 9
-    ! Phi is defined counter-clockwise and the sector number defined clockwise:
-    diag%ch(ich)%ray_launch(1)%phi = diag%ch(ich)%ray_launch(1)%phi + (8.5d0) * 22.5 / 180.0 * pi
-    diag%ch(ich)%ray_launch(1)%theta_pol = acos((z2 - diag%ch(ich)%ray_launch(1)%z) / &
-      sqrt((R2 - diag%ch(ich)%ray_launch(1)%R)**2 + &
-      (z2 - diag%ch(ich)%ray_launch(1)%z)**2 )) - pi / 2.d0
-    if(diag%ch(ich)%ray_launch(1)%theta_pol /= 0) &
-      diag%ch(ich)%ray_launch(1)%theta_pol = diag%ch(ich)%ray_launch(1)%theta_pol - plasma_params%theta_pol_cor
-    diag%ch(ich)%ray_launch(1)%weight = 1.d0 ! assuming just one ray
-  enddo ! ich = 1, diag%N_ch
-  ! From matlab geometry
-  diag%ch(:)%dist_focus  = 2.131
-  diag%ch(:)%width = 17.17d-2
-end subroutine make_CEC_diag_geometry
-
-# else
-
-subroutine make_CEC_diag_from_shotfile(diag, rad_diag, wg, z_lens)
-! calculate weight for each LOS and theta for each aufp along LOS:
-!    ant%ch(ich)%ray(ir)%aufp(:)%theta, ant%ch(ich)%ray(ir)%weight
-use mod_ecfm_refr_types,        only: ant_diag_type, rad_diag_type, plasma_params, N_ray, N_freq
-implicit none
-type(ant_diag_type) , intent(inout)      :: diag
-type(rad_diag_type) , intent(inout)      :: rad_diag
-! To suppress warnings on out variables not being set inout instead of out
-integer(ikind), dimension(:),  intent(inout)  :: wg
-real(rkind), intent(inout)               :: z_lens
-  print*, "The subroutine make_CEC_diag is AUG specific and must not be called on non-AUG systems"
-  call abort()
-end subroutine make_CEC_diag_from_shotfile
-
-subroutine make_CEC_diag_from_ida(diag, rad_diag, ida, ece_strut, wg, z_lens)
-use mod_ecfm_refr_types,        only : plasma_params_type, ant_diag_type, rad_diag_type
-use ece_types, only : ece_type
-use ida_types, only : ida_type
-use constants,                  only : pi
-implicit none
-type(ida_type), intent(in)               :: ida
-type(ece_type), intent(in)               :: ece_strut
-type(ant_diag_type) , intent(inout)      :: diag
-type(rad_diag_type) , intent(inout)      :: rad_diag
-! To suppress warnings on out variables not being set inout instead of out
-integer(ikind), dimension(:),  intent(inout)  :: wg
-real(rkind) , intent(inout)              :: z_lens
-  print*, "The subroutine prepare_ECE_diag_data_from_ida is IDA specific and must not be called on non-AUG systems"
-  call abort()
-end subroutine make_CEC_diag_from_ida
-
-subroutine make_CEC_diag_geometry(diag, wg, z_lens)
-use mod_ecfm_refr_types,        only : plasma_params_type, ant_diag_type
-use ece_types, only : ece_type
-use ida_types, only : ida_type
-use constants,                  only : pi
-implicit none
-type(ant_diag_type), intent(in)           :: diag
-integer(ikind), dimension(:),  intent(in)  :: wg
-real(rkind), intent(in)               :: z_lens
-  print*, "The subroutine make_CEC_diag_geometry is AUG specific and must not be called on non-AUG systems"
-  call abort()
-end subroutine make_CEC_diag_geometry
-#endif
-
 subroutine dealloc_ant(ant)
 use mod_ecfm_refr_types,        only :  ant_type, diagnostics, &
                                        modes, mode_cnt, N_ray, N_freq
-use ece_types, only : ece_type
-use ida_types, only : ida_type
 implicit none
   type(ant_type), intent(inout)        :: ant
   integer(ikind)                       :: idiag, ich, imode
@@ -1475,7 +1059,9 @@ implicit none
 subroutine retrieve_T_e_single(plasma_params, rhop, T_e, grad_T_e)
     use f90_kind
     use mod_ecfm_refr_types,        only: plasma_params_type, use_ida_spline_Te, spl_type_1d, output_level
+#ifdef IDA
     use mod_temperature,            only: make_temperature
+#endif
     use mod_ecfm_refr_interpol,     only: spline_1d
     implicit none
     type(plasma_params_type), intent(in)    :: plasma_params
@@ -1484,6 +1070,7 @@ subroutine retrieve_T_e_single(plasma_params, rhop, T_e, grad_T_e)
     real(rkind),               intent(out), optional   :: grad_T_e
     real(rkind), dimension(1)                :: T_e_arr, rhop_arr, grad_T_e_arr
     real(rkind)                              :: scaled_rhop
+#ifdef IDA
     if(use_ida_spline_Te) then
       T_e_arr(:) = 0.d0
       rhop_arr(1) = rhop * plasma_params%rhop_scale_te
@@ -1495,37 +1082,38 @@ subroutine retrieve_T_e_single(plasma_params, rhop, T_e, grad_T_e)
         call make_temperature(plasma_params%par, T_e_arr, x_eval = rhop_arr, rp_min = plasma_params%rp_min)
       end if
       T_e = T_e_arr(1)
-    else
-      scaled_rhop = rhop * plasma_params%rhop_scale_te
-      if(scaled_rhop > plasma_params%rhop_max) then
-         T_e = 0.d0
-        return
-      end if
-      if(present(grad_T_e)) then
-        if(output_level) then
-#ifdef NAG
-          call spline_1d(plasma_params%Te_spline, scaled_rhop, &
-            T_e, grad_T_e, plasma_params%Te_spline_nag)
-#else
-          call spline_1d(plasma_params%Te_spline, scaled_rhop, &
-            T_e, grad_T_e)
+      return
+    end if
 #endif
-        else
-          call spline_1d(plasma_params%Te_spline, scaled_rhop, &
-            T_e, grad_T_e)
-        end if
+    scaled_rhop = rhop * plasma_params%rhop_scale_te
+    if(scaled_rhop > plasma_params%rhop_max) then
+       T_e = 0.d0
+      return
+    end if
+    if(present(grad_T_e)) then
+      if(output_level) then
+#ifdef NAG
+        call spline_1d(plasma_params%Te_spline, scaled_rhop, &
+          T_e, grad_T_e, plasma_params%Te_spline_nag)
+#else
+        call spline_1d(plasma_params%Te_spline, scaled_rhop, &
+          T_e, grad_T_e)
+#endif
       else
-        if(output_level) then
+        call spline_1d(plasma_params%Te_spline, scaled_rhop, &
+          T_e, grad_T_e)
+      end if
+    else
+      if(output_level) then
 #ifdef NAG
-          call spline_1d(plasma_params%Te_spline, scaled_rhop, &
-            T_e, nag_spline = plasma_params%Te_spline_nag)
+        call spline_1d(plasma_params%Te_spline, scaled_rhop, &
+          T_e, nag_spline = plasma_params%Te_spline_nag)
 #else
-          call spline_1d(plasma_params%Te_spline, scaled_rhop, &
-            T_e)
+        call spline_1d(plasma_params%Te_spline, scaled_rhop, &
+          T_e)
 #endif
-        else
-          call spline_1d(plasma_params%Te_spline, scaled_rhop, T_e)
-        end if
+      else
+        call spline_1d(plasma_params%Te_spline, scaled_rhop, T_e)
       end if
     end if
   end subroutine retrieve_T_e_single
@@ -1577,7 +1165,9 @@ subroutine retrieve_T_e_single(plasma_params, rhop, T_e, grad_T_e)
   subroutine retrieve_T_e_vector(plasma_params, rhop, T_e, grad_T_e)
     use f90_kind
     use mod_ecfm_refr_types,        only: plasma_params_type, use_ida_spline_Te, output_level
+#ifdef IDA
     use mod_temperature,            only: make_temperature
+#endif
     use mod_ecfm_refr_interpol,     only: spline_1d_vec
     implicit none
     type(plasma_params_type), intent(in)    :: plasma_params
@@ -1602,6 +1192,7 @@ subroutine retrieve_T_e_single(plasma_params, rhop, T_e, grad_T_e)
       if(present(grad_T_e)) grad_T_e = 0.d0
       return
     end if
+#ifdef IDA
     if(use_ida_spline_Te) then
       if(present(grad_T_e)) then
         grad_T_e(:) = 0.d0
@@ -1609,34 +1200,35 @@ subroutine retrieve_T_e_single(plasma_params, rhop, T_e, grad_T_e)
       else
         call make_temperature(plasma_params%par, T_e(i_start: i_end) , x_eval= scaled_rhop(i_start: i_end), rp_min = plasma_params%rp_min)
       end if
-    else
-      if(present(grad_T_e)) then
-        grad_T_e(:) = 0.d0
-        if(output_level) then
-#ifdef NAG
-          call spline_1d_vec(plasma_params%Te_spline, scaled_rhop(i_start: i_end), &
-            T_e(i_start: i_end), grad_T_e(i_start: i_end), plasma_params%Te_spline_nag)
-#else
-          call spline_1d_vec(plasma_params%Te_spline, scaled_rhop(i_start: i_end), &
-            T_e(i_start: i_end), grad_T_e(i_start: i_end))
+      return
+    end if
 #endif
-        else
-          call spline_1d_vec(plasma_params%Te_spline, scaled_rhop(i_start: i_end), &
-            T_e(i_start: i_end), grad_T_e(i_start: i_end))
-        end if
+    if(present(grad_T_e)) then
+      grad_T_e(:) = 0.d0
+      if(output_level) then
+#ifdef NAG
+        call spline_1d_vec(plasma_params%Te_spline, scaled_rhop(i_start: i_end), &
+          T_e(i_start: i_end), grad_T_e(i_start: i_end), plasma_params%Te_spline_nag)
+#else
+        call spline_1d_vec(plasma_params%Te_spline, scaled_rhop(i_start: i_end), &
+          T_e(i_start: i_end), grad_T_e(i_start: i_end))
+#endif
       else
-        if(output_level) then
+        call spline_1d_vec(plasma_params%Te_spline, scaled_rhop(i_start: i_end), &
+          T_e(i_start: i_end), grad_T_e(i_start: i_end))
+      end if
+    else
+      if(output_level) then
 #ifdef NAG
-          call spline_1d_vec(plasma_params%Te_spline, scaled_rhop(i_start: i_end), &
-            T_e, nag_spline = plasma_params%Te_spline_nag)
+        call spline_1d_vec(plasma_params%Te_spline, scaled_rhop(i_start: i_end), &
+          T_e, nag_spline = plasma_params%Te_spline_nag)
 #else
-          call spline_1d_vec(plasma_params%Te_spline, scaled_rhop(i_start: i_end), &
-            T_e)
+        call spline_1d_vec(plasma_params%Te_spline, scaled_rhop(i_start: i_end), &
+          T_e)
 #endif
-        else
-          call spline_1d_vec(plasma_params%Te_spline, scaled_rhop(i_start: i_end), &
-            T_e)
-        end if
+      else
+        call spline_1d_vec(plasma_params%Te_spline, scaled_rhop(i_start: i_end), &
+          T_e)
       end if
     end if
   end subroutine retrieve_T_e_vector
@@ -1662,7 +1254,9 @@ subroutine retrieve_T_e_single(plasma_params, rhop, T_e, grad_T_e)
   subroutine retrieve_n_e_single(plasma_params, rhop, n_e, grad_n_e)
     use f90_kind
     use mod_ecfm_refr_types,        only: plasma_params_type, use_ida_spline_ne, output_level
+#ifdef IDA
     use mod_density,            only: make_density
+#endif
     use mod_ecfm_refr_interpol, only: spline_1d
     implicit none
     type(plasma_params_type), intent(in)    :: plasma_params
@@ -1671,6 +1265,7 @@ subroutine retrieve_T_e_single(plasma_params, rhop, T_e, grad_T_e)
     real(rkind),               intent(out), optional   :: grad_n_e
     real(rkind), dimension(1)                :: n_e_arr, rhop_arr, grad_n_e_arr
     real(rkind)                              :: scaled_rhop
+#ifdef IDA
     if(use_ida_spline_ne) then
       n_e_arr(:) = 0.d0
       rhop_arr(1) = rhop  * plasma_params%rhop_scale_ne
@@ -1681,32 +1276,33 @@ subroutine retrieve_T_e_single(plasma_params, rhop, T_e, grad_T_e)
         call make_density(plasma_params%par_ne, plasma_params%par_scal, n_e_arr, rhop_arr, 2) ! makes only sense for rhop axis
       end if
       n_e = n_e_arr(1) *  1.0d6
-    else
-      scaled_rhop = rhop * plasma_params%rhop_scale_ne
-      if(scaled_rhop > plasma_params%rhop_max) then
-         n_e = 0.d0
-        return
-      end if
-      if(present(grad_n_e)) then
-        if(output_level) then
-#ifdef NAG
-      call spline_1d(plasma_params%ne_spline, scaled_rhop, n_e, grad_n_e, plasma_params%ne_spline_nag)
-#else
-      call spline_1d(plasma_params%ne_spline, scaled_rhop, n_e, grad_n_e)
+      return
+    end if
 #endif
-        else
-          call spline_1d(plasma_params%ne_spline, scaled_rhop, n_e, grad_n_e)
-        end if
+    scaled_rhop = rhop * plasma_params%rhop_scale_ne
+    if(scaled_rhop > plasma_params%rhop_max) then
+       n_e = 0.d0
+      return
+    end if
+    if(present(grad_n_e)) then
+      if(output_level) then
+#ifdef NAG
+    call spline_1d(plasma_params%ne_spline, scaled_rhop, n_e, grad_n_e, plasma_params%ne_spline_nag)
+#else
+    call spline_1d(plasma_params%ne_spline, scaled_rhop, n_e, grad_n_e)
+#endif
       else
-        if(output_level) then
+        call spline_1d(plasma_params%ne_spline, scaled_rhop, n_e, grad_n_e)
+      end if
+    else
+      if(output_level) then
 #ifdef NAG
-      call spline_1d(plasma_params%ne_spline, scaled_rhop, n_e, nag_spline = plasma_params%ne_spline_nag)
+    call spline_1d(plasma_params%ne_spline, scaled_rhop, n_e, nag_spline = plasma_params%ne_spline_nag)
 #else
-      call spline_1d(plasma_params%ne_spline, scaled_rhop, n_e)
+    call spline_1d(plasma_params%ne_spline, scaled_rhop, n_e)
 #endif
-        else
-          call spline_1d(plasma_params%ne_spline, scaled_rhop, n_e)
-        end if
+      else
+        call spline_1d(plasma_params%ne_spline, scaled_rhop, n_e)
       end if
     end if
   end subroutine retrieve_n_e_single
@@ -1758,7 +1354,9 @@ subroutine retrieve_T_e_single(plasma_params, rhop, T_e, grad_T_e)
   subroutine retrieve_n_e_vector(plasma_params, rhop, n_e, grad_n_e)
     use f90_kind
     use mod_ecfm_refr_types,        only: plasma_params_type, use_ida_spline_ne, output_level
+#ifdef IDA
     use mod_density,                only: make_density
+#endif
     use mod_ecfm_refr_interpol,     only: spline_1d_vec
     implicit none
     type(plasma_params_type), intent(in)     :: plasma_params
@@ -1784,6 +1382,7 @@ subroutine retrieve_T_e_single(plasma_params, rhop, T_e, grad_T_e)
       n_e = 0.d0
       return
     end if
+#ifdef IDA
     if(use_ida_spline_ne) then
       if(present(grad_n_e)) then
         grad_n_e(:) = 0.d0
@@ -1793,33 +1392,34 @@ subroutine retrieve_T_e_single(plasma_params, rhop, T_e, grad_T_e)
         call make_density(plasma_params%par_ne, plasma_params%par_scal, n_e(i_start: i_end) ,scaled_rhop(i_start: i_end), 2) ! makes only sense for rhop axis
       end if
       n_e = n_e *  1.0d6
-    else
-      if(present(grad_n_e)) then
-        if(output_level) then
-#ifdef NAG
-      call spline_1d_vec(plasma_params%ne_spline, scaled_rhop(i_start: i_end), &
-            n_e(i_start: i_end), grad_n_e(i_start: i_end), plasma_params%ne_spline_nag)
-#else
-      call spline_1d_vec(plasma_params%ne_spline, scaled_rhop(i_start: i_end), &
-            n_e(i_start: i_end), grad_n_e(i_start: i_end))
+      return
+    end if
 #endif
-        else
-          call spline_1d_vec(plasma_params%ne_spline, scaled_rhop(i_start: i_end), &
-            n_e(i_start: i_end), grad_n_e(i_start: i_end))
-        end if
+    if(present(grad_n_e)) then
+      if(output_level) then
+#ifdef NAG
+    call spline_1d_vec(plasma_params%ne_spline, scaled_rhop(i_start: i_end), &
+          n_e(i_start: i_end), grad_n_e(i_start: i_end), plasma_params%ne_spline_nag)
+#else
+    call spline_1d_vec(plasma_params%ne_spline, scaled_rhop(i_start: i_end), &
+          n_e(i_start: i_end), grad_n_e(i_start: i_end))
+#endif
       else
-        if(output_level) then
+        call spline_1d_vec(plasma_params%ne_spline, scaled_rhop(i_start: i_end), &
+          n_e(i_start: i_end), grad_n_e(i_start: i_end))
+      end if
+    else
+      if(output_level) then
 #ifdef NAG
-          call spline_1d_vec(plasma_params%ne_spline, scaled_rhop(i_start: i_end), &
-            n_e(i_start: i_end), nag_spline = plasma_params%ne_spline_nag)
+        call spline_1d_vec(plasma_params%ne_spline, scaled_rhop(i_start: i_end), &
+          n_e(i_start: i_end), nag_spline = plasma_params%ne_spline_nag)
 #else
-          call spline_1d_vec(plasma_params%ne_spline, scaled_rhop(i_start: i_end), &
-            n_e(i_start: i_end))
+        call spline_1d_vec(plasma_params%ne_spline, scaled_rhop(i_start: i_end), &
+          n_e(i_start: i_end))
 #endif
-        else
-          call spline_1d_vec(plasma_params%ne_spline, scaled_rhop(i_start: i_end), &
-            n_e(i_start: i_end))
-        end if
+      else
+        call spline_1d_vec(plasma_params%ne_spline, scaled_rhop(i_start: i_end), &
+          n_e(i_start: i_end))
       end if
     end if
   end subroutine retrieve_n_e_vector
@@ -1841,7 +1441,7 @@ subroutine retrieve_T_e_single(plasma_params, rhop, T_e, grad_T_e)
       end if
     end do
   end subroutine retrieve_n_e_mat_vector
-
+#ifdef IDA
 subroutine make_ece_rhopol_scal_te(plasma_params, par, par_scal)
 use f90_kind
 use mod_ecfm_refr_types,       only: plasma_params_type
@@ -1883,7 +1483,7 @@ endif
 ida%time(plasma_params%ida_time_indx)%ece_ne_rhop_scal = plasma_params%rhop_scale_ne
 !stop "sub make_ece_rhopol_scal_ne"
 end subroutine make_ece_rhopol_scal_ne
-
+#endif IDA
 subroutine bin_ray_BPD_to_common_rhop(plasma_params, rad_mode, center_freq, weights, rhop, BPD, BPD_secondary)
 use f90_kind
 use mod_ecfm_refr_types,       only: plasma_params_type, rad_diag_ch_mode_type, N_ray, spl_type_1d, max_points_svec
