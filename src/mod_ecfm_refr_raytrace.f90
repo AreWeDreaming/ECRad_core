@@ -54,7 +54,7 @@ module mod_ecfm_refr_raytrace
     implicit none
     real(rkind), intent(in)       :: X, Y, N_par
     real(rkind)                   :: func_Delta
-    func_Delta = (1.d0 - (N_par)**2)**2 + 4.d0 * N_par**2 * (1.d0 - X) / Y**2
+    func_Delta = (1.d0 - N_par**2)**2 + 4.d0 * N_par**2 * (1.d0 - X) / Y**2
     if(func_Delta < 0.d0) then
       print*, "root of negative number avoided: variable delta"
       stop "Delta in mod_raytrace.f90"
@@ -81,7 +81,7 @@ module mod_ecfm_refr_raytrace
       print*, "Subroutine: calculate_N in mod_raytrace.f90"
       call abort()
     end if
-    func_N_s_2 = 1.d0 - X + ((1.d0 +  real(mode) * func_Delta(X, Y, N_par) + N_par**2)*X*Y**2)/(2.d0*(-1.d0 + X + Y**2))
+    func_N_s_2 = 1.d0 - X + (1.d0 +  real(mode) * func_Delta(X, Y, N_par) + N_par**2)/(2.d0 * (-1.d0 + X + Y**2)) * X * Y**2
   end function func_N_s_2
 
   function func_N_s_star_2(X, Y, N_par, mode)
@@ -103,7 +103,9 @@ module mod_ecfm_refr_raytrace
       print*, "Subroutine: calculate_N in mod_raytrace.f90"
       stop "calculate_N in mod_raytrace.f90"
     end if
-    func_N_s_star_2 =  (1.d0 - X) * (2.d0 * ( 1.d0 - X - Y**2)) - X * Y**2 * (1.d0 + N_par**2 + real(mode) * func_Delta(X, Y, N_par))
+    func_N_s_star_2 =  (1.d0 - X) * (2.d0 * (- 1.d0 + X + Y**2))**2 + &
+                       (1.d0 + real(mode) * func_Delta(X, Y, N_par) + N_par**2) * &
+                       X * Y**2 * (2.d0 * (- 1.d0 + X + Y**2))
   end function func_N_s_star_2
 
   function func_Lambda(N_abs, X, Y, N_par, mode)
@@ -117,6 +119,7 @@ module mod_ecfm_refr_raytrace
     !func_Lambda = N_abs**2 * (1.d0 - Y**2) - func_N_s_star_2(X, Y, N_par, mode)**2
   end function func_Lambda
 
+
   function func_Lambda_star(N_abs, X, Y, N_par, mode)
   ! Caclulates Lambda which is also the Hamiltonian
     USE f90_kind
@@ -124,7 +127,7 @@ module mod_ecfm_refr_raytrace
     real(rkind),              intent(in)  :: N_abs, X, Y ,N_par
     integer(ikind),           intent(in)  :: mode
     real(rkind)                           :: func_Lambda_star
-    func_Lambda_star= N_abs**2 * (2.d0 * (1.d0 - X - Y**2)) - func_N_s_star_2(X, Y, N_par, mode)
+    func_Lambda_star= N_abs**2 * (2.d0 * (-1.d0 + X + Y**2))**2 - func_N_s_star_2(X, Y, N_par, mode)
     !func_Lambda = N_abs**2 * (1.d0 - Y**2) - func_N_s_star_2(X, Y, N_par, mode)**2
   end function func_Lambda_star
 
@@ -320,7 +323,6 @@ function func_dA_dY(X, Y)
                            (X*Y**2*(1.d0  + N_par**2 + real(mode,8)*func_delta(X,Y,N_par)))/ &
                             (-1.d0  + X + Y**2)**2 + &
                               (Y**2*(1.d0  + N_par**2 + real(mode,8)*func_delta(X,Y,N_par)))/(-1.d0 + X + Y**2.d0))/2.d0
-    func_dNs_sq_dX = func_dNs_sq_dX
   end function func_dNs_sq_dX
 
  function func_dNs_sq_dY2(N_abs, X, Y, N_par, mode)
@@ -361,9 +363,13 @@ function func_dA_dY(X, Y)
     real(rkind)                           :: func_dLambda_star_dX
     !func_dLambda_star_dX = - 2.d0 * N_abs**2  - (2.d0 * (-1.d0 + X)+(2.d0 * real(mode,8) * N_par**2 * X)/func_Delta(X,Y,N_par) - &
     !               (1.d0 + N_par**2 + real(mode,8) * func_Delta(X,Y,N_par)) * Y**2 + 2.d0 * (-1.d0 + X + Y**2))
-    func_dLambda_star_dX = 1.d0 - N_abs**2 - 2.d0*X + 2.d0*(1.d0 - X - Y**2) + &
-      (2.d0*real(mode,8)*N_par**2*X)/func_delta(X,Y,N_par) + &
-      Y**2*(1.d0 + N_par**2 - real(mode,8)*func_delta(X,Y,N_par))
+    func_dLambda_star_dX = 8.d0*N_abs**2*(-1.d0 + X + Y**2) + 8.d0*(-1.d0 + X)*(-1.d0 + X + Y**2) + &
+                           4.d0*(-1.d0 + X + Y**2)**2 + (4.d0*real(mode,8)*N_par**2*X*(-1.d0 + X + Y**2))/ &
+                           func_delta(X,Y,N_par) - &
+                           2.d0*X*Y**2*(1.d0 + N_par**2 + real(mode,8)* &
+                           func_delta(X,Y,N_par)) - &
+                           2.d0*Y**2*(-1.d0 + X + Y**2)*(1.d0 + N_par**2 + &
+                           real(mode,8)*func_delta(X,Y,N_par))
   end function func_dLambda_star_dX
 
 
@@ -377,8 +383,13 @@ function func_dA_dY(X, Y)
     !func_dLambda_star_dY2 =-((4.d0 * real(mode, 8) * N_par**2 * (-1.d0 + X) * X)/(func_Delta(X,Y,N_par)  * Y)) + &
     !                 4.d0 * (-1.d0 + X) * Y - 2.d0 * X * (1.d0 + N_par**2 + real(mode, 8) * func_Delta(X,Y,N_par) ) * Y
     !func_dLambda_star_dY2 =  - 2.d0 * N_abs**2 -func_dLambda_star_dY2 / (2.d0 * Y)
-    func_dLambda_star_dY2 = 1.d0 - N_abs**2 - 2.d0*X + (2.d0*real(mode,8)*N_par**2*(1.d0 - X)*X)/(Y**2*func_delta(X,Y,N_par)) + &
-      X*(1.d0 + N_par**2 - real(mode,8)*func_delta(X,Y,N_par))
+    func_dLambda_star_dY2 = 8.d0*N_abs**2*(-1.d0 + X + Y**2) + 8.d0*(-1.d0 + X)*(-1.d0 + X + Y**2) - &
+                            (4*real(mode,8)*N_par**2*(-1.d0 + X)*X*(-1.d0 + X + Y**2))/ &
+                            (Y**2*func_delta(X,Y,N_par)) - &
+                            2.d0*X*Y**2*(1.d0 + N_par**2 + real(mode,8)* &
+                            func_delta(X,Y,N_par)) - &
+                            2.d0*X*(-1.d0 + X + Y**2)*(1.d0 + N_par**2 + &
+                           real(mode,8)*func_delta(X,Y,N_par))
   end function func_dLambda_star_dY2
 
   function func_dN_s_star_2_dN_par(N_abs,X, Y, N_par, mode)
@@ -390,9 +401,9 @@ function func_dA_dY(X, Y)
     real(rkind)                           :: func_dN_s_star_2_dN_par
 !    func_dN_s_star_2_dN_par=  - (-2.d0 * N_par * X  * Y**2 * (1.d0 + real(mode,8) * &
 !                       (2.d0 - 2.d0 * X +(N_par**2 -1.d0) * Y**2)/(func_Delta(X,Y,N_par) * Y**2)))
-    func_dN_s_star_2_dN_par = X*Y**2*(2.d0*N_par - (real(mode,8) * &
-      (-4.d0*N_par*(1.d0 - N_par**2) + (8.d0*N_par*(1.d0 - X))/Y**2))/ &
-      (2.d0*func_delta(X,Y,N_par)))
+    func_dN_s_star_2_dN_par = 2.d0*X*Y**2*(-1.d0 + X + Y**2)*(2*N_par + &
+                              (2.d0*real(mode,8)*N_par*(2.d0 - 2.d0*X + (-1.d0 + N_par**2)*Y**2))/ &
+                              (Y**2*func_delta(X,Y,N_par)))
   end function func_dN_s_star_2_dN_par
 
   function func_dR_dx(x,y)
@@ -418,7 +429,7 @@ function func_dA_dY(X, Y)
     real(rkind)                :: func_dphi_dx
     real(rkind)                :: h_x
     h_x = 1.d-4
-    if(y == 0) then
+    if(abs(y) == 1.d-17) then
       func_dphi_dx = 0.d0
     else
       func_dphi_dx = (y*(-1.d0 + x/Sqrt(x**2 + y**2)))/(x**2 + y**2 - x*Sqrt(x**2 + y**2))
@@ -437,7 +448,7 @@ function func_dA_dY(X, Y)
     real(rkind)                :: func_dphi_dy
     real(rkind)                :: h_x
     h_x = 1.d-4
-    if(y == 0) then
+    if(abs(y) == 1.d-17) then
       func_dphi_dy = 0.d0
     else
       func_dphi_dy =  (x - x**2/Sqrt(x**2 + y**2))/(x**2 + y**2 - x*Sqrt(x**2 + y**2))
@@ -959,7 +970,7 @@ function func_dA_dY(X, Y)
                   B_R_vec(3))
 #endif
     end if
-    if(plasma_params%w_ripple .and. R_vec(1) < plasma_params%R_ripple_boundary) then
+    if(plasma_params%w_ripple) then
       call get_ripple(R_vec, B_ripple)
       B_R_vec = B_R_vec + B_ripple
     end if
@@ -1010,7 +1021,7 @@ function func_dA_dY(X, Y)
       call rect_spline(plasma_params%B_z_spline, R_vec(1), R_vec(3), &
                   B_R_vec(3))
 #endif
-      if(plasma_params%w_ripple .and. R_vec(1) < plasma_params%R_ripple_boundary) then
+      if(plasma_params%w_ripple) then
         call get_ripple(R_vec, B_ripple)
         B_R_vec = B_R_vec + B_ripple
       end if
@@ -1048,7 +1059,7 @@ function func_dA_dY(X, Y)
     end if
     func_flux_norm_vec(2) = 0.d0 ! Assume no gradient in phi direction except ripple
     ! This is only correct for tokamaks !
-    if(plasma_params%w_ripple .and. R_vec(1) < plasma_params%R_ripple_boundary) then
+    if(plasma_params%w_ripple) then
       call get_ripple(R_vec, B_ripple)
       func_flux_norm_vec(3) = func_flux_norm_vec(3) + B_ripple(1)
       func_flux_norm_vec(1) = func_flux_norm_vec(1) + B_ripple(3)
@@ -1115,7 +1126,7 @@ function func_dA_dY(X, Y)
     call rect_spline(plasma_params%B_z_spline, R_vec(1), R_vec(3), &
                 B_R_vec(3))
 #endif
-    if(plasma_params%w_ripple .and. R_vec(1) < plasma_params%R_ripple_boundary) then
+    if(plasma_params%w_ripple) then
       call get_ripple(R_vec, B_ripple)
       B_R_vec = B_R_vec + B_ripple
     end if
@@ -1187,7 +1198,7 @@ function func_dA_dY(X, Y)
     call rect_spline(plasma_params%B_z_spline, R_vec(1), R_vec(3), &
                 B_R_vec(3))
 #endif
-    if(plasma_params%w_ripple .and. R_vec(1) < plasma_params%R_ripple_boundary) then
+    if(plasma_params%w_ripple) then
       call get_ripple(R_vec, B_ripple)
       B_R_vec = B_R_vec + B_ripple
     end if
@@ -1303,7 +1314,7 @@ function func_dA_dY(X, Y)
     call rect_spline(plasma_params%B_z_spline, R_vec(1), R_vec(3), &
                 B_R_vec(3))
 #endif
-    if(plasma_params%w_ripple .and. R_vec(1) < plasma_params%R_ripple_boundary) then
+    if(plasma_params%w_ripple) then
       call get_ripple(R_vec, B_ripple)
       B_R_vec = B_R_vec + B_ripple
     end if
@@ -1463,7 +1474,7 @@ function func_dA_dY(X, Y)
                 B_R_vec(2), dB_t_inter%dR, dB_t_inter%dz)
     call rect_spline(plasma_params%B_z_spline, R_vec(1), R_vec(3), &
                 B_R_vec(3), dB_z_inter%dR, dB_z_inter%dz)
-    if(plasma_params%w_ripple .and. R_vec(1) < plasma_params%R_ripple_boundary) then
+    if(plasma_params%w_ripple) then
       call get_ripple_w_grad(R_vec, B_ripple, dB_ripple_r, dB_ripple_t, dB_ripple_z)
       B_R_vec = B_R_vec + B_ripple
       dB_r_inter%dR = dB_r_inter%dR  + dB_ripple_r%dR
@@ -1564,15 +1575,22 @@ function func_dA_dY(X, Y)
     if(debug_level >= 3 .or. (debug_level ==  2 .and.  sqrt(x_vec(1)**2 + x_vec(2)**2) <= 2.13)) then
       print*, "/---------------DEBUG OUTPUT------------------\"
       print*,"--------Begin of magnetic field debug output-------"
+      print*,"x = ", x_vec(1), "m "
+      print*,"y = ", x_vec(2), "m "
+      print*,"z = ", x_vec(3), "m "
       print*,"R = ", R_vec(1), " m"
       print*,"z = ", R_vec(3), " m"
       print*, "B_R", B_R_vec
       print*, "N_vec", N_vec
       print*, "B_abs", B_abs
       print*, "N_par", N_par
-      print*, "Closest spline knot"
-      print*,  plasma_params%R(minloc(abs(plasma_params%R - R_vec(1))))
-      print*,  plasma_params%z(minloc(abs(plasma_params%z - R_vec(3))))
+      print*, "dR/dx", func_dR_dx(x_vec(1), x_vec(2))
+      print*, "dphi/dx", func_dphi_dx(x_vec(1), x_vec(2))
+      print*, "dR/dy", func_dR_dy(x_vec(1), x_vec(2))
+      print*, "dphi/dy", func_dphi_dy(x_vec(1), x_vec(2))
+!      print*, "Closest spline knot"
+!      print*,  plasma_params%R(minloc(abs(plasma_params%R - R_vec(1))))
+!      print*,  plasma_params%z(minloc(abs(plasma_params%z - R_vec(3))))
       do i = 1, 3
          if(i ==1) print*,"--------dR-------"
          if(i ==2) print*,"--------dphi-------"
@@ -1615,7 +1633,7 @@ function func_dA_dY(X, Y)
                                     8.d0 *  func_B_z_R(plasma_params, aux_R(2,:)) - &
                                 8.d0 *  func_B_z_R(plasma_params, aux_R(3,:))  &
                                 +   func_B_z_R(plasma_params, aux_R(4,:))) / (12.d0 *h_x)
-        if(i == 1) then
+       if(i == 1) then
           print*,"dBR/dR ana",dB_r_inter%dR
           print*,"dBR/dR num",(- func_B_r_R(plasma_params, aux_R(1,:)) + &
                                       8.d0 *  func_B_r_R(plasma_params, aux_R(2,:)) - &
@@ -1626,28 +1644,43 @@ function func_dA_dY(X, Y)
                                       8.d0 *  func_B_phi_R(plasma_params, aux_R(2,:)) - &
                                   8.d0 *  func_B_phi_R(plasma_params, aux_R(3,:))  &
                                   +   func_B_phi_R(plasma_params, aux_R(4,:))) / (12.d0 *h_x)
+          print*,"dBz/dR ana", dB_z_inter%dz
+          print*,"dBz/dR num", (- func_B_z_R(plasma_params, aux_R(1,:)) + &
+                                      8.d0 *  func_B_z_R(plasma_params, aux_R(2,:)) - &
+                                  8.d0 *  func_B_z_R(plasma_params, aux_R(3,:))  &
+                                  +   func_B_z_R(plasma_params, aux_R(4,:))) / (12.d0 *h_x)
       else if(i == 2) then
-          print*,"dBR/dR ana",dB_r_inter%dphi
-          print*,"dBR/dR num",(- func_B_r_R(plasma_params, aux_R(1,:)) + &
+          print*,"dBR/dphi ana",dB_r_inter%dphi
+          print*,"dBR/dphi num",(- func_B_r_R(plasma_params, aux_R(1,:)) + &
                                       8.d0 *  func_B_r_R(plasma_params, aux_R(2,:)) - &
                                   8.d0 *  func_B_r_R(plasma_params, aux_R(3,:))  &
                                   +   func_B_r_R(plasma_params, aux_R(4,:))) / (12.d0 *h_x)
-          print*,"dBt/dR ana",dB_t_inter%dphi
-          print*,"dBt/dR num",(- func_B_phi_R(plasma_params, aux_R(1,:)) + &
+          print*,"dBt/dphi ana",dB_t_inter%dphi
+          print*,"dBt/dphi num",(- func_B_phi_R(plasma_params, aux_R(1,:)) + &
                                       8.d0 *  func_B_phi_R(plasma_params, aux_R(2,:)) - &
                                   8.d0 *  func_B_phi_R(plasma_params, aux_R(3,:))  &
                                   +   func_B_phi_R(plasma_params, aux_R(4,:))) / (12.d0 *h_x)
+          print*,"dBz/dz ana", dB_z_inter%dz
+          print*,"dBz/dz num",(- func_B_z_R(plasma_params, aux_R(1,:)) + &
+                                      8.d0 *  func_B_z_R(plasma_params, aux_R(2,:)) - &
+                                  8.d0 *  func_B_z_R(plasma_params, aux_R(3,:))  &
+                                  +   func_B_z_R(plasma_params, aux_R(4,:))) / (12.d0 *h_x)
       else
-          print*,"dBR/dR ana",dB_r_inter%dz
-          print*,"dBR/dR num",(- func_B_r_R(plasma_params, aux_R(1,:)) + &
+          print*,"dBR/dz ana",dB_r_inter%dz
+          print*,"dBR/dz num",(- func_B_r_R(plasma_params, aux_R(1,:)) + &
                                       8.d0 *  func_B_r_R(plasma_params, aux_R(2,:)) - &
                                   8.d0 *  func_B_r_R(plasma_params, aux_R(3,:))  &
                                   +   func_B_r_R(plasma_params, aux_R(4,:))) / (12.d0 *h_x)
-          print*,"dBt/dR ana",dB_t_inter%dz
-          print*,"dBt/dR num",(- func_B_phi_R(plasma_params, aux_R(1,:)) + &
+          print*,"dBt/dz ana",dB_t_inter%dz
+          print*,"dBt/dz num",(- func_B_phi_R(plasma_params, aux_R(1,:)) + &
                                       8.d0 *  func_B_phi_R(plasma_params, aux_R(2,:)) - &
                                   8.d0 *  func_B_phi_R(plasma_params, aux_R(3,:))  &
                                   +   func_B_phi_R(plasma_params, aux_R(4,:))) / (12.d0 *h_x)
+          print*,"dBz/dz ana",dB_z_inter%dz
+          print*,"dBz/dz num",(- func_B_z_R(plasma_params, aux_R(1,:)) + &
+                                      8.d0 *  func_B_z_R(plasma_params, aux_R(2,:)) - &
+                                  8.d0 *  func_B_z_R(plasma_params, aux_R(3,:))  &
+                                  +   func_B_z_R(plasma_params, aux_R(4,:))) / (12.d0 *h_x)
       end if
       end do
     end if
@@ -2063,6 +2096,11 @@ function func_dA_dY(X, Y)
     if(warm_plasma) then
       if(.not. plasma_params%Te_ne_mat) then
         call sub_spatial_grad_rhop(plasma_params, x_vec, rhop, spatial_grad_rhop)
+        if(rhop == -1.d0) then
+          spatial_grad_Y = 0.d0
+          Y = 0.d0
+          return
+        end if
         spatial_grad_rhop = spatial_grad_rhop * plasma_params%rhop_scale_Te
         call retrieve_T_e(plasma_params, rhop, T_e, grad_T_e)
         spatial_grad_rhop = grad_T_e * spatial_grad_rhop
@@ -2552,6 +2590,7 @@ function func_dA_dY(X, Y)
     real(rkind), dimension(4)                 :: X_aux, Y_aux, N_par_aux, N_abs_aux_2
     real(rkind), dimension(4,3)               :: aux_x, aux_N
     integer(ikind)                            :: i, j
+    N_abs = sqrt(x_vec(4)**2 + x_vec(5)**2 + x_vec(6)**2)
     N_vec = x_vec(4:6)
     if(Analytical) then
       call sub_spatial_grad_X_ana(plasma_params, omega, x_vec(1:3), X, spatial_grad_X, rhop_out)
@@ -2562,12 +2601,13 @@ function func_dA_dY(X, Y)
       call sub_spatial_grad_N_par(plasma_params, x_vec(1:3), x_vec(4:6), N_abs, N_par, spatial_grad_N_par, spatial_grad_B_abs, B_abs, N_grad_N_par)
       call sub_spatial_grad_Y(plasma_params, omega, x_vec(1:3), B_abs, spatial_grad_B_abs, Y, spatial_grad_Y)
     end if
+    Hamil = func_Lambda_star(N_abs, X, Y,  N_par, mode)
     spatial_grad_Y2 = 2.d0 * Y * spatial_grad_Y
     dN_s_star_2_dN_par = func_dN_s_star_2_dN_par(N_abs,  X, Y, N_par, mode)
-    dxds(4:6) = spatial_grad_N_par(:) * dN_s_star_2_dN_par
+    dxds(4:6) = -spatial_grad_N_par(:) * dN_s_star_2_dN_par
     dxds(4:6) = dxds(4:6) + spatial_grad_X(:) * func_dLambda_star_dX(N_abs,  X, Y, N_par, mode)
     dxds(4:6) = dxds(4:6) + spatial_grad_Y2(:) * func_dLambda_star_dY2(N_abs,  X, Y, N_par, mode)
-    dxds(1:3) = 4.d0  * N_vec(:) * (1.d0 - X - Y**2) - N_grad_N_par(:) * dN_s_star_2_dN_par
+    dxds(1:3) = 2.d0  * N_vec(:) * (2.d0 * (-1.d0 + X + Y**2))**2 - N_grad_N_par(:) * dN_s_star_2_dN_par
     if((debug_level >= 3 .or. (debug_level ==  2 .and.  sqrt(x_vec(1)**2 + x_vec(2)**2) <= 2.13)))then! .or. abs(H) > 1.d-2) then
       print*, "/---------------DEBUG OUTPUT------------------\"
     else
@@ -3146,7 +3186,7 @@ function func_dA_dY(X, Y)
     real(rkind), dimension(1,1)                                      :: xi
     integer(ikind)                                                   :: n, iter, error
     call sub_local_params(plasma_params, omega, x_vec, N_vec, B_vec, N_abs_0, n_e, omega_c, T_e, theta, rhop_out)
-    if(output_level) print*, "Rho pol of first point in plasma", rhop_out
+    if(output_level .and. debug_level > 0) print*, "Rho pol and ne at first point in plasma", rhop_out, n_e
     N_par = cos(theta) * N_abs_0
     N_vec  = N_vec / N_abs_0
     h = 1.d-5
@@ -3163,7 +3203,7 @@ function func_dA_dY(X, Y)
     N_abs_lower = 0.999d0 * N_abs
     N_abs_upper = 1.001d0 * N_abs
 !    print*, "N_abs range", N_abs_lower, N_abs,  N_abs_upper
-!    print*, "Hamil range"Simon Freethy <simon.freethy@ipp.mpg.de>, make_H(N_abs_lower), make_H(N_abs), make_H(N_abs_upper)
+!    print*, "Hamil range", make_H(N_abs_lower), make_H(N_abs), make_H(N_abs_upper)
     H_lower = make_H(N_abs_lower)
     H_upper = make_H(N_abs_upper)
     H_lower_last = 0.d0
@@ -3181,7 +3221,7 @@ function func_dA_dY(X, Y)
       end if
       if(H_lower /= H_lower .or. H_upper /= H_upper .or. &
          H_lower == H_lower_last .or. H_upper == H_upper_last .or. &
-         n > 1000) then
+         n > 10000) then
         print*, "X, Y", X, Y
         print*, "N_abs lower, N_abs_ray, N_abs, N_abs upper", N_abs_lower, N_abs_0, N_abs, N_abs_upper
         print*, "Hamiltonian lower, upper", H_lower, H_upper
@@ -3264,14 +3304,14 @@ function func_dA_dY(X, Y)
     func_within_plasma = .false.
   end function func_within_plasma
 
-  subroutine find_first_point_in_plasma(plasma_params, omega, mode, ray_segment, last_N, wall_hits, total_reflection)
+  subroutine find_first_point_in_plasma(plasma_params, omega, mode, ray_segment, last_N, wall_hits, LOS_end)
   ! Straight line until we hit the wall
   ! this approach is brute force and therefore very slow
   ! FIXME :  Use geometry to find the intersection between LOS and first wall
     USE f90_kind
     USE mod_ecfm_refr_types, only : plasma_params_type, ray_element_full_type, h_x_glob, Hamil, &
                                           LSODE, straight, max_points_svec, output_level
-    USE mod_ecfm_refr_utils, only : sub_remap_coords, func_in_poly
+    USE mod_ecfm_refr_utils, only : sub_remap_coords, func_in_poly, distance_to_poly
     USE constants,                 only : mass_e, e0, eps0
     implicit none
     type(plasma_params_type)          , intent(in)                                  :: plasma_params
@@ -3279,22 +3319,23 @@ function func_dA_dY(X, Y)
     integer(ikind), intent(in)                      :: mode
     integer(ikind), intent(out)                     :: last_N, wall_hits
     type(ray_element_full_type), dimension(:), intent(inout)      :: ray_segment !temporary ray
-    logical, intent(out)                                             :: total_reflection
+    logical, intent(out)                                             :: LOS_end
     logical                                                          :: plasma_prop
     integer(ikind)                                                   :: N, i, istate
     real(rkind), dimension(3)                                        :: R_vec
-    real(rkind)                                                      :: delta_N, h
+    real(rkind)                                                      :: delta_N, h, R_cur, R_last
     wall_hits = 0
     glob_omega = omega
     glob_mode = mode
     plasma_prop = .false.
-    total_reflection = .false.
+    LOS_end = .false. ! If ray does not enter vessel or is immediately reflected upon plasma entry
     ray_segment(1)%sigma = 0.d0
     N = 1
     ray_segment(:)%theta = 0.d0
     ray_segment(1)%s = 0.d0
     first_N = 1 ! reset the first point of interpolation, because we are starting a new ray
     h = 1.d-2
+    R_last = distance_to_poly(plasma_params%vessel_poly, Sqrt(ray_segment(N)%x_vec(1)**2 + ray_segment(N)%x_vec(1)**2), ray_segment(N)%x_vec(3))
     !print*, "-----------------Ray init-------------"
     do while(.not. plasma_prop)
       !print*, ray_segment(N)%s
@@ -3329,6 +3370,13 @@ function func_dA_dY(X, Y)
         !print*, "first point in vessel", R_vec
         !plasma_prop = .true.
         wall_hits = 1
+      else if(mod(N,500) == 0) then
+        R_cur = distance_to_poly(plasma_params%vessel_poly, Sqrt(ray_segment(N)%x_vec(1)**2 + ray_segment(N)%x_vec(1)**2), ray_segment(N)%x_vec(3))
+        if(R_cur > R_last) then
+          LOS_end = .true.
+          exit
+        end if
+        R_last = R_cur
       end if
       !print*, "plasma_prop", plasma_prop
       call sub_remap_coords(ray_segment(N)%x_vec, ray_segment(N)%R_vec)
@@ -3377,11 +3425,11 @@ function func_dA_dY(X, Y)
           ray_segment(N)%N_s, ray_segment(N)%n_e, ray_segment(N)%omega_c,  ray_segment(N)%T_e, ray_segment(N)%theta, ray_segment(N)%rhop)
     last_N = N
     !print*,"Vacuum propagation from", ray_segment(1)%x_vec, "to", ray_segment(N)%x_vec
-    if(straight) then
+    if(straight .or. LOS_end) then
       ray_segment(N)%Hamil = 0.d0
       return
     end if
-    call sub_calculate_initial_N(plasma_params, omega, mode, ray_segment(N)%x_vec, ray_segment(N)%N_vec, ray_segment(N)%Hamil, total_reflection)
+    call sub_calculate_initial_N(plasma_params, omega, mode, ray_segment(N)%x_vec, ray_segment(N)%N_vec, ray_segment(N)%Hamil, LOS_end)
   end subroutine find_first_point_in_plasma
 
   subroutine make_ray_segment(distance, plasma_params, omega, mode, ray_segment, last_N, wall_hits, N_start)
@@ -3563,8 +3611,12 @@ function func_dA_dY(X, Y)
         if(debug_level > 0 .and. output_level) print*, "Position",  R_vec(1), R_vec(3)
         wall_hits =  2
         propagating  = .false.
-      end if
-      if(.not. func_in_poly(plasma_params%vessel_poly, R_vec(1), R_vec(3))) then
+      else if (any(abs(ray_segment(1:N)%rhop) < plasma_params%rhop_inside) .and. ray_segment(N)%rhop > plasma_params%rhop_exit) then
+        if(debug_level > 0 .and. output_level) print*, "Rhop now larger than rhop_exit after pass through plasma"
+        if(debug_level > 0 .and. output_level) print*, "Position",  R_vec(1), R_vec(3)
+        wall_hits =  2
+        propagating  = .false.
+      else if(.not. func_in_poly(plasma_params%vessel_poly, R_vec(1), R_vec(3))) then
         if(wall_hits > 0) then !left machine
           wall_hits =  wall_hits + 1
           if(debug_level > 0 .and. output_level) print*, "Passed through port out of the plasma"
@@ -3938,7 +3990,7 @@ function func_dA_dY(X, Y)
   real(rkind), dimension(1)                                     :: Y_res_O
   real(rkind), dimension(2)                                     :: Y_res_X
   integer(ikind)                                                :: wall_hits
-  logical                                                       :: total_reflection
+  logical                                                       :: LOS_end
   if(output_level) then
     if(.not. straight) then
       print*, "Preparing LOS including refraction - this will take a moment"
@@ -3992,24 +4044,38 @@ function func_dA_dY(X, Y)
              rad%diag(idiag)%ch(ich)%mode(imode)%ray(1)%freq(ifreq)%pol_coeff == 0.d0) then
              cycle
           end if
-          rad%diag(idiag)%ch(ich)%mode(imode)%ray(1)%freq(ifreq)%max_points_svec_reached = .false.
+          rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(1)%max_points_svec_reached = .false.
+          rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%contributes = .true.
           ray_segment(1)%x_vec = ant%diag(idiag)%ch(ich)%ray_launch(ir)%x_vec ! get launching position
           ray_segment(1)%N_vec = ant%diag(idiag)%ch(ich)%ray_launch(ir)%N_vec ! get launching angles
-          call find_first_point_in_plasma(plasma_params, omega, mode, ray_segment, last_N, wall_hits, total_reflection)
-          if(total_reflection) wall_hits = 2
+          if(abs(ray_segment(1)%x_vec(2)) < 1.d-17) then
+          ! Rotate everything by 180 degrees to avoid discontinuity at phi = 0.d0
+            print*, "Rotating current launch by 180.d0 degrees in phi to avoid discontinuity at phi=0"
+            temp = ray_segment(1)%x_vec(1)
+            ray_segment(1)%x_vec(1) = ray_segment(1)%x_vec(2)
+            ray_segment(1)%x_vec(2) = temp
+            temp = ray_segment(1)%N_vec(1)
+            ray_segment(1)%N_vec(1) = ray_segment(1)%N_vec(2)
+            ray_segment(1)%N_vec(2) = temp
+          end if
+          call find_first_point_in_plasma(plasma_params, omega, mode, ray_segment, last_N, wall_hits, LOS_end)
+          if(LOS_end) wall_hits = 2
           N_init = last_N
-          if(debug_level > 0 .and. output_level) then
+          if(debug_level > 0 .and. output_level .and. .not. LOS_end) then
             print*, "First point in plasma",ray_segment(last_N)%R_vec
           end if
-          if(last_N  + 1 <= max_points_svec .and. .not. total_reflection) then
+          if(last_N  + 1 <= max_points_svec .and. .not. LOS_end) then
             call make_ray_segment(20.d0, plasma_params, omega, mode, ray_segment, last_N, wall_hits, N_init)
-          else if(.not. total_reflection) then
+          else if(.not. LOS_end) then
             print*,"Ray reached maximum length when searching for first point in vessel"
             print*, "Most likely something is very wrong the launching geometry of the diagnostic"
             print*, "Current diagnostic", ant%diag(idiag)%diag_name
             print*, "position and launch vector in Carthesian coordinates", ray_segment(1)%x_vec, &
               ray_segment(1)%N_vec
             stop "Error when finding first point in plasma in mod_raytrace.f90"
+          else
+            rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%contributes = .false.
+            if(output_level) print*, "Warning a ray did not pass through the vessel"
           end if
           if(last_N >= max_points_svec) then
             print*, "WARNING a ray did not reach the plasma wall"
@@ -4018,7 +4084,7 @@ function func_dA_dY(X, Y)
           end if
           if( wall_hits < 2) then
             debug_level = 1
-            call find_first_point_in_plasma(plasma_params, omega, mode, ray_segment, last_N, wall_hits, total_reflection)
+            call find_first_point_in_plasma(plasma_params, omega, mode, ray_segment, last_N, wall_hits, LOS_end)
             N_init = last_N
             call make_ray_segment(20.d0, plasma_params, omega, mode, ray_segment, last_N, wall_hits, N_init)
             print*, "Ray in span_svecs did not end at a wall"
@@ -4106,13 +4172,13 @@ function func_dA_dY(X, Y)
                !print*, b-a,dist(grid_size), rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%svec(i + plasma_params%int_step_cnt - 1)%s - &
                !         rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%svec(i)%s
             i = i + plasma_params%int_step_cnt
-          end do
+          end do! ifreq
           rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%total_LOS_points = i - 1
         end do !ir
         do ir=1, N_ray
-          if(.not. (rad%diag(idiag)%ch(ich)%mode(imode)%ray(1)%freq(ifreq)%use_external_pol_coeff .and. &
-             rad%diag(idiag)%ch(ich)%mode(imode)%ray(1)%freq(ifreq)%pol_coeff == 0.d0)) then
-            ifreq = 1
+          ifreq = 1
+          if(.not. (rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%use_external_pol_coeff .and. &
+             rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%pol_coeff == 0.d0)) then
             !print*, "Found wall at", rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%svec(i - 1)%R
             ! prepare section of LOS that lies in the vacuum between antenna and plasma
   !          rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%svec(1:i - 1)%plasma = .true. ! in plasma
@@ -4495,7 +4561,7 @@ function func_dA_dY(X, Y)
   character(200)                                                :: cur_filename
   character(12)                                                 :: ich_tot_str
   integer(ikind)                                                :: wall_hits
-  logical                                                       :: total_reflection
+  logical                                                       :: LOS_end
   if(output_level) then
     if(.not. straight) then
       print*, "Preparing LOS including refraction - this will take a moment"
@@ -4533,17 +4599,17 @@ function func_dA_dY(X, Y)
           rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%rhop_res = 0.d0
           ray_segment(1)%x_vec = ant%diag(idiag)%ch(ich)%ray_launch(ir)%x_vec ! get launching position
           ray_segment(1)%N_vec = ant%diag(idiag)%ch(ich)%ray_launch(ir)%N_vec ! get launching angles
-          call find_first_point_in_plasma(plasma_params, omega, mode, ray_segment, last_N, wall_hits, total_reflection)
-          if(total_reflection) wall_hits = 2
+          call find_first_point_in_plasma(plasma_params, omega, mode, ray_segment, last_N, wall_hits, LOS_end)
+          if(LOS_end) wall_hits = 2
           N_init = last_N
           !print*, "vessel", last_N
           !ray_segment(1) = ray_segment(last_N - 1) ! redo a bit of the ray to make sure the ray segment also covers the point a
           if(debug_level > 0 .and. output_level) then
             print*, "First point in plasma",ray_segment(last_N)%R_vec
           end if
-          if(last_N  + 1 <= max_points_svec .and. .not. total_reflection) then
+          if(last_N  + 1 <= max_points_svec .and. .not. LOS_end) then
             call make_ray_segment(20.d0, plasma_params, omega, mode, ray_segment, last_N, wall_hits, N_init)
-          else if(.not. total_reflection) then
+          else if(.not. LOS_end) then
             print*,"Ray reached maximum length when searching for first point in vessel"
             print*, "Most likely something is very wrong the launching geometry of the diagnostic"
             print*, "Current diagnostic", ant%diag(idiag)%diag_name
@@ -4558,7 +4624,7 @@ function func_dA_dY(X, Y)
           end if
           if( wall_hits < 2) then
             debug_level = 1
-            call find_first_point_in_plasma(plasma_params, omega, mode, ray_segment, last_N, wall_hits, total_reflection)
+            call find_first_point_in_plasma(plasma_params, omega, mode, ray_segment, last_N, wall_hits, LOS_end)
             N_init = last_N
             call make_ray_segment(20.d0, plasma_params, omega, mode, ray_segment, last_N, wall_hits, N_init)
             print*, "Ray in span_svecs did not end at a wall"

@@ -237,8 +237,6 @@ character(250)                          :: filename
   deallocate(rhop, n_e, T_e, par, par_ne, par_scal, ne_test)
 end subroutine simulate_ida
 #endif
-
-
 subroutine initialize_stand_alone(working_dir, flag)
 ! Simulates the structure used in IDA
 ! While in the stand alone make_ece_rad_temp is only called once it is called many times in IDA
@@ -246,10 +244,10 @@ subroutine initialize_stand_alone(working_dir, flag)
 use mod_ecfm_refr_types,        only: dstf, dst_data_folder, Ich_name, ray_out_folder, output_level, data_name, modes, &
                                       dstf_comp, plasma_params, OERT, N_ray, N_freq, warm_plasma, data_secondary_name, &
                                       rad, ant, data_folder, Ich_name, dstf_comp, straight, stand_alone, ffp, N_absz, &
-                                      N_absz_large
+                                      N_absz_large, reflec_model
 use mod_ecfm_refr_utils,      only: read_input_file, prepare_ECE_diag, &
                                     import_all_ece_data, make_ecfm_LOS_grid, &
-                                    init_non_therm
+                                    init_non_therm, read_wall_Trad
 use mod_ecfm_refr_raytrace_initialize,    only: init_raytrace
 use mod_ecfm_refr_raytrace,               only: span_svecs, create_svec_splines, find_cold_resonance
 use mod_ecfm_refr_em_Hu,                  only: radiation_gauss_init,radiation_gauss_clean_up
@@ -403,6 +401,7 @@ integer(ikind)                :: idiag, ich
       ray_out_folder = trim(working_dir) // "ecfm_data/" // "ray/"
       call init_raytrace(plasma_params)
       call init_non_therm() ! Reads input data for non-thermal distributions
+      if(reflec_model == 2) call read_wall_Trad()
       if(output_level) then
         print*, "----- Options for raytracing ------"
         print*, "Force straight lines of sight: ", straight
@@ -451,8 +450,6 @@ end subroutine initialize_stand_alone
 #ifdef IDA
 subroutine pre_initialize_ecfm(working_dir_in, parallelization_mode, f, df, R, phi, z, tor, pol, dist foc, width)
 ! Everything that is absolutely static in time is done over here
-
-use ece_types,                  only: ece_type
 use mod_ecfm_refr_types,        only: dstf, dst_data_folder, Ich_name, ray_out_folder, output_level, &
                                       dstf_comp, plasma_params, OERT, N_ray, N_freq, ray_init, working_dir, &
                                       rad, ant, data_folder, Ich_name, dstf_comp, straight, stand_alone
@@ -462,7 +459,6 @@ use mod_ecfm_refr_utils,      only: parse_ecfm_settings_from_ida, load_ECE_diag_
 use mod_ecfm_refr_em_Hu,                  only: radiation_gauss_init,radiation_gauss_clean_up
 use mod_ecfm_refr_abs_Al,                only: abs_Al_init,abs_Al_clean_up
 use mod_ecfm_refr_raytrace,               only: dealloc_rad
-use ida_types,                  only:ida_type
 implicit none
 character(*), intent(in)      :: working_dir_in, flag
 integer(ikind), intent(in), optional  :: parallelization_mode
@@ -490,11 +486,13 @@ if(trim(flag) == "init" .or. trim(flag) == "load") then
       print*, "pre_initialize_ecfm must be called with ece_strut present if flag == init"
       call abort()
     end if
-    call prepare_ECE_diag(working_dir=working_dir, f, df, R, phi, z, tor, pol, dist foc, width)
-    ! parses info from info then creates an input file
+    call prepare_ECE_diag(working_dir=working_dir, f=f, df=df, R=R, &	
+    					  phi=phi, z=z, tor=tor, pol=pol, dist foc=dist_foc, &
+    					  width=width)
+    ! parses diag info then creates two input files
   else
     call load_ECE_diag_data(ant, rad)
-    ! load the file the routine 4 lines above creates
+    ! load the files the routine 4 lines above creates
   end if
 else if(trim(flag) == "clean") then
   !TODO: Implement clean up routine
@@ -613,7 +611,8 @@ end if
 !print*, "resonances from raytracing", rhop
 end subroutine make_rays_ecfm
 
-subroutine make_dat_model_ece_ecfm_refr(par, par_ne, par_scal, reflec_X_new, reflec_O_new, ece_fm_flag_ch, rp_min, &
+subroutine make_dat_model_ece_ecfm_refr(par, par_ne, par_scal, reflec_X_new, & ! in
+                                        reflec_O_new, ece_fm_flag_ch, rp_min, &
                                         dat_model_ece, set_grid_dynamic)
 use mod_ecfm_refr_types,        only: reflec_X, reflec_O, plasma_params, rad, ant, ray_init, static_grid
 use mod_ecfm_refr_utils,               only: retrieve_T_e, make_ece_rhopol_scal_te, make_ece_rhopol_scal_ne
@@ -816,7 +815,8 @@ end subroutine update_svecs
 
 subroutine make_ece_rad_temp()
 use mod_ecfm_refr_types,        only: dstf, reflec_X, reflec_O, OERT, mode_cnt, modes, N_ray, N_freq, plasma_params, use_maximum_for_warm_res, &
-                                      rad, ant, data_folder, output_level, Ich_name, dstf_comp, max_points_svec, mode_conv
+                                      rad, ant, data_folder, output_level, Ich_name, dstf_comp, max_points_svec, mode_conv, reflec_equ, reflec_model, &
+                                      vessel_plasma_ratio
 use mod_ecfm_refr_rad_transp,   only: calculate_Trad, calculate_Trad_LSODE
 use constants,                  only: e0, c0, pi
 use mod_ecfm_refr_utils,        only: binary_search, bin_ray_BPD_to_common_rhop, make_warm_res_mode, bin_freq_to_ray
@@ -864,24 +864,24 @@ do idiag = 1, ant%N_diag
       if(rad%diag(idiag)%ch(ich)%mode(imode)%ray(1)%freq(1)%use_external_pol_coeff .and. &
          rad%diag(idiag)%ch(ich)%mode(imode)%ray(1)%freq(1)%pol_coeff == 0.d0) then
          rad%diag(idiag)%ch(ich)%mode(imode)%pol_coeff = 0.d0
-         rad%diag(idiag)%ch(ich)%mode(imode)%X_refl = 0.d0
          if(output_level) rad%diag(idiag)%ch(ich)%mode(imode)%pol_coeff_secondary = 0.d0
-         if(output_level) rad%diag(idiag)%ch(ich)%mode(imode)%X_refl_secondary = 0.d0
          cycle
-      else if(mode_cnt == 2) then
+      else if(mode_cnt == 2 .and. .not. rad%diag(idiag)%ch(ich)%mode(imode)%ray(1)%freq(1)%use_external_pol_coeff) then
         rad%diag(idiag)%ch(ich)%mode(imode)%pol_coeff = 0.d0
         rad%diag(idiag)%ch(ich)%mode(imode)%pol_coeff_secondary = 0.d0
-        rad%diag(idiag)%ch(ich)%mode(imode)%X_refl = 0.d0
-        if(output_level) rad%diag(idiag)%ch(ich)%mode(imode)%X_refl_secondary = 0.d0
+      else if(mode_cnt == 2 .and. rad%diag(idiag)%ch(ich)%mode(imode)%ray(1)%freq(1)%use_external_pol_coeff) then
+        rad%diag(idiag)%ch(ich)%mode(imode)%pol_coeff = rad%diag(idiag)%ch(ich)%mode(imode)%ray(1)%freq(1)%pol_coeff
+        rad%diag(idiag)%ch(ich)%mode(imode)%pol_coeff_secondary = rad%diag(idiag)%ch(ich)%mode(imode)%ray(1)%freq(1)%pol_coeff_secondary
       end if
       do ir = 1, N_ray
+        if(.not. rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%contributes) cycle
         rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%Trad = 0.d0
         if(output_level) rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%Trad_secondary = 0.d0
         rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%tau = 0.d0
         if(output_level) rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%tau_secondary = 0.d0
         do ifreq = 1, N_freq
-          if(rad%diag(idiag)%ch(ich)%mode(imode)%ray(1)%freq(1)%use_external_pol_coeff .and. &
-             rad%diag(idiag)%ch(ich)%mode(imode)%ray(1)%freq(1)%pol_coeff == 0.d0) then
+          if(rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%use_external_pol_coeff .and. &
+             rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%pol_coeff == 0.d0) then
              cycle
           end if
           error = 1
@@ -889,8 +889,43 @@ do idiag = 1, ant%N_diag
           ds_small = plasma_params%dist_small
           do while(error > 0)
             ! initialization
-            rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%Trad =  0.d0
-            if(output_level) rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%Trad_secondary  =  0.d0
+            if(reflec_model /= 2) then
+              rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%Trad =  0.d0
+              if(output_level) rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%Trad_secondary =  0.d0
+            else
+              if(ant%diag(idiag)%ch(ich)%freq(ifreq) < reflec_equ%f_min .or. &
+                 ant%diag(idiag)%ch(ich)%freq(ifreq) > reflec_equ%f_max) then
+                 print*, "Wall plasma equilibrium wall reflection model selected (reflec_model = 1)"
+                 print*, "ECE frequency not in range of f_min < f_ECE < f_max"
+                 print*, "Extent wall_Trad.dat with the appropriate frequencies"
+                 call abort()
+              end if
+              if(rad%diag(idiag)%ch(ich)%mode(imode)%mode == 1) then
+#ifdef NAG
+                call spline_1d(reflec_equ%X_Trad_equ_spl, &
+                               rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%freq, &
+                               rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%Trad, &
+                               nag_spline = reflec_equ%X_Trad_equ_spl_nag)
+#else
+                call spline_1d(reflec_equ%X_Trad_equ_spl, &
+                               ant%diag(idiag)%ch(ich)%freq(ifreq), &
+                               rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%Trad)
+#endif
+              else
+#ifdef NAG
+                call spline_1d(reflec_equ%O_Trad_equ_spl, &
+                               rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%freq, &
+                               rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%Trad, &
+                               nag_spline = reflec_equ%O_Trad_equ_spl_nag)
+#else
+                call spline_1d(reflec_equ%O_Trad_equ_spl, &
+                               ant%diag(idiag)%ch(ich)%freq(ifreq), &
+                               rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%Trad)
+#endif
+              end if
+              if(output_level) rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%Trad_secondary =  &
+                                rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%Trad
+            end if
             rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%tau =  0.d0
             if(output_level) rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%tau_secondary  =  0.d0
             if(OERT .and. plasma_params%on_the_fly_raytracing) then
@@ -963,41 +998,104 @@ do idiag = 1, ant%N_diag
               end if
             end if
           end do
-          if(mode_cnt == 2) rad%diag(idiag)%ch(ich)%mode(imode)%pol_coeff = rad%diag(idiag)%ch(ich)%mode(imode)%pol_coeff + &
+          if(mode_cnt == 2 .and. rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%contributes .and. .not. &
+             rad%diag(idiag)%ch(ich)%mode(imode)%ray(1)%freq(1)%use_external_pol_coeff) rad%diag(idiag)%ch(ich)%mode(imode)%pol_coeff = rad%diag(idiag)%ch(ich)%mode(imode)%pol_coeff + &
             rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%pol_coeff * ant%diag(idiag)%ch(ich)%freq_weight(ifreq) * &
             ant%diag(idiag)%ch(ich)%ray_launch(ir)%weight
-          if(mode_cnt == 2 .and. output_level) rad%diag(idiag)%ch(ich)%mode(imode)%pol_coeff_secondary = rad%diag(idiag)%ch(ich)%mode(imode)%pol_coeff_secondary + &
+          if(mode_cnt == 2 .and. output_level .and. rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%contributes .and.  .not. &
+             rad%diag(idiag)%ch(ich)%mode(imode)%ray(1)%freq(1)%use_external_pol_coeff) rad%diag(idiag)%ch(ich)%mode(imode)%pol_coeff_secondary = rad%diag(idiag)%ch(ich)%mode(imode)%pol_coeff_secondary + &
             rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%pol_coeff_secondary * ant%diag(idiag)%ch(ich)%freq_weight(ifreq) * &
             ant%diag(idiag)%ch(ich)%ray_launch(ir)%weight
           if(output_level) then
           ! Consider reflections ONLY if tau < tau_max  .and. rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%tau_secondary < plasma_params%tau_max
           ! This only works if there is no mode conversion !!
-            if(rad%diag(idiag)%ch(ich)%mode(imode)%mode == -1  .and. reflec_O /= 0.d0) then
-              ! Reflection from O to X
-              rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%X_refl = 0.d0
-              if(mode_cnt == 2.and. mode_conv > 0.d0) rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%X_refl_secondary = &
-                rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%Trad_secondary * (1.d0 /  &
-                                        (1.d0 - reflec_O * exp(-rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%tau_secondary))  - 1.d0) * mode_conv
-              ! Reflection from O to X
-              rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%Trad_secondary = rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%Trad_secondary * (1.d0 /  &
-                    (1.d0 - reflec_O * exp(-rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%tau_secondary))) * (1.d0 - mode_conv)
-            else if(rad%diag(idiag)%ch(ich)%mode(imode)%mode == 1  .and. reflec_X /= 0.d0) then
-              rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%Trad_secondary = rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%Trad_secondary * ( 1.d0 / &
-                                      (1.d0 - reflec_X * exp(-rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%tau_secondary)))
-            end if
+            if(reflec_model == 0) then
+              if(rad%diag(idiag)%ch(ich)%mode(imode)%mode == -1  .and. reflec_O /= 0.d0) then
+                rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%Trad_secondary = rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%Trad_secondary * (1.d0 /  &
+                      (1.d0 - reflec_O * exp(-rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%tau_secondary)))
+              else if(rad%diag(idiag)%ch(ich)%mode(imode)%mode == 1  .and. reflec_X /= 0.d0) then
+                rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%Trad_secondary = rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%Trad_secondary * ( 1.d0 / &
+                                        (1.d0 - reflec_X * exp(-rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%tau_secondary)))
+              end if
+            else if(reflec_model == 1) then
+              if(mode_cnt == 2 .and. mode_conv > 0.d0 .and. imode == mode_cnt) then
+                ! In case of mode conversion we can only hande reflections once Trad of both modes is known.
+                ! First just the terms without mode conversion
+                ! Careful this assumes imode  = 1 -> X-mode, imode = 2 -> O-mode
+                ! X-mode
+                I_X = rad%diag(idiag)%ch(ich)%mode(1)%ray(ir)%freq(ifreq)%Trad_secondary
+                I_O = rad%diag(idiag)%ch(ich)%mode(2)%ray(ir)%freq(ifreq)%Trad_secondary
+                T_X = exp(-rad%diag(idiag)%ch(ich)%mode(1)%ray(ir)%freq(ifreq)%tau_secondary)
+                T_O = exp(-rad%diag(idiag)%ch(ich)%mode(2)%ray(ir)%freq(ifreq)%tau_secondary)
+                I0_X =  -((I_O*mode_conv + I_X*(1.d0 + vessel_plasma_ratio - reflec_O - T_O)) / &
+                         (mode_conv**2 - (-1.d0 - vessel_plasma_ratio + reflec_O + T_O)*(-1.d0 - vessel_plasma_ratio + reflec_X + T_X)))
+                I0_O = -((I_O + vessel_plasma_ratio*I_O + I_X*mode_conv - I_O*reflec_X - I_O*T_X) / &
+                        (-1.d0 - 2*vessel_plasma_ratio - vessel_plasma_ratio**2 + reflec_O + vessel_plasma_ratio*reflec_O + &
+                        mode_conv**2 + reflec_X + vessel_plasma_ratio*reflec_X - reflec_O*reflec_X + &
+                        T_O + vessel_plasma_ratio*T_O - reflec_X*T_O + T_X + vessel_plasma_ratio*T_X - reflec_O*T_X - T_O*T_X))
+                rad%diag(idiag)%ch(ich)%mode(1)%ray(ir)%freq(ifreq)%Trad_secondary = &
+                  rad%diag(idiag)%ch(ich)%mode(1)%ray(ir)%freq(ifreq)%Trad_secondary + I0_X * T_X
+                rad%diag(idiag)%ch(ich)%mode(2)%ray(ir)%freq(ifreq)%Trad_secondary = &
+                  rad%diag(idiag)%ch(ich)%mode(2)%ray(ir)%freq(ifreq)%Trad_secondary + I0_O * T_O
+              else if(mode_cnt == 1 .or. mode_conv <= 0.d0) then ! Only go here if not both modes considered
+              ! No mode conversion -> both modes independent of each other
+                if(rad%diag(idiag)%ch(ich)%mode(imode)%mode == -1 .and. reflec_O > 0) then ! O-mode
+                  rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%Trad_secondary = &
+                    rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%Trad_secondary * &
+                    (1.d0 + exp(-rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%tau_secondary) / &
+                    (1.d0 + vessel_plasma_ratio * (1.d0 - reflec_O) - exp(-rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%tau_secondary)))
+                else if(rad%diag(idiag)%ch(ich)%mode(imode)%mode == 1 .and. reflec_X > 0) then ! X-mode
+                  rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%Trad_secondary = &
+                    rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%Trad_secondary * &
+                    (1.d0 + exp(-rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%tau_secondary) / &
+                    (1.d0 + vessel_plasma_ratio * (1.d0 - reflec_X) - exp(-rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%tau_secondary)))
+                end if
+              end if
+            endif
           end if
-          if(rad%diag(idiag)%ch(ich)%mode(imode)%mode == -1  .and. reflec_O /= 0.d0) then
-            ! Reflection from O to X
-            rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%X_refl = 0.d0
-            if(mode_cnt == 2.and. mode_conv > 0.d0) rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%X_refl = &
-              rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%Trad * (1.d0 /  &
-                                      (1.d0 - reflec_O * exp(-rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%tau))  - 1.d0) * mode_conv
-            ! Reflection from O to X
-            rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%Trad = rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%Trad * (1.d0 /  &
-                  (1.d0 - reflec_O * exp(-rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%tau))) * (1.d0 - mode_conv)
-          else if(rad%diag(idiag)%ch(ich)%mode(imode)%mode == 1  .and. reflec_X /= 0.d0) then
-            rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%Trad = rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%Trad * ( 1.d0 / &
-                                    (1.d0 - reflec_X * exp(-rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%tau)))
+          if(reflec_model == 0) then
+          ! Mode conversion
+            if(rad%diag(idiag)%ch(ich)%mode(imode)%mode == -1  .and. reflec_O /= 0.d0) then
+              rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%Trad = rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%Trad * (1.d0 /  &
+                    (1.d0 - reflec_O * exp(-rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%tau)))
+            else if(rad%diag(idiag)%ch(ich)%mode(imode)%mode == 1  .and. reflec_X /= 0.d0) then
+              rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%Trad = rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%Trad * ( 1.d0 / &
+                                      (1.d0 - reflec_X * exp(-rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%tau)))
+            end if
+          else if(reflec_model == 1) then
+            if(mode_cnt == 2 .and. mode_conv > 0.d0 .and. imode == mode_cnt) then
+              ! In case of mode conversion we can only hande reflections once Trad of both modes is known.
+              ! First just the terms without mode conversion
+              ! Careful this assumes imode  = 1 -> X-mode, imode = 2 -> O-mode
+              ! X-mode
+              I_X = rad%diag(idiag)%ch(ich)%mode(1)%ray(ir)%freq(ifreq)%Trad
+              I_O = rad%diag(idiag)%ch(ich)%mode(2)%ray(ir)%freq(ifreq)%Trad
+              T_X = exp(-rad%diag(idiag)%ch(ich)%mode(1)%ray(ir)%freq(ifreq)%tau)
+              T_O = exp(-rad%diag(idiag)%ch(ich)%mode(2)%ray(ir)%freq(ifreq)%tau)
+              I0_X =  -((I_O*mode_conv + I_X*(1.d0 + vessel_plasma_ratio - reflec_O - T_O)) / &
+                       (mode_conv**2 - (-1.d0 - vessel_plasma_ratio + reflec_O + T_O)*(-1.d0 - vessel_plasma_ratio + reflec_X + T_X)))
+              I0_O = -((I_O + vessel_plasma_ratio*I_O + I_X*mode_conv - I_O*reflec_X - I_O*T_X) / &
+                      (-1.d0 - 2*vessel_plasma_ratio - vessel_plasma_ratio**2 + reflec_O + vessel_plasma_ratio*reflec_O + &
+                      mode_conv**2 + reflec_X + vessel_plasma_ratio*reflec_X - reflec_O*reflec_X + &
+                      T_O + vessel_plasma_ratio*T_O - reflec_X*T_O + T_X + vessel_plasma_ratio*T_X - reflec_O*T_X - T_O*T_X))
+              rad%diag(idiag)%ch(ich)%mode(1)%ray(ir)%freq(ifreq)%Trad = &
+                rad%diag(idiag)%ch(ich)%mode(1)%ray(ir)%freq(ifreq)%Trad + I0_X * T_X
+              rad%diag(idiag)%ch(ich)%mode(2)%ray(ir)%freq(ifreq)%Trad = &
+                rad%diag(idiag)%ch(ich)%mode(2)%ray(ir)%freq(ifreq)%Trad + I0_O * T_O
+            else if(mode_cnt == 1 .or. mode_conv <= 0.d0) then ! Only go here if not both modes considered
+            ! No mode conversion -> both modes independent of each other
+              if(rad%diag(idiag)%ch(ich)%mode(imode)%mode == -1 .and. reflec_O > 0) then ! O-mode
+                rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%Trad = &
+                  rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%Trad * &
+                  (1.d0 + exp(-rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%tau) / &
+                  (1.d0 + vessel_plasma_ratio - reflec_O - exp(-rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%tau)))
+              else if(rad%diag(idiag)%ch(ich)%mode(imode)%mode == 1 .and. reflec_X > 0) then ! X-mode
+                rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%Trad = &
+                  rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%Trad * &
+                  (1.d0 + exp(-rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%tau)  / &
+                  (1.d0 + vessel_plasma_ratio - reflec_X - exp(-rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%tau)))
+              end if
+            end if
           end if
 !          print*, "Frequency ", ifreq, "of ", N_freq, " finished - rho", rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%rhop_res
 !          print*, "Ray rho", rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%rhop_res
@@ -1010,35 +1108,19 @@ do idiag = 1, ant%N_diag
 !           print*, "Trad freq", rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%Trad
 !           print*, "Trad ray in code", rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%Trad
         end do !ifreq
-        do ifreq = 1, N_freq
-          if(mode_cnt == 2 .and. rad%diag(idiag)%ch(ich)%mode(imode)%mode == -1) &
-            rad%diag(idiag)%ch(ich)%mode(imode)%X_refl = rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%X_refl + &
-            rad%diag(idiag)%ch(ich)%mode(imode)%X_refl * ant%diag(idiag)%ch(ich)%ray_launch(ir)%weight * &
-            ant%diag(idiag)%ch(ich)%freq_weight(ifreq)
-          if(output_level) then
-            if(mode_cnt == 2 .and. rad%diag(idiag)%ch(ich)%mode(imode)%mode == -1) then
-              rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%X_refl_secondary = rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%X_refl_secondary + &
-              rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%X_refl_secondary * ant%diag(idiag)%ch(ich)%ray_launch(ir)%weight * &
-              ant%diag(idiag)%ch(ich)%freq_weight(ifreq)
-            end if
-          end if
-          rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%Trad = rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%Trad + &
-              ant%diag(idiag)%ch(ich)%freq_weight(ifreq) * rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%Trad
-          if(output_level) rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%Trad_secondary = rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%Trad_secondary + &
-            ant%diag(idiag)%ch(ich)%freq_weight(ifreq) * rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%Trad_secondary
-          rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%tau = rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%tau + &
-            ant%diag(idiag)%ch(ich)%freq_weight(ifreq) * rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%tau
-          if(output_level) rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%tau_secondary = rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%tau_secondary + &
-            ant%diag(idiag)%ch(ich)%freq_weight(ifreq) * rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%tau_secondary
-        end do ! ifreq
-        rad%diag(idiag)%ch(ich)%mode(imode)%Trad = rad%diag(idiag)%ch(ich)%mode(imode)%Trad + &
-          ant%diag(idiag)%ch(ich)%ray_launch(ir)%weight * rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%Trad
-        if(output_level) rad%diag(idiag)%ch(ich)%mode(imode)%Trad_secondary = rad%diag(idiag)%ch(ich)%mode(imode)%Trad_secondary + &
-          ant%diag(idiag)%ch(ich)%ray_launch(ir)%weight * rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%Trad_secondary
-        rad%diag(idiag)%ch(ich)%mode(imode)%tau = rad%diag(idiag)%ch(ich)%mode(imode)%tau + &
-          ant%diag(idiag)%ch(ich)%ray_launch(ir)%weight * rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%tau
-        if(output_level) rad%diag(idiag)%ch(ich)%mode(imode)%tau_secondary = rad%diag(idiag)%ch(ich)%mode(imode)%tau_secondary + &
-          ant%diag(idiag)%ch(ich)%ray_launch(ir)%weight * rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%tau_secondary
+!        do ifreq = 1, N_freq
+!          if(mode_cnt == 2 .and. rad%diag(idiag)%ch(ich)%mode(imode)%mode == -1 .and. rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%contributes) &
+!            rad%diag(idiag)%ch(ich)%mode(imode)%X_refl = rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%X_refl + &
+!            rad%diag(idiag)%ch(ich)%mode(imode)%X_refl * ant%diag(idiag)%ch(ich)%ray_launch(ir)%weight * &
+!            ant%diag(idiag)%ch(ich)%freq_weight(ifreq)
+!          if(output_level) then
+!            if(mode_cnt == 2 .and. rad%diag(idiag)%ch(ich)%mode(imode)%mode == -1 .and. rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%contributes  ) then
+!              rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%X_refl_secondary = rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%X_refl_secondary + &
+!              rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%X_refl_secondary * ant%diag(idiag)%ch(ich)%ray_launch(ir)%weight * &
+!              ant%diag(idiag)%ch(ich)%freq_weight(ifreq)
+!            end if
+!          end if
+!        end do! ifreq
 !        print*, "Weight", ant%diag(idiag)%ch(ich)%ray_launch(ir)%weight
 !        print*, "Trad ray", rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%Trad
 !       print*, "average Trad per ray and total Trad", sum(rad%diag(idiag)%ch(ich)%mode(imode)%ray(:)%Trad) / &
@@ -1059,81 +1141,127 @@ do idiag = 1, ant%N_diag
     do imode = 1, mode_cnt
       if(rad%diag(idiag)%ch(ich)%mode(imode)%ray(1)%freq(1)%use_external_pol_coeff .and. &
          rad%diag(idiag)%ch(ich)%mode(imode)%ray(1)%freq(1)%pol_coeff == 0.d0) cycle
-      if(mode_cnt == 2) then
-        !print*, "pol_coeff w.o. norm, norm", rad%diag(idiag)%ch(ich)%mode(imode)%pol_coeff,  pol_coeff_norm
-!        rad%diag(idiag)%ch(ich)%mode(imode)%pol_coeff = rad%diag(idiag)%ch(ich)%mode(imode)%pol_coeff / rad%diag(idiag)%ch(ich)%pol_coeff_norm
-        !print*, "Considered polarization filter", rad%diag(idiag)%ch(ich)%mode(imode)%pol_coeff
-        rad%diag(idiag)%ch(ich)%Trad = rad%diag(idiag)%ch(ich)%Trad + &
-          rad%diag(idiag)%ch(ich)%mode(imode)%pol_coeff * rad%diag(idiag)%ch(ich)%mode(imode)%Trad ! consider polarization filter
-        if(rad%diag(idiag)%ch(ich)%mode(imode)%mode == -1) then
-        ! Add also the amount of mode converted radiation
+      do ir = 1, N_ray
+        if(.not. rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%contributes) cycle
+        do ifreq = 1, N_freq
+        ! This Trad is to indicate the contribution of the individual modes
+          rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%Trad = rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%Trad + &
+            ant%diag(idiag)%ch(ich)%freq_weight(ifreq) * rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%Trad
+          if(output_level) rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%Trad_secondary = rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%Trad_secondary + &
+              ant%diag(idiag)%ch(ich)%freq_weight(ifreq) * rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%Trad_secondary
+          rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%tau = rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%tau + &
+            ant%diag(idiag)%ch(ich)%freq_weight(ifreq) * rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%tau
+          if(output_level) rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%tau_secondary = rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%tau_secondary + &
+            ant%diag(idiag)%ch(ich)%freq_weight(ifreq) * rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%tau_secondary
+          ! This Trad is the combination of both modes
           rad%diag(idiag)%ch(ich)%Trad = rad%diag(idiag)%ch(ich)%Trad + &
-                                         rad%diag(idiag)%ch(ich)%mode(1)%pol_coeff * &
-                                         rad%diag(idiag)%ch(ich)%mode(imode)%X_refl
-        end if
-        if(output_level) then
-          !print*, "pol_coeff_secondary w.o. norm, norm", rad%diag(idiag)%ch(ich)%mode(imode)%pol_coeff_secondary,  pol_coeff_secondary_norm
-          rad%diag(idiag)%ch(ich)%Trad_secondary = rad%diag(idiag)%ch(ich)%Trad_secondary + &
-            rad%diag(idiag)%ch(ich)%mode(imode)%pol_coeff_secondary * rad%diag(idiag)%ch(ich)%mode(imode)%Trad_secondary
-          if(rad%diag(idiag)%ch(ich)%mode(imode)%mode == -1) then
-          ! Add portion of O-mode that was converted to X-mode
-            rad%diag(idiag)%ch(ich)%Trad_secondary = rad%diag(idiag)%ch(ich)%Trad_secondary + &
-            rad%diag(idiag)%ch(ich)%mode(1)%pol_coeff_secondary * rad%diag(idiag)%ch(ich)%mode(imode)%X_refl_secondary
-          end if
-        end if
-        rad%diag(idiag)%ch(ich)%tau = rad%diag(idiag)%ch(ich)%tau + &
-          rad%diag(idiag)%ch(ich)%mode(imode)%pol_coeff * rad%diag(idiag)%ch(ich)%mode(imode)%tau
-        if(output_level) rad%diag(idiag)%ch(ich)%tau_secondary = rad%diag(idiag)%ch(ich)%tau_secondary + &
-          rad%diag(idiag)%ch(ich)%mode(imode)%pol_coeff_secondary * rad%diag(idiag)%ch(ich)%mode(imode)%tau_secondary
-      else
-        rad%diag(idiag)%ch(ich)%Trad = rad%diag(idiag)%ch(ich)%mode(imode)%Trad ! do not consider polarization filter
-        if(output_level) rad%diag(idiag)%ch(ich)%Trad_secondary = rad%diag(idiag)%ch(ich)%mode(imode)%Trad_secondary
-        rad%diag(idiag)%ch(ich)%tau = rad%diag(idiag)%ch(ich)%mode(imode)%tau
-        if(output_level) rad%diag(idiag)%ch(ich)%tau_secondary = rad%diag(idiag)%ch(ich)%mode(imode)%tau_secondary
+                rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%pol_coeff * ant%diag(idiag)%ch(ich)%freq_weight(ifreq) * &
+                ant%diag(idiag)%ch(ich)%ray_launch(ir)%weight * rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%Trad
+          if(output_level) rad%diag(idiag)%ch(ich)%Trad_secondary = rad%diag(idiag)%ch(ich)%Trad_secondary + &
+            rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%pol_coeff_secondary * ant%diag(idiag)%ch(ich)%freq_weight(ifreq) * &
+            ant%diag(idiag)%ch(ich)%ray_launch(ir)%weight * rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%Trad_secondary
+        end do ! ifreq
+        rad%diag(idiag)%ch(ich)%mode(imode)%Trad = rad%diag(idiag)%ch(ich)%mode(imode)%Trad + &
+          ant%diag(idiag)%ch(ich)%ray_launch(ir)%weight * rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%Trad
+        if(output_level) rad%diag(idiag)%ch(ich)%mode(imode)%Trad_secondary = rad%diag(idiag)%ch(ich)%mode(imode)%Trad_secondary + &
+          ant%diag(idiag)%ch(ich)%ray_launch(ir)%weight * rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%Trad_secondary
+        rad%diag(idiag)%ch(ich)%mode(imode)%tau = rad%diag(idiag)%ch(ich)%mode(imode)%tau + &
+          ant%diag(idiag)%ch(ich)%ray_launch(ir)%weight * rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%tau
+        if(output_level) rad%diag(idiag)%ch(ich)%mode(imode)%tau_secondary = rad%diag(idiag)%ch(ich)%mode(imode)%tau_secondary + &
+          ant%diag(idiag)%ch(ich)%ray_launch(ir)%weight * rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%tau_secondary
+      end do !N_ray
+    end do !imode
+    if(mode_cnt == 2) then
+      if(mode_conv > 0.d0 .and. reflec_model == 0) then
+        ! O -> X mode conversion
+        ! Use average polarization coefficients to include mode conversion
+        ! Gain of X-mode
+          rad%diag(idiag)%ch(ich)%Trad = rad%diag(idiag)%ch(ich)%Trad + &
+            rad%diag(idiag)%ch(ich)%mode(1)%pol_coeff * mode_conv * rad%diag(idiag)%ch(ich)%mode(2)%Trad
+          if(output_level) rad%diag(idiag)%ch(ich)%Trad_secondary = rad%diag(idiag)%ch(ich)%Trad_secondary + &
+                           rad%diag(idiag)%ch(ich)%mode(1)%pol_coeff_secondary * mode_conv * rad%diag(idiag)%ch(ich)%mode(2)%Trad_secondary
+        ! Loss of O-mode
+          rad%diag(idiag)%ch(ich)%Trad = rad%diag(idiag)%ch(ich)%Trad - &
+            rad%diag(idiag)%ch(ich)%mode(2)%pol_coeff * mode_conv * rad%diag(idiag)%ch(ich)%mode(2)%Trad
+          if(output_level) rad%diag(idiag)%ch(ich)%Trad_secondary = rad%diag(idiag)%ch(ich)%Trad_secondary - &
+                           rad%diag(idiag)%ch(ich)%mode(2)%pol_coeff_secondary * mode_conv * rad%diag(idiag)%ch(ich)%mode(2)%Trad_secondary
       end if
-    end do !ich
-    if(mode_cnt == 2 .and. output_level) then
-      !if(rad%diag(idiag)%ch(ich)%mode(1)%pol_coeff + rad%diag(idiag)%ch(ich)%mode(2)%pol_coeff > 1.d0) then
-      !  print*, "WARNING!! Something went wrong with mode fraction in the primary model for channel:", ich
+      if(output_level) then
+        !if(rad%diag(idiag)%ch(ich)%mode(1)%pol_coeff + rad%diag(idiag)%ch(ich)%mode(2)%pol_coeff > 1.d0) then
+        !  print*, "WARNING!! Something went wrong with mode fraction in the primary model for channel:", ich
         print*, "X-mode fraction primary model", rad%diag(idiag)%ch(ich)%mode(1)%pol_coeff
         print*, "X-mode Trad including reflections primary model", rad%diag(idiag)%ch(ich)%mode(1)%Trad
         print*, "O-mode fraction primary model", rad%diag(idiag)%ch(ich)%mode(2)%pol_coeff
         print*, "O-mode Trad including reflections primary model", rad%diag(idiag)%ch(ich)%mode(2)%Trad
-      !end if
-      !if(rad%diag(idiag)%ch(ich)%mode(1)%pol_coeff_secondary + rad%diag(idiag)%ch(ich)%mode(2)%pol_coeff_secondary > 1.d0) then
-      !  print*, "WARNING!! Something went wrong with mode fraction in the secondary model for channel:", ich
-        print*, "X-mode fraction secondary model", rad%diag(idiag)%ch(ich)%mode(1)%pol_coeff_secondary
-        print*, "X-mode Trad including reflections secondary model", rad%diag(idiag)%ch(ich)%mode(1)%Trad_secondary
-        print*, "O-mode Trad including reflections secondary model", rad%diag(idiag)%ch(ich)%mode(2)%Trad_secondary
-        print*, "O-mode fraction secondary model", rad%diag(idiag)%ch(ich)%mode(2)%pol_coeff_secondary
-      !end if
+        !end if
+        !if(rad%diag(idiag)%ch(ich)%mode(1)%pol_coeff_secondary + rad%diag(idiag)%ch(ich)%mode(2)%pol_coeff_secondary > 1.d0) then
+        !  print*, "WARNING!! Something went wrong with mode fraction in the secondary model for channel:", ich
+          print*, "X-mode fraction secondary model", rad%diag(idiag)%ch(ich)%mode(1)%pol_coeff_secondary
+          print*, "X-mode Trad including reflections secondary model", rad%diag(idiag)%ch(ich)%mode(1)%Trad_secondary
+          print*, "O-mode Trad including reflections secondary model", rad%diag(idiag)%ch(ich)%mode(2)%Trad_secondary
+          print*, "O-mode fraction secondary model", rad%diag(idiag)%ch(ich)%mode(2)%pol_coeff_secondary
+        !end if
+      end if
     end if
     do imode = 1, mode_cnt
       if(mode_cnt == 2) then
+        if(rad%diag(idiag)%ch(ich)%Trad > 0.d0) then
+          rad%diag(idiag)%ch(ich)%mode(imode)%Trad_mode_frac = rad%diag(idiag)%ch(ich)%mode(imode)%Trad * &
+                           rad%diag(idiag)%ch(ich)%mode(imode)%pol_coeff / &
+                           rad%diag(idiag)%ch(ich)%Trad
+        else
+          rad%diag(idiag)%ch(ich)%mode(imode)%Trad_mode_frac = 0.d0 ! Because 0.d0 Trad means zero contribution of either mode
+        end if
+        if(rad%diag(idiag)%ch(ich)%Trad_secondary > 0.d0) then
+          rad%diag(idiag)%ch(ich)%mode(imode)%Trad_mode_frac_secondary = rad%diag(idiag)%ch(ich)%mode(imode)%Trad_secondary * &
+                           rad%diag(idiag)%ch(ich)%mode(imode)%pol_coeff_secondary / &
+                           rad%diag(idiag)%ch(ich)%Trad_secondary
+        else
+          rad%diag(idiag)%ch(ich)%mode(imode)%Trad_mode_frac_secondary = 0.d0 ! Because 0.d0 Trad means zero contribution of either mode
+        end if
+        ! Do not add optical depths directly -  rather add transmittances
+        rad%diag(idiag)%ch(ich)%tau = rad%diag(idiag)%ch(ich)%tau + &
+                                      exp(-rad%diag(idiag)%ch(ich)%mode(imode)%tau) * &
+                                      rad%diag(idiag)%ch(ich)%mode(imode)%Trad_mode_frac
+        if(output_level) rad%diag(idiag)%ch(ich)%tau_secondary = rad%diag(idiag)%ch(ich)%tau_secondary + &
+                                                                 exp(-rad%diag(idiag)%ch(ich)%mode(imode)%tau_secondary) * &
+                                                                 rad%diag(idiag)%ch(ich)%mode(imode)%Trad_mode_frac_secondary
         if(rad%diag(idiag)%ch(ich)%mode(imode)%s_res /= 0.d0) then
-          if(rad%diag(idiag)%ch(ich)%Trad > 0.d0) then
-            rad%diag(idiag)%ch(ich)%Trad_mode_frac = rad%diag(idiag)%ch(ich)%mode(imode)%Trad * &
-                             rad%diag(idiag)%ch(ich)%mode(imode)%pol_coeff / &
-                             rad%diag(idiag)%ch(ich)%Trad
-          else
-            rad%diag(idiag)%ch(ich)%Trad_mode_frac = 0.d0 ! Because 0.d0 Trad means zero contribution of either mode
-          end if
           rad%diag(idiag)%ch(ich)%s_res = rad%diag(idiag)%ch(ich)%s_res + &
-            rad%diag(idiag)%ch(ich)%mode(imode)%s_res * rad%diag(idiag)%ch(ich)%Trad_mode_frac
+            rad%diag(idiag)%ch(ich)%mode(imode)%s_res * rad%diag(idiag)%ch(ich)%mode(imode)%Trad_mode_frac
           rad%diag(idiag)%ch(ich)%R_res = rad%diag(idiag)%ch(ich)%R_res + &
-            rad%diag(idiag)%ch(ich)%mode(imode)%R_res * rad%diag(idiag)%ch(ich)%Trad_mode_frac
+            rad%diag(idiag)%ch(ich)%mode(imode)%R_res * rad%diag(idiag)%ch(ich)%mode(imode)%Trad_mode_frac
           rad%diag(idiag)%ch(ich)%z_res = rad%diag(idiag)%ch(ich)%z_res + &
-            rad%diag(idiag)%ch(ich)%mode(imode)%z_res * rad%diag(idiag)%ch(ich)%Trad_mode_frac
+            rad%diag(idiag)%ch(ich)%mode(imode)%z_res * rad%diag(idiag)%ch(ich)%mode(imode)%Trad_mode_frac
           rad%diag(idiag)%ch(ich)%rhop_res = rad%diag(idiag)%ch(ich)%rhop_res + &
-            rad%diag(idiag)%ch(ich)%mode(imode)%rhop_res * rad%diag(idiag)%ch(ich)%Trad_mode_frac
+            rad%diag(idiag)%ch(ich)%mode(imode)%rhop_res * rad%diag(idiag)%ch(ich)%mode(imode)%Trad_mode_frac
         end if
       else
+        rad%diag(idiag)%ch(ich)%Trad = rad%diag(idiag)%ch(ich)%mode(imode)%Trad
+        if(output_level) rad%diag(idiag)%ch(ich)%Trad_secondary = rad%diag(idiag)%ch(ich)%mode(imode)%Trad_secondary
+        rad%diag(idiag)%ch(ich)%tau = rad%diag(idiag)%ch(ich)%mode(imode)%tau
+        if(output_level) rad%diag(idiag)%ch(ich)%tau_secondary = rad%diag(idiag)%ch(ich)%mode(imode)%tau_secondary
         rad%diag(idiag)%ch(ich)%s_res = rad%diag(idiag)%ch(ich)%mode(imode)%s_res
         rad%diag(idiag)%ch(ich)%R_res = rad%diag(idiag)%ch(ich)%mode(imode)%R_res
         rad%diag(idiag)%ch(ich)%z_res = rad%diag(idiag)%ch(ich)%mode(imode)%z_res
         rad%diag(idiag)%ch(ich)%rhop_res = rad%diag(idiag)%ch(ich)%mode(imode)%rhop_res
       end if
-    end do
+    end do !imode
+    if(mode_cnt == 2) then
+    ! Transform back from transmittances to optical depths
+      if(output_level) then
+        if(rad%diag(idiag)%ch(ich)%Trad == 0.d0) then
+          rad%diag(idiag)%ch(ich)%tau_secondary = 0.d0
+        else
+          rad%diag(idiag)%ch(ich)%tau_secondary = -log(rad%diag(idiag)%ch(ich)%tau_secondary)
+        end if
+      end if
+      if(rad%diag(idiag)%ch(ich)%Trad == 0.d0) then
+        rad%diag(idiag)%ch(ich)%tau = 0.d0
+      else
+        rad%diag(idiag)%ch(ich)%tau = -log(rad%diag(idiag)%ch(ich)%tau)
+      end if
+    end if
     if(rad%diag(idiag)%ch(ich)%s_res == 0.d0) then
     ! if both X mode and O mode Trad are zero use primary mode cold resonance (either X or O)
       rad%diag(idiag)%ch(ich)%s_res = rad%diag(idiag)%ch(ich)%mode(1)%s_res
@@ -1197,36 +1325,22 @@ do idiag = 1, ant%N_diag
                                 ant%diag(idiag)%ch(ich)%f_ECE)
         if(mode_cnt == 2) then
         ! warm resonances are always unique for each mode
-          if(rad%diag(idiag)%ch(ich)%Trad > 0.d0) then
-            rad%diag(idiag)%ch(ich)%Trad_mode_frac = rad%diag(idiag)%ch(ich)%mode(imode)%Trad * &
-                             rad%diag(idiag)%ch(ich)%mode(imode)%pol_coeff / &
-                             rad%diag(idiag)%ch(ich)%Trad
-          else
-            rad%diag(idiag)%ch(ich)%Trad_mode_frac = 0.d0
-          end if
-          if(rad%diag(idiag)%ch(ich)%Trad_secondary > 0.d0) then
-            rad%diag(idiag)%ch(ich)%Trad_mode_frac_secondary = rad%diag(idiag)%ch(ich)%mode(imode)%Trad_secondary * &
-                                       rad%diag(idiag)%ch(ich)%mode(imode)%pol_coeff_secondary / &
-                                       rad%diag(idiag)%ch(ich)%Trad_secondary
-          else
-            rad%diag(idiag)%ch(ich)%Trad_mode_frac_secondary = 0.d0
-          end if
           rad%diag(idiag)%ch(ich)%rel_s_res = rad%diag(idiag)%ch(ich)%rel_s_res + &
-              rad%diag(idiag)%ch(ich)%mode(imode)%rel_s_res * rad%diag(idiag)%ch(ich)%Trad_mode_frac
+              rad%diag(idiag)%ch(ich)%mode(imode)%rel_s_res * rad%diag(idiag)%ch(ich)%mode(imode)%Trad_mode_frac
           rad%diag(idiag)%ch(ich)%rel_R_res = rad%diag(idiag)%ch(ich)%rel_R_res + &
-              rad%diag(idiag)%ch(ich)%mode(imode)%rel_R_res * rad%diag(idiag)%ch(ich)%Trad_mode_frac
+              rad%diag(idiag)%ch(ich)%mode(imode)%rel_R_res * rad%diag(idiag)%ch(ich)%mode(imode)%Trad_mode_frac
             rad%diag(idiag)%ch(ich)%rel_z_res = rad%diag(idiag)%ch(ich)%rel_z_res + &
-              rad%diag(idiag)%ch(ich)%mode(imode)%rel_z_res * rad%diag(idiag)%ch(ich)%Trad_mode_frac
+              rad%diag(idiag)%ch(ich)%mode(imode)%rel_z_res * rad%diag(idiag)%ch(ich)%mode(imode)%Trad_mode_frac
           rad%diag(idiag)%ch(ich)%rel_rhop_res = rad%diag(idiag)%ch(ich)%rel_rhop_res + &
-              rad%diag(idiag)%ch(ich)%mode(imode)%rel_rhop_res * rad%diag(idiag)%ch(ich)%Trad_mode_frac
+              rad%diag(idiag)%ch(ich)%mode(imode)%rel_rhop_res * rad%diag(idiag)%ch(ich)%mode(imode)%Trad_mode_frac
           rad%diag(idiag)%ch(ich)%rel_s_res_secondary = rad%diag(idiag)%ch(ich)%rel_s_res_secondary + &
-              rad%diag(idiag)%ch(ich)%mode(imode)%rel_s_res_secondary * rad%diag(idiag)%ch(ich)%Trad_mode_frac_secondary
+              rad%diag(idiag)%ch(ich)%mode(imode)%rel_s_res_secondary * rad%diag(idiag)%ch(ich)%mode(imode)%Trad_mode_frac_secondary
           rad%diag(idiag)%ch(ich)%rel_R_res_secondary = rad%diag(idiag)%ch(ich)%rel_R_res_secondary + &
-              rad%diag(idiag)%ch(ich)%mode(imode)%rel_R_res_secondary * rad%diag(idiag)%ch(ich)%Trad_mode_frac_secondary
+              rad%diag(idiag)%ch(ich)%mode(imode)%rel_R_res_secondary * rad%diag(idiag)%ch(ich)%mode(imode)%Trad_mode_frac_secondary
           rad%diag(idiag)%ch(ich)%rel_z_res_secondary = rad%diag(idiag)%ch(ich)%rel_z_res_secondary + &
-              rad%diag(idiag)%ch(ich)%mode(imode)%rel_z_res_secondary * rad%diag(idiag)%ch(ich)%Trad_mode_frac_secondary
+              rad%diag(idiag)%ch(ich)%mode(imode)%rel_z_res_secondary * rad%diag(idiag)%ch(ich)%mode(imode)%Trad_mode_frac_secondary
           rad%diag(idiag)%ch(ich)%rel_rhop_res_secondary = rad%diag(idiag)%ch(ich)%rel_rhop_res_secondary + &
-              rad%diag(idiag)%ch(ich)%mode(imode)%rel_rhop_res_secondary * rad%diag(idiag)%ch(ich)%Trad_mode_frac_secondary
+              rad%diag(idiag)%ch(ich)%mode(imode)%rel_rhop_res_secondary * rad%diag(idiag)%ch(ich)%mode(imode)%Trad_mode_frac_secondary
           ! Cold resonances are unique for each mode
         else
           rad%diag(idiag)%ch(ich)%rel_s_res = rad%diag(idiag)%ch(ich)%mode(imode)%rel_s_res
@@ -1338,13 +1452,13 @@ do ich = 1, ant%diag(idiag)%N_ch
     if(mode_cnt == 2) then
     ! warm resonances are always unique for each mode
       rad%diag(idiag)%ch(ich)%rel_s_res = rad%diag(idiag)%ch(ich)%rel_s_res + &
-          rad%diag(idiag)%ch(ich)%mode(imode)%rel_s_res * rad%diag(idiag)%ch(ich)%Trad_mode_frac
+          rad%diag(idiag)%ch(ich)%mode(imode)%rel_s_res * rad%diag(idiag)%ch(ich)%mode(imode)%Trad_mode_frac
       rad%diag(idiag)%ch(ich)%rel_R_res = rad%diag(idiag)%ch(ich)%rel_R_res + &
-          rad%diag(idiag)%ch(ich)%mode(imode)%rel_R_res * rad%diag(idiag)%ch(ich)%Trad_mode_frac
+          rad%diag(idiag)%ch(ich)%mode(imode)%rel_R_res * rad%diag(idiag)%ch(ich)%mode(imode)%Trad_mode_frac
         rad%diag(idiag)%ch(ich)%rel_z_res = rad%diag(idiag)%ch(ich)%rel_z_res + &
-          rad%diag(idiag)%ch(ich)%mode(imode)%rel_z_res * rad%diag(idiag)%ch(ich)%Trad_mode_frac
+          rad%diag(idiag)%ch(ich)%mode(imode)%rel_z_res * rad%diag(idiag)%ch(ich)%mode(imode)%Trad_mode_frac
       rad%diag(idiag)%ch(ich)%rel_rhop_res = rad%diag(idiag)%ch(ich)%rel_rhop_res + &
-          rad%diag(idiag)%ch(ich)%mode(imode)%rel_rhop_res * rad%diag(idiag)%ch(ich)%Trad_mode_frac
+          rad%diag(idiag)%ch(ich)%mode(imode)%rel_rhop_res * rad%diag(idiag)%ch(ich)%mode(imode)%Trad_mode_frac
       ! Cold resonances are unique for each mode
     else
       rad%diag(idiag)%ch(ich)%rel_s_res = rad%diag(idiag)%ch(ich)%mode(imode)%rel_s_res
@@ -1380,9 +1494,11 @@ endif ! (ece_flag_reflec)
 !stop "sub make_ece_flag_reflec"
 end subroutine make_ece_flag_reflec
 #endif
+
 subroutine save_data_to_ASCII()
 use mod_ecfm_refr_types,        only: dstf, OERT, mode_cnt, N_ray, N_freq, plasma_params, data_name, &
-                                      rad, ant, data_folder, Ich_name, dstf_comp, ray_out_folder, data_secondary_name
+                                      rad, ant, data_folder, Ich_name, dstf_comp, ray_out_folder, data_secondary_name, &
+                                      output_all_ray_data
 use mod_ecfm_refr_utils,        only: export_all_ece_data
 use constants,                  only: c0, e0
 implicit none
@@ -1390,9 +1506,8 @@ Character(200)               :: filename, ich_filename, Och_filename
 character(120)               :: cur_filename
 character(20)                :: ich_str, ray_str
 integer(ikind)               :: idiag, ich, imode, ifreq, ir, i, ia, ia_start, &
-                                ia_end, ip, ic, i_closest, N_ch_prior, ich_tot, ray_tot
+                                ia_end, ip, ic, i_closest, N_ch_prior, ich_tot, N_ray_output
 real(rkind)                  :: BPD, BPD_second
-ray_tot = 1
 ich_tot = 1
 filename = trim(data_folder) // data_name
 open(66, file=filename)
@@ -1454,7 +1569,6 @@ end if
 do idiag = 1, ant%N_diag
   do ich = 1, ant%diag(idiag)%N_ch
     do imode = 1, mode_cnt
-      if(imode >= 2) ray_tot = ray_tot - 1
       if(rad%diag(idiag)%ch(ich)%mode(imode)%mode == 1) then
         write(ich_str, "(I3.3)") ich_tot
         ich_filename= trim(data_folder) // Ich_name // "/Irhopch" // trim(ich_str) // ".dat"
@@ -1480,7 +1594,12 @@ do idiag = 1, ant%N_diag
           open(75, file=cur_filename)
         end if
       end if
-      do ir = 1, N_ray
+      if(output_all_ray_data == .true.) then
+        N_ray_output = N_ray
+      else
+        N_ray_output = 1
+      end if
+      do ir = 1, N_ray_output
         write(ray_str,  "(I3.3)") ir
         write(ich_str,  "(I3.3)") ich_tot
         if(rad%diag(idiag)%ch(ich)%mode(imode)%mode == 1) then
@@ -1531,7 +1650,6 @@ do idiag = 1, ant%N_diag
           close(74)
           close(98)
         end if
-        ray_tot = ray_tot + 1
       end do !ir
       do i = 1, rad%diag(idiag)%ch(ich)%mode(imode)%ray(1)%freq(1)%total_LOS_points
         write(66,"(E14.6E3,A1,E14.6E3,A1,E14.6E3,A1,E14.6E3,A1,E14.6E3,A1,E14.6E3,A1,E14.6E3,A1,E14.6E3,A1,E14.6E3,A1,E18.10E3)") &

@@ -38,7 +38,8 @@ use mod_ecfm_refr_types,        only : ant, rad, plasma_params, dstf, OERT, diag
                                        n_e_filename, T_e_filename, vessel_bd_filename, ray_launch_file, &
                                        ratio_for_third_harmonic, straight, reflec_X, reflec_O, modes, working_dir, &
                                        mode_conv, N_freq, N_ray, CEC_exp, CTC_exp, ECI_exp, IEC_exp, &
-                                       CEC_ed, CTC_ed, ECI_ed, IEC_ed, time_smth, warm_plasma, max_points_svec
+                                       CEC_ed, CTC_ed, ECI_ed, IEC_ed, time_smth, warm_plasma, max_points_svec, &
+                                       reflec_model, vessel_plasma_ratio
 implicit none
 character(*), intent(in)          :: working_dir_in
 character(50)                     :: diag_str
@@ -127,6 +128,10 @@ character(200)                     :: input_filename
       ant%N_diag = ant%N_diag + 1
       diagnostics(ant%N_diag) = "CCE"
     end if
+    if(index(trim(diag_str),"REF") >= 1) then
+      ant%N_diag = ant%N_diag + 1
+      diagnostics(ant%N_diag) = "REF"
+    end if
   end if
   allocate(ant%diag(ant%N_diag), rad%diag(ant%N_diag))
   read(66,"(L1)") output_level
@@ -139,8 +144,10 @@ character(200)                     :: input_filename
   read(66,"(L1)") plasma_params%w_ripple
   read(66,"(L1)") warm_plasma
   read(66,"(E19.12E2)") ratio_for_third_harmonic
+  read(66,"(I1)") reflec_model
   read(66,"(E19.12E2)") reflec_X
   read(66,"(E19.12E2)") reflec_O
+  read(66,"(E19.12E2)") vessel_plasma_ratio
   read(66,"(E19.12E2)") plasma_params%btf_corr_fact_ext
   read(66,"(I1)") modes
   read(66,"(E19.12E2)") mode_conv
@@ -161,14 +168,6 @@ character(200)                     :: input_filename
   read(66,"(E19.12E2)") plasma_params%R_shift
   read(66,"(E19.12E2)") plasma_params%z_shift
   read(66,"(I10)") max_points_svec
-  read(66, "(A14)") CEC_exp
-  read(66,"(I2)"), CEC_ed
-  read(66, "(A14)") CTC_exp
-  read(66,"(I2)"), CTC_ed
-  read(66, "(A14)") ECI_exp
-  read(66,"(I2)"), ECI_ed
-  read(66, "(A14)") IEC_exp
-  read(66,"(I2)"), IEC_ed
   n_e_filename = trim(working_dir) // "ecfm_data/" // "ne_file.dat"
   T_e_filename = trim(working_dir) // "ecfm_data/" // "Te_file.dat"
   Vessel_bd_filename = trim(working_dir) // "ecfm_data/" // "vessel_bd.txt"
@@ -221,7 +220,7 @@ use mod_ecfm_refr_types,        only : plasma_params_type, ant, rad, OERT, outpu
                                        straight, ratio_for_third_harmonic, reflec_X, reflec_O, warm_plasma, &
                                        modes, mode_conv, CEC_exp, CEC_ed, vessel_bd_filename, &
                                        stand_alone, dstf_comp, use_ida_spline_Te, use_ida_spline_ne, &
-                                       max_points_svec
+                                       max_points_svec, reflec_model
 implicit none
 type(plasma_params_type), intent(inout)    :: plasma_params
 real(rkind), intent(in)                    :: rhopol_max_spline_knot, ecrad_ratio_for_third_harmonic, &
@@ -264,6 +263,7 @@ integer(ikind), intent(in), optional       :: parallelization_mode
   ratio_for_third_harmonic = ecrad_ratio_for_third_harmonic !ida%ece%ecrad_ratio_for_third_harmonic ! (omega_c / omega = 0.4 => n = 2.5)
   reflec_X = reflec_X_mode !ida%ece%reflec_X_mode
   reflec_O = reflec_O_mode! ida%ece%reflec_O_mode
+  reflec_model = 0 ! Infinite reflection model
   flag_1O = ece_1O_flag ! ida%ece%ece_1O_flag
 max_points_svec = ecrad_max_points_svec ! ida%ece%ecrad_max_points_svec
   modes =  ecrad_modes ! ida%ece%ecrad_modes ! (modes = 1 -> pure X-mode, 2 -> pure O-mode, 3 both modes and filter
@@ -377,9 +377,10 @@ end subroutine load_ECE_diag_data
 subroutine prepare_ECE_diag(working_dir, f, df, R, phi, z, tor, pol, dist_foc, width)
 ! Reads f, df from shot files and also prepares the launching positions and angles
   use mod_ecfm_refr_types,            only: plasma_params, ant, rad, &
-                                            max_points_svec, mode_cnt, modes, N_ray, N_freq, &
-                                            diagnostics, CEC_exp, CEC_ed, ray_launch_file, output_level, stand_alone
-  use constants,                      only: pi
+                                         	max_points_svec, mode_cnt, modes, N_ray, N_freq, &
+                                         	diagnostics, CEC_exp, CEC_ed, ray_launch_file, &
+                                         	output_level, stand_alone, one_sigma_width
+  use constants,                      only: pi, c0
 #ifdef NAG
   use nag_quad_util,                  only: nag_quad_gs_wt_absc
   USE nag_error_handling
@@ -391,18 +392,18 @@ subroutine prepare_ECE_diag(working_dir, f, df, R, phi, z, tor, pol, dist_foc, w
   real(rkind)                                :: N_abs, temp, temp1, temp2, phi_radial, temp_freq, temp_freq_2
   real(rkind), dimension(3)                  :: x_0, N_0, x1_orth, x2_orth, x_temp, R_temp, R_focus, x_focus
 #ifdef NAG
-  real(rkind), dimension(:), allocatable     :: x, dx, x_check, dx_check, freq_check, freq_weight_check ! for beam discretication
+  real(rkind), dimension(:), allocatable     :: x, dx, x_check, dx_check, freq_check, freq_weight_check
 #else
   real(rkind), dimension(:), allocatable     :: x, dx
 #endif
-  real(rkind)                                :: w, norm, sum_of_weights
+  real(rkind)                                :: w,norm, sum_of_weights, w0, w_focus, dist_waist
   real(rkind)                                :: phi_tor_add
   character(200)                             :: cur_filename
   character(1)                               :: sep
 #ifdef NAG
   type(nag_error)                            :: error
 #endif
-  integer(ikind)                         :: i, j, N_x
+  integer(ikind)                             :: i, j, N_x
   if(output_level .and. stand_alone) open(66,file = trim(ray_launch_file))
   if(output_level .and. stand_alone) &
     write(66,"(A122)") "f [GHz]        df [GHz]      x [cm]        y [cm]        z [cm]        tor [deg]     pol [deg]     dist foc[cm]  width [cm]"
@@ -426,23 +427,25 @@ subroutine prepare_ECE_diag(working_dir, f, df, R, phi, z, tor, pol, dist_foc, w
   if(.not. stand_alone .and. present(f)) then
     diagnostics(1)= "IDA"
   end if
+
   do idiag = 1, ant%N_diag
     ant%diag(idiag)%diag_name = diagnostics(idiag)
     !print*,"next diag", ant%diag(idiag)%diag_name
     if(output_level .and. stand_alone) print*, "Initializing: ", ant%diag(idiag)%diag_name
     if(ant%diag(idiag)%diag_name == "IDA") then
-      ant%diag(idiag)%N_ch = size(f)
+		ant%diag(idiag)%N_ch = size(f)
     else
       cur_filename = trim(working_dir) // "ecfm_data/" // trim(ant%diag(idiag)%diag_name) // "_launch.dat"
+      if(output_level .and. stand_alone) print*, "Reading ", ant%diag(idiag)%diag_name, " from external file: ", cur_filename
+      open(77, file=trim(cur_filename))
+      read(77, "(I5.5)") ant%diag(idiag)%N_ch
       if(trim(ant%diag(idiag)%diag_name) == "CTA" .or. &
          trim(ant%diag(idiag)%diag_name) == "CTC" .or. &
          trim(ant%diag(idiag)%diag_name) == "IEC" ) then
         open(78, file = trim(working_dir) // "ecfm_data/" // trim(ant%diag(idiag)%diag_name) // "_pol_coeff.dat")
-      end if
-      if(output_level .and. stand_alone) print*, "Reading ", ant%diag(idiag)%diag_name, " from external file: ", cur_filename
-      open(77, file=trim(cur_filename))
-      read(77, "(I5.5)") ant%diag(idiag)%N_ch
     end if
+    allocate(ant%diag(idiag)%ch(ant%diag(idiag)%N_ch))
+    allocate(rad%diag(idiag)%ch(ant%diag(idiag)%N_ch))
     do ich = 1, ant%diag(idiag)%N_ch
       allocate(ant%diag(idiag)%ch(ich)%freq(N_freq))
       allocate(ant%diag(idiag)%ch(ich)%freq_weight(N_freq))
@@ -478,6 +481,7 @@ subroutine prepare_ECE_diag(working_dir, f, df, R, phi, z, tor, pol, dist_foc, w
         ant%diag(idiag)%ch(ich)%ray_launch(1)%theta_pol = pol(ich) / 180.d0 * pi
         ant%diag(idiag)%ch(ich)%width = width(ich)
         ant%diag(idiag)%ch(ich)%dist_focus = dist_foc(ich)
+        ant%diag(idiag)%ch(ich)%focus_shift = 0.d0 ! To be correctly implemented
       end do
     else
       do ich = 1, ant%diag(idiag)%N_ch
@@ -496,6 +500,7 @@ subroutine prepare_ECE_diag(working_dir, f, df, R, phi, z, tor, pol, dist_foc, w
           ant%diag(idiag)%ch(ich)%ray_launch(1)%phi_tor = ant%diag(idiag)%ch(ich)%ray_launch(1)%phi_tor / 180.d0 * pi
           ! Use TORBEAM convention for input
           ant%diag(idiag)%ch(ich)%ray_launch(1)%theta_pol = (ant%diag(idiag)%ch(ich)%ray_launch(1)%theta_pol) / 180.d0 * pi
+          ant%diag(idiag)%ch(ich)%focus_shift = 0.d0 ! To be correctly implemented
           ant%diag(idiag)%ch(ich)%ray_launch(1)%weight = 1.d0
         if(trim(ant%diag(idiag)%diag_name) == "CTA" .or. &
            trim(ant%diag(idiag)%diag_name) == "CTC" .or. &
@@ -519,6 +524,7 @@ subroutine prepare_ECE_diag(working_dir, f, df, R, phi, z, tor, pol, dist_foc, w
             rad%diag(idiag)%ch(ich)%mode(imode)%ray(1)%freq(:)%use_external_pol_coeff = .true.
             do ir = 2, N_ray
               rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(:)%pol_coeff = rad%diag(idiag)%ch(ich)%mode(imode)%ray(1)%freq(1)%pol_coeff
+              rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(:)%pol_coeff_secondary = rad%diag(idiag)%ch(ich)%mode(imode)%ray(1)%freq(1)%pol_coeff_secondary
               rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(:)%use_external_pol_coeff = .true.
             end do
           end do ! imode
@@ -616,18 +622,10 @@ subroutine prepare_ECE_diag(working_dir, f, df, R, phi, z, tor, pol, dist_foc, w
       end if
       if (N_ray > 1) then
         w = ant%diag(idiag)%ch(ich)%width! beam FWHM -> w
-        !x_max = 6.d0 * w !42.9283d-2 ! maximum width that is spanned by the rays
-        ! We integrate from -inf to + inf no beam maximum needed
-        ! the physical limit given by the maximum acceptance angular is 42.9283d-2 m
-        ! However, for consistency with other diagnostics for which this quantity is not known, this limit is given here by 3 w
-        norm = 2.d0 / (pi * w ** 2) ! norm of the beam gaussian
         x_0 =  ant%diag(idiag)%ch(ich)%ray_launch(1)%x_vec
         N_0 =  ant%diag(idiag)%ch(ich)%ray_launch(1)%N_vec
         ! Works only if the diagnostic can be assumed as perfectly focused
         ! The 1D heterodyne radiometer is not, hence this will be overwritten later
-        x_focus(:) = ant%diag(idiag)%ch(ich)%ray_launch(1)%x_vec + &
-          ant%diag(idiag)%ch(ich)%dist_focus * &
-          N_0
         ! Diagnsotics
         ! call sub_remap_coords(x_focus, R_focus)
         ! print*, "Focus point in cyl. coordinates [m] u. [rad]", R_focus
@@ -645,7 +643,20 @@ subroutine prepare_ECE_diag(working_dir, f, df, R, phi, z, tor, pol, dist_foc, w
         x2_orth(3) = - N_0(2)
         x1_orth = x1_orth/ sqrt(x1_orth(1)**2 + x1_orth(3)**2) ! need unit vectors here
         x2_orth = x2_orth/ sqrt(x2_orth(1)**2 + x2_orth(2)**2 + x2_orth(3)**2) ! need unit vectors here
-        call cgqf ( int(N_x,kind=4), int(6,kind=4), 0.d0, 0.d0, 0.d0, 2.d0 /( w**2), x, dx )
+        if(one_sigma_width) then
+          call cgqf(int(N_x,kind=4), int(1,kind=4), 0.d0, 0.d0, -w, w, x, dx)
+          norm = 1.408163862361065 / (pi * w ** 2) ! norm of the beam gaussian
+        else
+          call cgqf ( int(N_x,kind=4), int(1,kind=4), 0.d0, 0.d0, 0.d0, 2.d0 / (w**2), x, dx )
+          norm = 2.d0 / (pi * w ** 2) ! norm of the beam gaussian
+        end if
+        w0 = (c0*ant%diag(idiag)%ch(ich)%dist_focus*w) / &
+             Sqrt(c0**2*ant%diag(idiag)%ch(ich)%dist_focus**2 + ant%diag(idiag)%ch(ich)%f_ECE**2*Pi**2*w**4)
+        dist_waist = (ant%diag(idiag)%ch(ich)%f_ECE**2*Pi**2*ant%diag(idiag)%ch(ich)%dist_focus*w**4) / &
+                     (c0**2*ant%diag(idiag)%ch(ich)%dist_focus**2 + ant%diag(idiag)%ch(ich)%f_ECE**2*Pi**2*w**4)
+        ! Compute gaussian beam width at focus point
+        w_focus = w0*Sqrt(1.d0 + (c0**2*((ant%diag(idiag)%ch(ich)%dist_focus + ant%diag(idiag)%ch(ich)%focus_shift) - dist_waist)**2) / &
+                              (ant%diag(idiag)%ch(ich)%f_ECE**2*Pi**2*w0**4))
 #ifdef NAG
         call nag_quad_gs_wt_absc( 4, 0.d0, 2.d0 /( w**2), dx_check, x_check, c= 0.d0)
         if(sum((dx - dx_check)**2) > 1.d-5) then
@@ -670,18 +681,18 @@ subroutine prepare_ECE_diag(working_dir, f, df, R, phi, z, tor, pol, dist_foc, w
 #endif
         do i = 1, N_x
           do j = 1, N_x
-            x_temp(:) = (x1_orth(:) * x(i)+ x2_orth(:) * x(j)) + x_0(:)
-            if(ant%diag(idiag)%diag_name == "CEC" .or. ant%diag(idiag)%diag_name == "RMD") then
-            ! Overwrite original focus by slightly defocused rays
-            ! Origin matlab
-            ! Either the diagnostic is indeed not perfectly focused or this is intended to mimic the finite beam waist of a Gaussian Beam
-              x_focus = x_0 + (2.131 - sqrt(x(i)**2 + x(j)**2) / w  * 0.023) * N_0
-            end if
+            x_temp(:) = (x1_orth(:) * x(i) + x2_orth(:) * x(j)) + x_0(:)
+            ! Mimic the finite beam width due to diffraction by accounting for vacuum diffraction
+            x_focus(:) = ant%diag(idiag)%ch(ich)%ray_launch(1)%x_vec + &
+                         (ant%diag(idiag)%ch(ich)%dist_focus + ant%diag(idiag)%ch(ich)%focus_shift) * N_0
+            x_focus(:) = x_focus(:) + (x1_orth(:) * x(i) + x2_orth(:) * x(j)) * w_focus/w
             call sub_remap_coords(x_temp, R_temp)
             ant%diag(idiag)%ch(ich)%ray_launch(1 + (i - 1) * N_x + j )%R = R_temp(1)
             ant%diag(idiag)%ch(ich)%ray_launch(1 + (i - 1) * N_x + j )%phi = R_temp(2)
             ant%diag(idiag)%ch(ich)%ray_launch(1 + (i - 1) * N_x + j )%z = R_temp(3)
             ant%diag(idiag)%ch(ich)%ray_launch(1 + (i - 1) * N_x + j )%weight = dx(i) * dx(j)
+            if(one_sigma_width) ant%diag(idiag)%ch(ich)%ray_launch(1 + (i - 1) * N_x + j )%weight =  &
+                                   ant%diag(idiag)%ch(ich)%ray_launch(1 + (i - 1) * N_x + j )%weight * exp(-(x(i)**2 + x(j)**2)/w**2)
             ant%diag(idiag)%ch(ich)%ray_launch(1 + (i - 1) * N_x + j )%x_vec = x_temp
             ant%diag(idiag)%ch(ich)%ray_launch(1 + (i - 1) * N_x + j )%N_vec = x_focus - &
               ant%diag(idiag)%ch(ich)%ray_launch(1 + (i - 1) * N_x + j )%x_vec
@@ -707,6 +718,9 @@ subroutine prepare_ECE_diag(working_dir, f, df, R, phi, z, tor, pol, dist_foc, w
         !sum_of_weights = sum_of_weights * norm
         ! Central ray not part of the integration - only for mapping
         ant%diag(idiag)%ch(ich)%ray_launch(1)%weight = 0.d0
+        ! Renormalization
+        ! Necessary, because the ray weights do not sum up to one in case of low ray count (truncation error)
+        ant%diag(idiag)%ch(ich)%ray_launch(:)%weight = ant%diag(idiag)%ch(ich)%ray_launch(:)%weight / sum(ant%diag(idiag)%ch(ich)%ray_launch(:)%weight)
         !print*, "Sum of weights from ray discretisation:", sum_of_weights
         !print*, "Adjusting weights so that sum of weights gives 1"
         !ant%diag(idiag)%ch(ich)%ray_launch(:)%weight = ant%diag(idiag)%ch(ich)%ray_launch(:)%weight /  sum_of_weights
@@ -727,7 +741,7 @@ subroutine prepare_ECE_diag(working_dir, f, df, R, phi, z, tor, pol, dist_foc, w
           1.d2 * ant%diag(idiag)%ch(ich)%width
        end do !N_ray
     end do !N_ch
-    if(present(f) .and. present(working_dir)) then
+    if(present(ece_strut) .and. present(ida) .and. present(working_dir)) then
       cur_filename = trim(working_dir) // "ece_launch.txt"
       open(76, file = trim(cur_filename))
       cur_filename = trim(working_dir) // "ece_freqs.txt"
@@ -760,6 +774,8 @@ subroutine prepare_ECE_diag(working_dir, f, df, R, phi, z, tor, pol, dist_foc, w
 #endif
   if(output_level .and. stand_alone) close(66)
 end subroutine prepare_ECE_diag
+
+!*******************************************************************************
 
 subroutine dealloc_ant(ant)
 use mod_ecfm_refr_types,        only :  ant_type, diagnostics, &
@@ -824,6 +840,40 @@ implicit none
   !print*, "Point",x, y, "is in poly: ", func_in_poly
   return
   end function func_in_poly
+
+  function distance_to_poly(poly, x, y)
+  ! Computes the distance of a point to the curve spanned by poly
+  ! Uses interpolation -> quite expensive
+  use f90_kind
+  use mod_ecfm_refr_interpol, only : make_1d_spline, spline_1d_vec, spline_1d_get_roots, deallocate_1d_spline
+  use mod_ecfm_refr_types, only : point_type, spl_type_1d
+  implicit none
+  type(point_type), dimension(:), intent(in) :: poly
+  real(rkind), intent(in)                    :: x, y
+  real(rkind)                                :: distance_to_poly
+  type(spl_type_1d)                          :: spl, d_spl
+  real(rkind), dimension(size(poly))         :: s, f
+  real(rkind), dimension(500)                :: s_high_res, dummy, df, dist
+  real(rkind), dimension(1000)               :: roots
+  integer(ikind)                             :: i, root_cnt
+  do i = 1, size(poly)
+    s(i) = real(i - 1) / real(size(poly) - 1)
+  end do
+  do i = 1, size(s_high_res)
+    s_high_res(i) = real(i - 1) / real(size(s_high_res) - 1)
+  end do
+  f(:) = Sqrt((poly(:)%x - x)**2 + (poly(:)%y - y)**2)
+  call make_1d_spline(spl, size(poly), s, f)
+  call spline_1d_vec(spl, s, dummy, df)
+  call make_1d_spline(d_spl, size(s_high_res), s_high_res, df)
+  root_cnt = size(roots)
+  call spline_1d_get_roots(d_spl, roots, root_cnt)
+  call spline_1d_vec(spl, roots(1:root_cnt), dist(1:root_cnt))
+  distance_to_poly = minval(dist(1:root_cnt))
+  call deallocate_1d_spline(spl)
+  call deallocate_1d_spline(d_spl)
+  return
+  end function distance_to_poly
 
   function binary_search(array, element, N1, N2, debug)
   ! Simple binary search
@@ -961,6 +1011,11 @@ implicit none
     integer(ikind) ::  i, done
     i = 0; done = 0;   error = 0
     AA = x1;  BB = x2;  FA = func(AA); FB = func(BB)
+    if(FA /= FA .or. FB /= FB) then
+      print*, "NaN in function BrentRoots"
+      print*, "x1, x2, f(x1), f(x2)", x1, x2, FA, FB
+      call abort()
+    end if
     if (RootBracketed(FA,FB).eq.0) then
       error = 1
     else
@@ -1087,7 +1142,7 @@ subroutine retrieve_T_e_single(plasma_params, rhop, T_e, grad_T_e)
 #endif
     scaled_rhop = rhop * plasma_params%rhop_scale_te
     if(scaled_rhop > plasma_params%rhop_max) then
-       T_e = 0.d0
+      T_e = 0.d0
       return
     end if
     if(present(grad_T_e)) then
@@ -1101,21 +1156,21 @@ subroutine retrieve_T_e_single(plasma_params, rhop, T_e, grad_T_e)
 #endif
       else
         call spline_1d(plasma_params%Te_spline, scaled_rhop, &
-          T_e, grad_T_e)
+   				       T_e, grad_T_e)
       end if
     else
       if(output_level) then
 #ifdef NAG
         call spline_1d(plasma_params%Te_spline, scaled_rhop, &
-          T_e, nag_spline = plasma_params%Te_spline_nag)
+    			       T_e, nag_spline = plasma_params%Te_spline_nag)
 #else
         call spline_1d(plasma_params%Te_spline, scaled_rhop, &
-          T_e)
+         			   T_e)
 #endif
       else
         call spline_1d(plasma_params%Te_spline, scaled_rhop, T_e)
       end if
-    end if
+    end if    
   end subroutine retrieve_T_e_single
 
   subroutine retrieve_T_e_mat_single(plasma_params, x_vec, T_e, spatial_grad_Te)
@@ -1250,6 +1305,58 @@ subroutine retrieve_T_e_single(plasma_params, rhop, T_e, grad_T_e)
       end if
     end do
   end subroutine retrieve_T_e_mat_vector
+
+  subroutine retrieve_n_e_single(plasma_params, rhop, n_e, grad_n_e)
+    use f90_kind
+    use mod_ecfm_refr_types,        only: plasma_params_type, use_ida_spline_ne, output_level
+    use mod_density,            only: make_density
+    use mod_ecfm_refr_interpol, only: spline_1d
+    implicit none
+    type(plasma_params_type), intent(in)    :: plasma_params
+    real(rkind),               intent(in)   :: rhop
+    real(rkind),               intent(out)   :: n_e
+    real(rkind),               intent(out), optional   :: grad_n_e
+    real(rkind), dimension(1)                :: n_e_arr, rhop_arr, grad_n_e_arr
+    real(rkind)                              :: scaled_rhop
+    if(use_ida_spline_ne) then
+      n_e_arr(:) = 0.d0
+      rhop_arr(1) = rhop  * plasma_params%rhop_scale_ne
+      if(present(grad_n_e)) then
+        call make_density(plasma_params%par_ne, plasma_params%par_scal, n_e_arr, rhop_arr, 2, grad_n_e_arr) ! makes only sense for rhop axis
+        grad_n_e = grad_n_e_arr(1) *  1.0d6 ! make_density gives in per cubic centimeter
+      else
+        call make_density(plasma_params%par_ne, plasma_params%par_scal, n_e_arr, rhop_arr, 2) ! makes only sense for rhop axis
+      end if
+      n_e = n_e_arr(1) *  1.0d6
+    else
+      scaled_rhop = rhop * plasma_params%rhop_scale_ne
+      if(scaled_rhop > plasma_params%rhop_max) then
+         n_e = 0.d0
+        return
+      end if
+      if(present(grad_n_e)) then
+        if(output_level) then
+#ifdef NAG
+      call spline_1d(plasma_params%ne_spline, scaled_rhop, n_e, grad_n_e, plasma_params%ne_spline_nag)
+#else
+      call spline_1d(plasma_params%ne_spline, scaled_rhop, n_e, grad_n_e)
+#endif
+        else
+          call spline_1d(plasma_params%ne_spline, scaled_rhop, n_e, grad_n_e)
+        end if
+      else
+        if(output_level) then
+#ifdef NAG
+      call spline_1d(plasma_params%ne_spline, scaled_rhop, n_e, nag_spline = plasma_params%ne_spline_nag)
+#else
+      call spline_1d(plasma_params%ne_spline, scaled_rhop, n_e)
+#endif
+        else
+          call spline_1d(plasma_params%ne_spline, scaled_rhop, n_e)
+        end if
+      end if
+    end if
+  end subroutine retrieve_n_e_single
 
   subroutine retrieve_n_e_single(plasma_params, rhop, n_e, grad_n_e)
     use f90_kind
@@ -2163,7 +2270,7 @@ implicit None
   if(trim(dstf) == "Bi_Maxw" .or. dstf == "Bi_MaxJ") call read_bi_max_data()
   if(trim(dstf) == "runaway") call read_runaway_data()
   if(trim(dstf) == "drift_m") call read_drift_m_data()
-  if(trim(dstf) == "Spitzer") call make_j()
+  if(trim(dstf) == "Spitzer") call read_Spitzer_data()
   if(trim(dstf) == "multi_s") call read_multi_slope_data()
   if(trim(dstf) == "gcomp") then
     call read_fgene_data()
@@ -2468,60 +2575,74 @@ Character(1)    :: blanc
   deallocate(rhop)
 end subroutine read_Gene_Bi_max_data
 
-#ifdef AUG
-subroutine make_j
-  USE mod_ecfm_refr_types, only: ant, plasma_params, rad, data_folder, Spitzer
-  use mod_ecfm_refr_interpol,    only: make_1d_spline
+subroutine read_Spitzer_data()
+use mod_ecfm_refr_types, only: data_folder, OERT, Spitzer
+use mod_ecfm_refr_interpol,    only: make_1d_spline
 #ifdef NAG
-  USE nag_spline_1d,             only: nag_spline_1d_interp
+USE nag_spline_1d,             only: nag_spline_1d_interp
 #endif
-  implicit none
-  integer(ikind)                :: ich, ifreq, iint,i, i_last
-  real(kind=4), dimension(400) :: rhop_r4, jdotB_r4, j_r4
-  real(rkind), dimension(:), allocatable   ::d_rhop, d_j, rhop, j
-  real(rkind)                   :: R_mag, z_mag, pf_mag, &
-                                   R_sxp, z_sxp, pf_sxp, max_cur_d
-  character(4)                  :: exp
-  character(3)                  :: diag
-  character(100)                :: filename
-  integer(kind=4)   :: error, ed, nr
-  error = 0
-  ed = 0
-  exp = "AUGD"
-  diag = "EQH"
-  nr = 400
-  max_cur_d = 1.e9
-  call kkeqjpar(error, exp, diag, int(plasma_params%shot,4), ed, real(plasma_params%time,4), &
-               11, nr, rhop_r4, jdotB_r4, j_r4)
-  print*," Found ", nr, " current points"
-  allocate(d_rhop(int(nr,kind=8)),d_j(int(nr,kind=8)))
-  d_rhop(:) = real(rhop(1:nr),8)
-  d_j(:) = real(j_r4(1:nr),8)
-  do i = 1, nr
-    d_rhop(i) = sqrt((d_rhop(i) - plasma_params%pf_mag)/(plasma_params%pf_sxp - plasma_params%pf_mag))
+integer(ikind)  :: irhop, N_rhop
+real(rkind), dimension(:), allocatable :: rhop, j
+Character(200)  :: cur_filename
+Character(1)    :: blanc
+  cur_filename =  trim(data_folder) // "j.dat"
+  open(67, file = trim(cur_filename))
+  read(67,"(I5.5)") N_rhop
+  allocate(rhop(N_rhop), j(N_rhop))
+  do irhop = 1, N_rhop
+    read(67,"(E19.12E2A1E19.12E2)") rhop(irhop), blanc, j
   end do
-  allocate(rhop(int(nr,kind=8)), j(int(nr,kind=8)))
-  do i = 1, nr
-    rhop(i) = d_rhop(nr - i + 1)
-    if(abs(d_j(nr - i + 1)) < max_cur_d  .and. .not. d_j(nr - i + 1) /= d_j(nr - i + 1)) then
-      j(i) = d_j(nr - i + 1)
-    else
-      j(i) = 0.d0
-    end if
-  end do
-  call make_1d_spline(Spitzer%j_spl, nr, rhop, j)
+  close(67)
+  call make_1d_spline(Spitzer%j_spl, int(N_rhop,4), rhop, j)
 #ifdef NAG
   call nag_spline_1d_interp(rhop, j, Spitzer%j_nag_spl)
 #endif
-  deallocate(rhop, j)
-end subroutine make_j
-#else
-subroutine make_j()
-implicit none
-print*, "Make make_j uses AUG specific routines - TCV replacements required"
-call abort()
-end subroutine make_j
+  deallocate(rhop,j)
+end subroutine read_Spitzer_data
+
+subroutine read_wall_Trad()
+use mod_ecfm_refr_types,       only: reflec_equ, data_folder, modes
+use mod_ecfm_refr_interpol,    only: make_1d_spline
+#ifdef NAG
+USE nag_spline_1d,             only: nag_spline_1d_interp
 #endif
+Character(200)  :: cur_filename
+Character(1)    :: blanc
+integer(ikind)              :: i
+  if(modes == 1 .or. modes == 3) then
+    cur_filename = trim(data_folder) // "X_reflec_Trad.dat"
+    open(67, file = trim(cur_filename))
+    read(67,"(I5.5)") reflec_equ%N_f
+    allocate(reflec_equ%f(reflec_equ%N_f), reflec_equ%X_Trad_equ(reflec_equ%N_f))
+    do i = 1, reflec_equ%N_f
+      read(67,"(E19.12E2A1E19.12E2)") reflec_equ%f(i), blanc, reflec_equ% X_Trad_equ(i)
+    end do
+    close(67)
+    call make_1d_spline(reflec_equ%X_Trad_equ_spl, int(reflec_equ%N_f,4), reflec_equ%f, reflec_equ%X_Trad_equ)
+#ifdef NAG
+    call nag_spline_1d_interp(reflec_equ%f, reflec_equ%X_Trad_equ, reflec_equ%X_Trad_equ_spl_nag)
+#endif
+  end if
+  if(modes == 2 .or. modes == 3) then
+    cur_filename = trim(data_folder) // "O_reflec_Trad.dat"
+    open(67, file = trim(cur_filename))
+    read(67,"(I5.5)") reflec_equ%N_f
+    if(.not. allocated(reflec_equ%f)) allocate(reflec_equ%f(reflec_equ%N_f))
+    allocate(reflec_equ%O_Trad_equ(reflec_equ%N_f))
+    do i = 1, reflec_equ%N_f
+      read(67,"(E19.12E2A1E19.12E2)") reflec_equ%f(i), blanc, reflec_equ%O_Trad_equ(i)
+    end do
+    close(67)
+    call make_1d_spline(reflec_equ%O_Trad_equ_spl, int(reflec_equ%N_f,4), reflec_equ%f, reflec_equ%O_Trad_equ)
+#ifdef NAG
+    call nag_spline_1d_interp(reflec_equ%f, reflec_equ%O_Trad_equ, reflec_equ%O_Trad_equ_spl_nag)
+#endif
+  end if
+    reflec_equ%f_min = minval(reflec_equ%f)
+    reflec_equ%f_max = maxval(reflec_equ%f)
+end subroutine read_wall_Trad
+
+
 
 ! Decaprecated to avoid unnecessary usage of kk routines
 !subroutine make_Bmin_los()

@@ -523,7 +523,7 @@ contains
       end if
   end function abs_Al_tor_abs
 
-  function get_upper_limit_tau(svec, omega, ds2)
+  function get_upper_limit_tau(svec, N_abs, omega, ds2)
   ! Gets upper limit of absorption coefficient by evaluating the integral
   ! Int u_perp ^(2 * m) Exp[mu(1-gamma)]
   ! This uses the Expansion of the Besselfunctions (see Hutchinson/ S. Denk Msc. Thesis) and neglects the term gamma(-2n + 2) making it an
@@ -532,7 +532,7 @@ contains
   use mod_ecfm_refr_types,        only: ratio_for_third_harmonic, rad_diag_ch_mode_ray_freq_svec_type
   use constants,                  only: pi, e0, mass_e, eps0, c0
   type(rad_diag_ch_mode_ray_freq_svec_type), intent(in)    :: svec
-  real(rkind), intent(in)       :: omega, ds2 !N_abs,
+  real(rkind), intent(in)       :: N_abs, omega, ds2 !N_abs,
   real(rkind)                   :: get_upper_limit_tau
   real(rkind)                   ::  omega_bar, m_omega_bar,  omega_c, mu, &
                                    u_par_s, u_par_1, u_par_2, dist,  u_perp_s, gamma_s, a, b, disc, &
@@ -552,7 +552,7 @@ contains
   ! Rather evaluate more than necessary instead of omitting important points
   do m =2, m_max
     m_omega_bar = real(m, 8) / omega_bar
-    if(m_omega_bar**2 < 1 - N_par**2) cycle
+    if(m_omega_bar**2 + N_par**2 < 1.d0) cycle
 !    m_omega_glob = m_omega_bar
 !    cos_theta_glob = svec%cos_theta
 !    mu_glob = mu
@@ -698,6 +698,13 @@ contains
     omega_c = svec%freq_2X * Pi
     Y = svec%freq_2X * Pi * mass_e / w_mass_e / omega
     max_harmonic = 2 ! consider only second harmonic
+    omega_p = e0 * sqrt( svec%ne / (eps0 * w_mass_e))
+    omega_p_cold = e0 * sqrt( svec%ne / (eps0 * mass_e))
+    X = omega_p**2 / omega**2
+    omega_bar = omega / omega_c
+    !print*, "plasma_params", X, Y, svec%Te, svec%theta * 180.d0 / pi, svec%N_cold
+    call abs_Al_N_with_pol_vec( omega, X, Y,svec%sin_theta, svec%cos_theta, mode, N_abs, e) ! mode = X -> + 1
+    if(N_abs /= N_abs .or. N_abs <= 0.0 .or. N_abs > 1.0) return
     if(dstf /= "relamax" .or. output_level) then
       call prepare_dist(svec, Int_absz, Int_weights, f_spl, dist_params)
       if(dstf == "relamax") then
@@ -708,19 +715,13 @@ contains
     else
     ! Only go here if fast evaluation is requested
       if((Y * w_mass_e / mass_e) < ratio_for_third_harmonic) max_harmonic = 3
-      if(get_upper_limit_tau(svec, omega, ds2) < tau_ignore .and. .not. present(pol_coeff)) then
+      if(get_upper_limit_tau(svec, N_abs, omega, ds2) < tau_ignore .and. .not. present(pol_coeff)) then
         not_eval = not_eval + 1
         return
       else
         eval = eval + 1
       end if
     end if
-    omega_p = e0 * sqrt( svec%ne / (eps0 * w_mass_e))
-    omega_p_cold = e0 * sqrt( svec%ne / (eps0 * mass_e))
-    X = omega_p**2 / omega**2
-    omega_bar = omega / omega_c
-    !print*, "plasma_params", X, Y, svec%Te, svec%theta * 180.d0 / pi, svec%N_cold
-    call abs_Al_N_with_pol_vec( omega, X, Y,svec%sin_theta, svec%cos_theta, mode, N_abs, e) ! mode = X -> + 1
     if(present(pol_coeff)) then
       pol_coeff = get_filter_transmittance(omega, X, Y, svec%sin_theta, svec%cos_theta, mode, &
         svec%x_vec, svec%N_vec, svec%B_vec, x_launch)
@@ -731,7 +732,6 @@ contains
       if(present(j_secondary)) j_secondary = 0.d0
       return
     end if
-    if(N_abs /= N_abs .or. N_abs <= 0.0 .or. N_abs > 1.0) return
     N_par = svec%cos_theta * N_abs
     N_perp = svec%sin_theta * N_abs
 !    if((N_abs - svec%N_cold) * 2.d0 / (N_abs + svec%N_cold) > 1.d-4) then
@@ -766,11 +766,11 @@ contains
         j_m_secondary = j_m_secondary * 2.d0 * pi**2 / m_0
         j_m_secondary = j_m_secondary *  omega_p_cold**2 / (omega_c  * c0 ) * omega**2 * mass_e / (4.d0 * pi**2)
       end if
-      if((c_abs_m < 0.0 .and. j_m * ds2 < 10.d0 * svec%Ibb) .or. (trim(dstf) =='gene' .and.  j_m * ds2 / svec%Ibb < 0.d0 .and. &
-          j_m * ds2 / svec%Ibb > -1.d-2 )) then
-        c_abs_m = 0.d0
-        j_m = 0.d0
-      end if
+!      if((c_abs_m < 0.0 .and. j_m * ds2 < svec%Ibb * 1.0d1) .or. (trim(dstf) =='gene' .and.  j_m * ds2 / svec%Ibb < 0.d0 .and. &
+!          j_m * ds2 / svec%Ibb > -1.d-2 )) then
+!        c_abs_m = 0.d0
+!        j_m = 0.d0
+!      end if
       c_abs = c_abs + sqrt((real(m_sum,8) / m_0)**2 - 1.d0) * c_abs_m
       if(present(c_abs_secondary)) c_abs_secondary = c_abs_secondary + sqrt((real(m_sum,8) / m_0)**2 - 1.d0) *  c_abs_m_secondary
       j = j + sqrt((real(m_sum,8) / m_0)**2 - 1.d0) * j_m
@@ -786,7 +786,7 @@ contains
 !          end if
 !        end if
 !      end if
-      if( c_abs_m /= c_abs_m  .or. (c_abs_m < 0.0 .and. .not. trim(dstf) == 'gene') &
+      if( c_abs_m /= c_abs_m  .or. (c_abs_m < 0.0 .and. .not. (trim(dstf) == 'gene' .or. dstf == "numeric")) &
           .or. j_m < 0.d0) then !c_abs < 0.d0 .or.
         print*, "rhop", svec%rhop
         print*, "Te",svec%Te
@@ -795,8 +795,8 @@ contains
         print*, "wp/wc",omega_p / (svec%freq_2X * Pi )
         print*, "int", c_abs
         print*, "N", N_abs
-        print*, "pref",sqrt((real(m_sum,8) / m_0)**2 - 1.d0)
-        print*, "m_0", m_0
+        print*, "pref",  sqrt((real(m_sum,8) / m_0)**2 - 1.d0)
+        print*, "m_0",m_0
         print*, "Y", 1.d0 / omega_bar
         print*, "N_par", N_par
         print*, "cos theta/ theta", svec%cos_theta, svec%theta * 180.d0 / pi
@@ -810,7 +810,7 @@ contains
     end do
 !    c_abs  = c_abs * 2.d0 ! REMOVE THIS AFTER THE TEST
     if(output_level) then
-      m_0 = get_upper_limit_tau(svec, omega, ds2)
+      m_0 = get_upper_limit_tau(svec,  N_abs, omega, ds2)
       if(m_0 > 1.d-30 .and. c_abs > 1.d-30 .and. dstf == "relamax") then
         if(abs(m_0 / ds2 / c_abs) < 1.d-1) then
           print*, "Estimate", m_0 / ds2
@@ -855,11 +855,6 @@ contains
     Y = svec%freq_2X * Pi / omega
     max_harmonic = 2 ! consider only second harmonic
     if(Y < ratio_for_third_harmonic) max_harmonic = 3
-    tau_upper_limit = get_upper_limit_tau(svec, omega, ds2)
-    if(tau_upper_limit < tau_ignore) then
-      not_eval = not_eval + 1
-      return
-    end if
     omega_p = e0 * sqrt( svec%ne / (eps0 * mass_e))
     X = omega_p**2 / omega**2
     omega_bar = omega / omega_c
@@ -867,6 +862,11 @@ contains
     !print*, "plasma_params", X, Y, svec%Te, svec%theta * 180.d0 / pi, svec%N_cold
     call abs_Al_N_with_pol_vec( omega, X, Y,svec%sin_theta, svec%cos_theta, mode, N_abs, e) ! mode = X -> + 1
     if(N_abs /= N_abs .or. N_abs <= 0.0 .or. N_abs > 1.0) return
+    tau_upper_limit = get_upper_limit_tau(svec, N_abs, omega, ds2)
+    if(tau_upper_limit < tau_ignore) then
+      not_eval = not_eval + 1
+      return
+    end if
     N_par = svec%cos_theta * N_abs
     N_perp = svec%sin_theta * N_abs
 !    if((N_abs - svec%N_cold) * 2.d0 / (N_abs + svec%N_cold) > 1.d-4) then
@@ -886,15 +886,15 @@ contains
     c_abs_int = c_abs
     c_abs = -(c_abs * 2.d0 * pi**2 / m_0) ! Splitting this is just for overview
     c_abs = c_abs * omega_p**2 / (omega_c  * c0 ) ! revert the norminalization (w /wp^2)
-    if(tau_upper_limit > 1.d-30 .and. c_abs > 1.d-30) then
-      if(abs(tau_upper_limit / ds2 / c_abs) < 1.d-1) then
-        print*, "Estimate", tau_upper_limit / ds2
-        print*, "Abs", c_abs
-        print*, abs(tau_upper_limit / ds2 / c_abs)
-        print*, "Large underestimation of c_abs"
-        c_abs = - 1.d0 ! for debug output
-      end if
-    end if
+!    if(tau_upper_limit > 1.d-30 .and. c_abs > 1.d-30) then
+!      if(abs(tau_upper_limit / ds2 / c_abs) < 1.d-1 .and. (tau_upper_limit / ds2 > 1.d-2 .or. c_abs > 1.d-2)) then
+!        print*, "Estimate", tau_upper_limit / ds2
+!        print*, "Abs", c_abs
+!        print*, abs(tau_upper_limit / ds2 / c_abs)
+!        print*, "Warning estimation formula for c_abs produced a large underestimation"
+!        print*, "This will most likely not have adverse effects on the calculation, but should nevertheless be investigated!"
+!      end if
+!    end if
     if(c_abs < 0.0 .and. c_abs > -1.d-1) c_abs = 0.d0
     if( c_abs /= c_abs .or. c_abs < 0.d0 ) then !
       print*, "rhop", svec%rhop
@@ -1680,7 +1680,7 @@ contains
     ! To calculate the X/O-mode fraction we need a polarization vector normalized to unity
     pol_vec(:) = pol_vec(:) / sqrt(sum(abs(pol_vec) ** 2))
     if(any(pol_vec /= pol_vec) .and. output_level) then
-      print*, "Something wrong with the pol_vecf"
+      print*, "Something wrong with the pol_vec"
       print*, pol_vec
     end if
     if(debug) print*, "pol_vec", pol_vec(:)

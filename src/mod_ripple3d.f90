@@ -9,7 +9,8 @@ type ripple_params_type
   real(rkind)               :: C0, C1, C2
   real(rkind)               :: D0, D1, D2
   real(rkind)               :: E0, E1, K0, K1
-  real(rkind)               :: Btf0, R0
+  real(rkind)               :: Btf0, R0, R_min, R_max
+  integer(ikind)            :: periods
 end type ripple_params_type
 ! Uncomment this type for use separate from the electron cyclotron forward model
 type grad_type
@@ -28,6 +29,10 @@ contains
       print*, "R0 [m], Btf0 [T]", R0, Btf0
       stop "Input error in init_ripple in mod_ripple3d.f90"
     end if
+    ripple_params%R_max = 2.25d0 ! If R >  R_max the ripple will be ignored
+    ! Routine not tested for HFS -> TODO
+    ripple_params%R_min = 1.7d0 ! If R <  R_min_boundary the ripple will be ignored
+    ripple_params%periods = 16 ! Symmetry of the machine
     ripple_params%R0 = R0; ripple_params%Btf0 = Btf0
     ripple_params%A0 = -21.959; ripple_params%A1 = 4.653; ripple_params%A2 = 1.747
     ripple_params%B0 = 7.891; ripple_params%B1 = -1.070; ripple_params%B2 = -0.860
@@ -47,6 +52,10 @@ contains
     real(rkind), dimension(:)  , intent(in)   :: R_vec ! R, psi, z; psi in range of [0, 2 N pi[
     real(rkind), dimension(:)  , intent(out)  :: B_ripple
     real(rkind) :: Btf0, psi
+    if(R_vec(1) < ripple_params%R_min .or. R_vec(1) > ripple_params%R_max) then
+      B_ripple(:) = 0.d0
+      return
+    end if
     Btf0 = ripple_params%Btf0 / R_vec(1) * ripple_params%R0
     ! 16 coils at ASDEX Upgrade, hence we have also 16 periods in the ripple function when going once around the torus
     psi = R_vec(2) * 16.d0
@@ -68,6 +77,19 @@ contains
     real(rkind), dimension(:)  , intent(out)  :: B_ripple
     type(grad_type), intent(out)              :: grad_B_r_ripple, grad_B_t_ripple, grad_B_z_ripple
     real(rkind)                               :: Btf0, psi
+    if(R_vec(1) < ripple_params%R_min .or. R_vec(1) > ripple_params%R_max) then
+      B_ripple(:) = 0.d0
+      grad_B_r_ripple%dR = 0.d0
+      grad_B_r_ripple%dphi = 0.d0
+      grad_B_r_ripple%dz = 0.d0
+      grad_B_t_ripple%dR = 0.d0
+      grad_B_t_ripple%dphi = 0.d0
+      grad_B_t_ripple%dz = 0.d0
+      grad_B_z_ripple%dR = 0.d0
+      grad_B_z_ripple%dphi = 0.d0
+      grad_B_z_ripple%dz = 0.d0
+      return
+    end if
     Btf0 = ripple_params%Btf0 / R_vec(1) * ripple_params%R0
     ! 16 coils at ASDEX Upgrade, hence we have also 16 periods in the ripple function when going once around the torus
     psi = R_vec(2) * 16.d0

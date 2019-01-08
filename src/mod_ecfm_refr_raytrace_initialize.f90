@@ -11,7 +11,7 @@ module mod_ecfm_refr_raytrace_initialize
   ! Interpolates
     use f90_kind
     use mod_ecfm_refr_types,       only: output_level
-    use nr_mod, only                        : powell
+    use nr_mod, only                        : powell ! Minimizer -> Psi_ax has to be a minimum
     implicit none
     real(rkind), dimension(:), intent(in)  :: R, z
     integer(ikind)           , intent(in)  :: i_ax, j_ax
@@ -53,9 +53,6 @@ module mod_ecfm_refr_raytrace_initialize
       use f90_kind
       use mod_ecfm_refr_types,       only: plasma_params_type, data_folder
       use mod_ecfm_refr_interpol,    only: make_rect_spline
-#ifdef OMP
-      use omp_lib
-#endif
       implicit none
       type(plasma_params_type) , intent(inout) :: plasma_params
       real(rkind), dimension(:), allocatable, intent(out) :: R, z
@@ -76,7 +73,7 @@ module mod_ecfm_refr_raytrace_initialize
       open(70,status='unknown',file=filename)
       read(70,'(A)') line
       read(70,*) plasma_params%m, plasma_params%n
-      !print*, "Dimensions of external data: ", plasma_params%m, plasma_params%n
+      print*, "Dimensions of external data: ", plasma_params%m, plasma_params%n
       allocate(R(plasma_params%m), z(plasma_params%n), Br(plasma_params%m,plasma_params%n), &
                Bt(plasma_params%m,plasma_params%n), Bz(plasma_params%m,plasma_params%n), &
                rhop(plasma_params%m, plasma_params%n))
@@ -97,11 +94,12 @@ module mod_ecfm_refr_raytrace_initialize
       read(70,'(A)') line  ;  read(70,fmt=*)((rhop(i,j),i=1,plasma_params%m),j=1,plasma_params%n)
 
       close(70)
-      if (rhop(2, plasma_params%n/2) > rhop(plasma_params%m/2, plasma_params%n/2)) then
+      if(rhop(2, plasma_params%n/2) > rhop(plasma_params%m/2, plasma_params%n/2)) then
          sgn = 1.e0_rkind
       else
          sgn = -1.e0_rkind
       endif
+      plasma_params%pf_sxp = plasma_params%pf_sxp * sgn
       plasma_params%pf_mag = 1.d99
       i_ax = -1
       do j = 1, plasma_params%n
@@ -125,8 +123,8 @@ module mod_ecfm_refr_raytrace_initialize
       call make_rect_spline(Psi_spline, int(plasma_params%m, 4), int(plasma_params%n, 4), R, z, rhop)
       call get_psi_ax(R, z, i_ax, j_ax, plasma_params%pf_sxp, plasma_params%pf_mag, plasma_params%R_ax, plasma_params%z_ax)
       rhop = sqrt((rhop - plasma_params%pf_mag)/(plasma_params%pf_sxp - plasma_params%pf_mag))
-      if(any(rhop /= rhop)) then
-        print*, "critical error when reading topfile, NAN in rho_pol found"
+      if(any(rhop /= rhop) .or. minval(rhop) < 0.d0) then
+        print*, "critical error when reading topfile, NAN or negative value in rho_pol found"
         print*, rhop
         stop "sub read topfile in mod_raytrace_intialize"
       end if
@@ -194,171 +192,39 @@ module mod_ecfm_refr_raytrace_initialize
         stop "Input Error! Check input and run again"
       end if
   end subroutine read_Te_ne_matrix
-#ifdef IDA
-  subroutine setup_eq_from_shotfile(plasma_params, R, z, rhop, Br, Bt, Bz, R0_out, Btf0)
+  
+#ifdef AUG
+  subroutine setup_eq_from_ida(plasma_params, R, z, rhop, Br, Bt, Bz, R0, Btf0)
     use f90_kind
     use mod_ecfm_refr_types,        only: output_level, m_eq, n_eq, plasma_params_type
-    use aug_db_routines,            only: read_mbi, aug_kkEQpfx, aug_kkrzBrzt
-    use eqi_mod,                    only: Bt_btf_corrected
-#ifdef OMP
-    use omp_lib
-#endif
     implicit none
     type(plasma_params_type), intent(inout)     :: plasma_params
     real(rkind), dimension(:), allocatable, intent(out) :: R, z
     real(rkind), dimension(:,:), allocatable, intent(out) ::  Br, Bt, Bz
     real(rkind), dimension(:,:), allocatable, intent(out) ::  rhop
-    real(rkind)                            , intent(out)  :: R0_out, Btf0
-    real(rkind), dimension(:), allocatable      :: z_mat_helper, R_test, z_test,rhop_ne, &
-                                                   rhop_Te, mbi_time, BtfABB
-    real(4),     dimension(:), allocatable      :: R_temp, z_temp
-    real(4), dimension(:,:), allocatable        :: pfm_temp
-    real(rkind), dimension(1)                   :: Rv, zv, Br_vac, Bt_vac, Bz_vac
-    integer(ikind)                              :: i, error, debugunit, j, k, irhop_extra
-    real(4)                                     :: temp_time
-    logical                                     :: debug
-    character(18)                               :: btf_fmt_str
-    integer(4)                                  :: s_error, m_temp, n_temp, mdim
-    real(rkind)                                 :: Btf0_eq, R_mag, z_mag, &
-                                                   R_sxp, z_sxp, R0
-    R0 = 1.65d0
-    R0_out = R0
-    s_error = 0
-    error     = 0
-    debug     = .false.
-    debugunit = 999
-    temp_time = real(plasma_params%time, 4)
-    m_temp = int(m_eq,4)
-    n_temp = int(n_eq,4)
-    mdim = m_temp + 1
-    allocate(R_temp(mdim),z_temp(n_temp))
-    allocate(pfm_temp(mdim,n_temp))
-    if(output_level) print*, "Requested equilibrium edition", plasma_params%eq_ed
-    call kkeqpfm(s_error, plasma_params%eq_exp, plasma_params%eq_diag, & ! in
-                    int(plasma_params%shot, 4), plasma_params%eq_ed,& ! inout
-                    temp_time, &
-                    mdim, m_temp, &
-                    n_temp, R_temp,  z_temp, pfm_temp)
-    if(output_level) print*, "Obtained edition", plasma_params%eq_ed
-    !print*, "kkeqpfm finished"
-    !print*, "allocating R/z"
-    plasma_params%time = real(temp_time, 8)
-    if(output_level) print*,"Time of equilibrium is", plasma_params%time
-    allocate(R(m_temp),z(n_temp))
-    R = real(R_temp(1:m_temp),8)
-    z = real(z_temp(1:n_temp),8)
-    !print*, "deallocating R_temp/z_temp"
-    deallocate(R_temp, z_temp)
-    if(s_error /= 0) then
-      print*,"equilibrium EXP and diag ", plasma_params%eq_exp, plasma_params%eq_diag
-      print*,"shot and time ", int(plasma_params%shot, 4), temp_time
-      print*, "Error when calling kkeqpfm: ", s_error
-      stop "kk error in mod_raytrace_initialize"
-    end if
-    !print*, "allocating z_mat_helper"
-    allocate(z_mat_helper(n_temp))
-    !print*, "allocating rhop"
-    allocate(rhop(m_temp,n_temp))
-    do i = 1, m_temp
-      rhop(i,:) = real(pfm_temp(i,:),8)
-    end do
-    !print*, "deallocating pfm_temp"
-    !deallocate(pfm_temp)
-    !print*, "aug_kkEQpfx starting"
-    call aug_kkEQpfx(error,                       & ! out
-                   debug, debugunit, plasma_params%shot,       & ! in
-                   plasma_params%eq_exp, plasma_params%eq_diag, & ! in
-                   plasma_params%eq_ed,                        & ! inout
-                   temp_time,                                  & ! inout
-                   R_mag  = plasma_params%R_ax,                & ! out [m]  radial   coordinates of magnetic axis
-                   z_mag  = plasma_params%z_ax,                & ! out [m]  vertical coordinates of magnetic axis
-                   pf_mag = plasma_params%pf_mag,               & ! out [Vs] magnetic flux at magnetic axis
-                   R_sxp  = plasma_params%R_sep,                & ! out [m]  radial   coordinates of X-point
-                   z_sxp  = plasma_params%z_sep,                & ! out [m]  vertical coordinates of X-point
-                   pf_sxp = plasma_params%pf_sxp)                 ! out [Vs] magnetic flux at X-point
-    !print*, "aug_kkEQpfx finished"
-    rhop = sqrt((rhop - plasma_params%pf_mag)/(plasma_params%pf_sxp - plasma_params%pf_mag))
-    !print*, "allocating Br"
-    allocate(Br(m_temp, n_temp), &
-              Bt(m_temp, n_temp), Bz(m_temp, n_temp))
-
-    ! vacuum toroidal magnetic field to be used
-    !------------------------------------------
-    ! Note that there is a slight distinction to the mod_eqi routine here, since
-    ! we do not employ a median filter
-    rv(1) = 2.4
-    zv(1) = 0.0
-    call aug_kkrzBrzt(error,                                   & ! out
-                    debug, debugunit, plasma_params%shot,        & ! in
-                    plasma_params%eq_exp, plasma_params%eq_diag, & ! in
-                    plasma_params%eq_ed,                         & ! inout
-                    plasma_params%time,                          & ! inout
-                    r  = rv,                                      & ! in
-                    z  = zv,                           & ! in
-                    Br = Br_vac,                               & ! out
-                    Bz = Bz_vac,                                & ! out
-                    Bt = Bt_vac,                                & ! out
-                    err_stop = .true.)
-    Btf0_eq = Bt_vac(1) * rv(1) / R0
-    !print*, Btf0_eq
-    if (plasma_params%btf_mode == "BTFABB") then
-      call read_mbi(plasma_params%shot, "AUGD", plasma_params%time_beg, time_end=plasma_params%time_end, &
-                    time=mbi_time, BTFABB=BtfABB)         ! out
-      if(size(BtfABB) < 1) stop "Failed to get Btf or BtfABB at R0 in mod_ecfm_refr_raytrace_initialize"
-      Btf0 = sum(BtfABB) / size(BtfABB)
-      plasma_params%Btf0 = Btf0
-    else if (plasma_params%btf_mode == "old_Btf") then
-      Btf0 = Btf0_eq
-      plasma_params%Btf0 = Btf0_eq
-    else
-      print*, plasma_params%btf_mode
-      stop "sub Blos_along_beam_path: btf_mode not defined properly!"
-    endif
-    if (abs(Btf0_eq) > 20.d0 .or. abs(Btf0_eq) < 1.d-3) then
-      write(6,'(a,f8.4,a,e12.4)')"Btf0_eq(time =", plasma_params%time, " s) = ", Btf0_eq
-      stop 'subroutine Blos_along_beam_path: |Btf0_eq| > 20 T or |Btf0_eq| < 1 mT ???'
-    endif
-    if (abs(Btf0) > 20.d0 .or. abs(Btf0) < 1.d-3) then
-      write(6,'(a,f8.4,a,e12.4)')"Btf0(time =", plasma_params%time, " s) = ", Btf0
-      stop 'subroutine Blos_along_beam_path: |Btf0| > 20 T or |Btf0| < 1 mT ???'
-    endif
-    do j = 1, n_temp
-      z_mat_helper(:) = z(j)
-      call aug_kkrzBrzt(error,                                   & ! out
-                    debug, debugunit, plasma_params%shot,        & ! in
-                    plasma_params%eq_exp, plasma_params%eq_diag, & ! in
-                    plasma_params%eq_ed,                         & ! inout
-                    plasma_params%time,                          & ! in
-                    r  = R,                                      & ! in
-                    z  = z_mat_helper,                           & ! in
-                    Br = Br(:,j),                               & ! out
-                    Bz = Bz(:,j),                                & ! out
-                    Bt = Bt(:,j),                                & ! out
-                    err_stop = .true.)
-      call Bt_btf_corrected(plasma_params%shot, plasma_params%btf_mode, plasma_params%btf_corr_fact_ext, &
-                                               Btf0_eq, Btf0, R0, R, Bt(:,j))
-      if (any(abs(Bt(:,j)) > 20.d0)) then
-        do i = 1, size(Bt)
-          write(6,'(i3,e12.4)')i, Bt(i,j)
-        enddo
-        stop 'subroutine setup_eq_from_shotfile: |Bt| > 20 T ???'
-      endif
-    end do
-    deallocate(z_mat_helper)
-  end subroutine setup_eq_from_shotfile
+    real(rkind),                              intent(out)  :: R0, Btf0
+    call load_eqi_for_ECRad(plasma_params%time, plasma_params%time_beg, plasma_params%time_end, & !in
+                            plasma_params%btf_mode, plasma_params%btf_corr_fact_ext, & !in
+                            m_eq, n_eq, & ! in
+                            R, z, rhop, Br, Bt, Bz, R0, plasma_params%Btf0, &
+                            plasma_params%R_ax, plasma_params%z_ax, plasma_params%pf_mag, &
+                            plasma_params%R_sep, plasma_params%z_sep, plasma_params%pf_sxp)
+    Btf0 = plasma_params%Btf0
+  end subroutine setup_eq_from_ida
 #else
-subroutine setup_eq_from_shotfile(plasma_params, R, z, rhop, Br, Bt, Bz, R0_out, Btf0)
+subroutine setup_eq_from_ida(plasma_params, R, z, rhop, Br, Bt, Bz, R0, Btf0)
     use f90_kind
-    use mod_ecfm_refr_types,        only: output_level, m_eq, n_eq, plasma_params_type
+    use mod_ecfm_refr_types,        only: plasma_params_type
     implicit none
     type(plasma_params_type), intent(inout)     :: plasma_params
+    ! All inout -> no warnings about unassigned variables with explicit out
     real(rkind), dimension(:), allocatable, intent(inout) :: R, z
     real(rkind), dimension(:,:), allocatable, intent(inout) ::  Br, Bt, Bz
     real(rkind), dimension(:,:), allocatable, intent(inout) ::  rhop
-    real(rkind)                            , intent(out)  :: R0_out, Btf0
-    print*, "Subroutine setup_eq_from_shotfile is AUG specific and must not be used on non-AUG devices"
+    real(rkind),                             intent(inout)  :: R0, Btf0
+    print*, "Subroutine setup_eq_from_ida is AUG specific and must not be used on non-AUG devices"
     call abort()
-end subroutine setup_eq_from_shotfile
+end subroutine setup_eq_from_ida
 #endif
   subroutine make_topfile(R, z, rhop, Br, Bt, Bz, working_dir, itime)
     use f90_kind
@@ -398,39 +264,6 @@ end subroutine setup_eq_from_shotfile
     close(70)
   end subroutine make_topfile
 
-!  subroutine extend_profile(rhop_vec, profile, m, step, rhop_max, limiting_value, rhop_vec_ext, profile_ext)
-!  ! Extends profile linearly so that it is close to limiting_value at rhop_max
-!  use f90_kind
-!  implicit none
-!  real(rkind), dimension(:),  intent(in) :: rhop_vec, profile
-!  real(rkind), dimension(:),  allocatable, intent(out) :: rhop_vec_ext, profile_ext
-!  integer(ikind), intent(inout)                         :: m
-!  real(rkind), intent(in)                               :: rhop_max, step, limiting_value
-!  integer(ikind)                                        :: i, irhop_extra
-!    if(rhop_max < 1.05) then
-!      print*, "Largest rho poloidal found is smaller than 1.05 - aborting"
-!      stop "Please check flux matrix (shot file or external)"
-!    end if
-!    irhop_extra = (rhop_max - rhop_vec(m)) / (step) + 1
-!    if(irhop_extra > 0) then
-!      allocate(rhop_vec_ext(m + irhop_extra), profile_ext(m + irhop_extra))
-!      rhop_vec_ext(1: m) = rhop_vec
-!      profile_ext(1: m) = profile
-!      do i = m, m + irhop_extra
-!        rhop_vec_ext(i) = rhop_vec_ext(i - 1) + step
-!        profile_ext(i) = profile_ext(m) * &
-!           real(m + irhop_extra - i, 8) / &
-!           real(m + irhop_extra, 8) + limiting_value
-!      end do
-!    else
-!      irhop_extra = 0
-!      allocate(rhop_vec_ext(m), profile_ext(m))
-!      rhop_vec_ext = rhop_vec
-!      profile_ext = profile_ext
-!    end if
-!    m = m + irhop_extra
-!  end subroutine extend_profile
-
   subroutine update_plasma_params(plasma_params, par, par_ne, par_scal)
     use f90_kind
     use mod_ecfm_refr_types,        only: plasma_params_type
@@ -460,7 +293,7 @@ end subroutine setup_eq_from_shotfile
     plasma_params%par_scal = par_scal
   end subroutine update_plasma_params
 
-  subroutine setup_plasma_params(plasma_params,eq_from_shotfile)
+  subroutine setup_plasma_params(plasma_params, R, z, rhop, Br, Bt, Bz, R_ax, B_ax)
     use f90_kind
     use mod_ecfm_refr_types,        only: plasma_params_type, h_x_glob, h_check, output_level, double_check_splines, &
                                           stand_alone, output_level, vessel_bd_filename, max_points_svec
@@ -476,7 +309,9 @@ end subroutine setup_eq_from_shotfile
     use ripple3d,                   only: init_ripple!, validate_ripple_grad
     implicit none
     type(plasma_params_type), intent(inout)     :: plasma_params
-    logical, intent(in)                         :: eq_from_shotfile
+	real(rkind), dimension(:), intent(in), optional :: R, z
+    real(rkind), dimension(:,:), intent(in), optional :: rhop, Br, Bt, Bz
+    real(rkind), intent(in), optional                 :: R_ax, B_ax
     real(rkind), dimension(:,:), allocatable    :: B_r, B_t, B_z, T_e, n_e
     integer(ikind), dimension(:), allocatable   :: R_index_lower, z_index_lower, R_index_upper, z_index_upper
     real(rkind), dimension(:), allocatable      :: rhop_Te, rhop_ne, ne_ext, Te_ext
@@ -486,23 +321,22 @@ end subroutine setup_eq_from_shotfile
     integer(ikind)                              :: i, j
     character(20) :: format_str
     character(1)  :: sep
-    if(.not. eq_from_shotfile) then
+    if(.not. present(R)) then
       call read_topfile(plasma_params, plasma_params%R, plasma_params%z, plasma_params%rhop, B_r, B_t, B_z, R0, Btf0)
       if(plasma_params%Te_ne_mat) then
         call read_Te_ne_matrix(plasma_params, plasma_params%R, plasma_params%z, T_e, n_e)
         plasma_params%rhop_max = plasma_params%rhop_entry !
       end if
-#ifdef IDA
     else
-      call setup_eq_from_shotfile(plasma_params, &
-                                  plasma_params%R, plasma_params%z, plasma_params%rhop, B_r, B_t, B_z, R0, Btf0)
+      plasma_params%R=R
+      plasma_params%z=z
+      plasma_params%rhop=rhop
+	  plasma_params%B_r = Br
+	  plasma_params%B_t =Bt
+	  plasma_params%B_z = Bz
+	  R0 = R_ax
+	  Btf0 = B_ax 
     end if
-#else
-    else
-      print*, "Direct loading of AUG shot files is only supported within the IDA framework"
-      call abort()
-    end if
-#endif
     plasma_params%m = size(plasma_params%R)
     plasma_params%n = size(plasma_params%z)
 !    do j = 1, plasma_params%n
@@ -679,22 +513,16 @@ end subroutine setup_eq_from_shotfile
     end if
   end subroutine read_input_lists
 
-  subroutine init_raytrace(plasma_params, flag)
+  subroutine init_raytrace(plasma_params, R, z, rhop, Br, Bt, Bz, R_ax, B_ax)
     use f90_kind
     use mod_ecfm_refr_types,       only: plasma_params_type, stand_alone
     Use constants                , only : pi
     implicit none
-    type(plasma_params_type), intent(inout)                     :: plasma_params
-    character(*), intent(in), optional :: flag
-    logical                                         :: eq_from_shotfile
-    if(present(flag)) then
-      if(flag == "shotfile") then
-        eq_from_shotfile = .true.
-      else
-        eq_from_shotfile = .false.
-      end if
-    else
-      if(plasma_params%eq_exp == "Ext" .or. plasma_params%eq_exp == "EXT" .or.&
+    type(plasma_params_type), intent(inout)           :: plasma_params
+    real(rkind), dimension(:), intent(in), optional   :: R, z
+    real(rkind), dimension(:,:), intent(in), optional :: rhop, Br, Bt, Bz
+    real(rkind), intent(in), optional                 :: R_ax, B_ax
+    if(plasma_params%eq_exp == "Ext" .or. plasma_params%eq_exp == "EXT" .or.&
           plasma_params%eq_exp == "ext") then
         eq_from_shotfile = .false.
         if(plasma_params%eq_diag == "E2D") then
@@ -706,9 +534,9 @@ end subroutine setup_eq_from_shotfile
     end if
     if(stand_alone) then
       if(.not. plasma_params%Te_ne_mat) call read_input_lists(plasma_params)
-      call setup_plasma_params(plasma_params, eq_from_shotfile)
+      call setup_plasma_params(plasma_params)
     else
-      call setup_plasma_params(plasma_params, eq_from_shotfile)
+      call setup_plasma_params(plasma_params, R, z, rhop, Br, Bt, Bz, R_ax, B_ax)
     end if
   end subroutine init_raytrace
 

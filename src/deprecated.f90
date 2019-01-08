@@ -328,8 +328,6 @@ print*, "Make make_j uses AUG specific routines - TCV replacements required"
 call abort()
 end subroutine make_j
 #endif
-
-!*******************************************************************************
 #ifdef IDA
 subroutine make_CEC_diag_from_shotfile(diag, rad_diag, wg, z_lens)
 ! calculate weight for each LOS and theta for each aufp along LOS:
