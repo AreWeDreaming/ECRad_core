@@ -10,9 +10,8 @@ ifeq ($(IDA),True)
 	STDP=/afs/ipp/cips/ipp/data_analysis/lib_std/$(SYS)
   MODSTDP=$(STDP)/mod$(COMPILER)
   STDPLIB=$(STDP)/libstd$(COMPILER).a
-  IDALIB = $(ROOTDIR)/../IDA_55/augd_ida/Library/$(SYS)/libli_libi.a
-  IDAMOD = $(ROOTDIR)/../IDA_55/augd_ida/Library/$(SYS)/modi/
   IDAFLAG = IDA
+  MODECRad=$(ROOTDIR)/$(SYS)/mod$(COMPILER)IDA
 else
 	STDPLIB = $(SRCP)/std_lib.f90
 endif
@@ -63,7 +62,7 @@ ifeq ($(NAG),True)
 	MODULES += $(NAG_MOD)
 endif
 ifeq ($(IDA),True)
-	MODULES += -I$(IDAMOD) -I$(MODSTDP)
+	MODULES += -I$(MODSTDP)
 endif
 
 #Targets for library
@@ -156,24 +155,16 @@ $(MODECRad)/mod_ecfm_refr_gene_dist_utils$(IDAFLAG)$(DB).o:		$(SRCP)/mod_ecfm_re
 
 $(MODECRad)/mod_ecfm_refr_dist$(IDAFLAG)$(DB).o:   $(SRCP)/mod_ecfm_refr_dist.f90 $(STDPLIB) \
 	$(SRCP)/mod_ecfm_refr_fp_dist_utils.f90 \
+	$(SRCP)/mod_ecfm_refr_gene_dist_utils.f90 \
+  $(SRCP)/mod_ecfm_refr_interpol.f90
+
+$(MODECRad)/mod_ecfm_refr_utils$(IDAFLAG)$(DB).o:   $(SRCP)/mod_ecfm_refr_utils.f90 $(STDPLIB) \
+	$(SRCP)/quadrature.f90 \
+	$(SRCP)/mod_ecfm_refr_types.f90 \
+	$(SRCP)/mod_ecfm_refr_interpol.f90 \
+	$(SRCP)/mod_ecfm_refr_fp_dist_utils.f90 \
 	$(SRCP)/mod_ecfm_refr_gene_dist_utils.f90
 
-ifeq ($(IDA),True)
-$(MODECRad)/mod_ecfm_refr_utils$(IDAFLAG)$(DB).o:   $(SRCP)/mod_ecfm_refr_utils.f90 $(STDPLIB) \
-	$(SRCP)/quadrature.f90 \
-	$(SRCP)/mod_ecfm_refr_types.f90 \
-	$(SRCP)/mod_ecfm_refr_interpol.f90 \
-	$(SRCP)/mod_ecfm_refr_fp_dist_utils.f90 \
-	$(SRCP)/mod_ecfm_refr_gene_dist_utils.f90 \
-	$(IDALIB)
-else
-$(MODECRad)/mod_ecfm_refr_utils$(IDAFLAG)$(DB).o:   $(SRCP)/mod_ecfm_refr_utils.f90 $(STDPLIB) \
-	$(SRCP)/quadrature.f90 \
-	$(SRCP)/mod_ecfm_refr_types.f90 \
-	$(SRCP)/mod_ecfm_refr_interpol.f90 \
-	$(SRCP)/mod_ecfm_refr_fp_dist_utils.f90 \
-	$(SRCP)/mod_ecfm_refr_gene_dist_utils.f90
-endif
 $(MODECRad)/mod_ecfm_refr_abs_Al$(IDAFLAG)$(DB).o:		$(SRCP)/mod_ecfm_refr_abs_Al.f90 $(STDPLIB) \
 	$(SRCP)/quadrature.f90 \
 	$(SRCP)/mod_ecfm_refr_types.f90 \
@@ -186,20 +177,11 @@ $(MODECRad)/mod_ecfm_refr_abs_Al$(IDAFLAG)$(DB).o:		$(SRCP)/mod_ecfm_refr_abs_Al
 $(MODECRad)/mod_ripple3d$(IDAFLAG)$(DB).o:   $(SRCP)/mod_ripple3d.f90 $(STDPLIB) \
 	$(SRCP)/mod_ecfm_refr_types.f90 
 
-ifeq ($(IDA),True)
-$(MODECRad)/mod_ecfm_refr_raytrace_initialize$(IDAFLAG)$(DB).o:   $(SRCP)/mod_ecfm_refr_raytrace_initialize.f90 $(STDPLIB) \
-	$(SRCP)/mod_ecfm_refr_types.f90 \
-	$(SRCP)/mod_ripple3d.f90 \
-	$(SRCP)/mod_ecfm_refr_interpol.f90 \
-	$(SRCP)/mod_ecfm_refr_utils.f90 \
-	$(IDALIB)
-else
 $(MODECRad)/mod_ecfm_refr_raytrace_initialize$(IDAFLAG)$(DB).o:   $(SRCP)/mod_ecfm_refr_raytrace_initialize.f90 $(STDPLIB) \
 	$(SRCP)/mod_ecfm_refr_types.f90 \
 	$(SRCP)/mod_ripple3d.f90 \
 	$(SRCP)/mod_ecfm_refr_interpol.f90 \
 	$(SRCP)/mod_ecfm_refr_utils.f90
-endif
 
 $(MODECRad)/mod_ecfm_refr_em_Hu$(IDAFLAG)$(DB).o:   $(SRCP)/mod_ecfm_refr_em_Hu.f90 $(STDPLIB) \
 	$(SRCP)/quadrature.f90 \
@@ -227,18 +209,7 @@ $(MODECRad)/mod_ecfm_refr_rad_transp$(IDAFLAG)$(DB).o:   $(SRCP)/mod_ecfm_refr_r
 	$(SRCP)/mod_ecfm_refr_em_Hu.f90 \
 	$(SRCP)/mod_ecfm_refr_abs_Al.f90 \
 	$(SRCP)/mod_ecfm_refr_raytrace.f90
-ifeq ($(IDA),True)
-$(MODECRad)/mod_ecfm_refr$(IDAFLAG)$(DB).o:   $(SRCP)/mod_ecfm_refr.f90 $(STDPLIB) \
-	$(SRCP)/mod_ecfm_refr_types.f90 \
-	$(SRCP)/mod_ecfm_refr_em_Hu.f90 \
-	$(SRCP)/mod_ecfm_refr_rad_transp.f90 \
-	$(SRCP)/mod_ecfm_refr_abs_Al.f90 \
-	$(SRCP)/mod_ecfm_refr_raytrace_initialize.f90 \
-	$(SRCP)/mod_ecfm_refr_raytrace.f90 \
-	$(SRCP)/mod_ecfm_refr_interpol.f90 \
-	$(SRCP)/mod_ecfm_refr_utils.f90 \
-	$(IDALIB)
-else
+
 $(MODECRad)/mod_ecfm_refr$(IDAFLAG)$(DB).o:   $(SRCP)/mod_ecfm_refr.f90 $(STDPLIB) \
 	$(SRCP)/mod_ecfm_refr_types.f90 \
 	$(SRCP)/mod_ecfm_refr_em_Hu.f90 \
@@ -248,6 +219,6 @@ $(MODECRad)/mod_ecfm_refr$(IDAFLAG)$(DB).o:   $(SRCP)/mod_ecfm_refr.f90 $(STDPLI
 	$(SRCP)/mod_ecfm_refr_raytrace.f90 \
 	$(SRCP)/mod_ecfm_refr_interpol.f90 \
 	$(SRCP)/mod_ecfm_refr_utils.f90
-endif
+
 clean:
 	rm -r $(ECRadLIBDir)
