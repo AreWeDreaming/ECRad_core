@@ -77,7 +77,7 @@ module mod_ecfm_refr_raytrace
       stop "calculate_N in mod_raytrace.f90"
     end if
     if(X > 1.0) then
-      print*, "Raytraced into evanescened region"
+      print*, "Ray traced into evanescent region"
       print*, "Subroutine: calculate_N in mod_raytrace.f90"
       call abort()
     end if
@@ -99,7 +99,7 @@ module mod_ecfm_refr_raytrace
       stop "calculate_N in mod_raytrace.f90"
     end if
     if(X > 1.0) then
-      print*, "Raytraced into evanescened region"
+      print*, "Ray traced into evanescent region"
       print*, "Subroutine: calculate_N in mod_raytrace.f90"
       stop "calculate_N in mod_raytrace.f90"
     end if
@@ -4825,7 +4825,6 @@ function func_dA_dY(X, Y)
                                         N_ray, N_freq, mode_cnt, stand_alone, output_level
   use f90_kind
   use constants,                  only: pi,e0, mass_e, c0
-  use mod_ecfm_refr_raytrace_initialize,    only: update_plasma_params
   implicit none
   type(rad_type), intent(inout)    :: rad
   integer(ikind)                                                :: idiag, last_N, grid_size, ich, ir, &

@@ -422,6 +422,11 @@ type plasma_params_type
 #ifdef NAG
   type(nag_spline_1d_comm_wp)                       :: ne_spline_nag, Te_spline_nag
 #endif
+#ifdef IDA
+ real(rkind), dimension(:), allocatable             :: IDA_rhop_knots_Te, IDA_T_e, &
+                                                       IDA_T_e_dx2, IDA_rhop_knots_ne, IDA_n_e, &
+                                                       IDA_n_e_dx2
+#endif
   type(point_type), dimension(:), allocatable       :: vessel_poly ! polynome describing the vessel (2D)
   integer(ikind)                                    :: shot, eq_ed
   integer(ikind)                                    :: ida_time_indx
@@ -439,11 +444,11 @@ type plasma_params_type
                                                     ! .true. -> weakly relativistic. false -> cold disperion for ray tracing
   real(rkind)                                       :: Btf0 = -1.d2, R0 = -1.d0 ! Required for the ripple correction
   logical                                           :: precise_interpolation = .false. !*
-                                                    ! if true use splines for svec interpolation in OERT - SLOW!
+                                                    ! if true use splines for svec interpolation - SLOW!
                                                     ! if false use linear interpolation (much faster)
   logical                                           :: Te_ne_mat = .false. ! If true an externally given matrix of Te and ne is used instead of the
                                                                               ! Te/ ne profile
-  integer(ikind)                                    :: Debug_level = 1 !* Controls the amount of output from OERT
+  integer(ikind)                                    :: Debug_level = 1 !* Controls the amount of output of raytracing
                                                       ! (0) No output, (1) some output regarding spline interpolation, (2) much output and stop at first interesting point
   real(rkind)                                       :: h = 1.d-3 !* step size for raytracing - WARNING small values will increase the error!
   real(rkind)                                       :: Y_res = 0.5d0!* Y for strongest contributing harmonic, default is 0.5d0 -> 2nd harmonic
@@ -452,9 +457,7 @@ type plasma_params_type
                                                        ! does not apply for analytical data and does not affect the resonance positions
   real(rkind)                                       :: H_last = 1.d-10, trigger_level = 10 !* Used to detect large jump in H
   real(rkind)                                       :: h_min = 5.e-5, h_max = 4.e-3 !* for the adaptive step size we need boundaries
-  real(rkind), dimension(:), allocatable            :: par, par_ne, par_scal
-  real(rkind)                                       :: R_ax, z_ax, R_sep, z_sep, B_ax ! for debugging purposes
-  real(rkind)                                       :: pf_sxp, pf_mag ! needed for B_min on rho contour, and j on rho_contour
+  real(rkind)                                       :: R_ax, z_ax, B_ax ! for HFS, LFS distinction
   real(rkind)                                       :: rhop_entry = 1.2d0 !*
   real(rkind)                                       :: rhop_inside = 0.99d0, rhop_exit = 1.05d0 !* Stop if rhop < rhop exit
                                                                                                 !  and rhop_inside was reached before
@@ -478,9 +481,9 @@ type plasma_params_type
                                                        ! 2.d0 * pi ! no threshhold
                                                        ! propagation with respect to launch (avoids internal reflections)
   real(rkind)                                       :: btf_corr_fact_ext = -1.d0 ! Scaling factor for B_t
-  character(8)                                      :: btf_mode
   real(rkind)                                       :: rp_min
   logical                                           :: No_ne_te = .false. ! True for initialization with straight rays
+  logical                                           :: prof_log_flag = .true. ! If True Te and ne interpolated by Exp(Spl) instead of Spl directly
   real(rkind)                                       :: R_shift = 0.d0, z_shift = 0.d0 ! Allows shifting the equilbrium - moves entire flux matrix
   real(rkind)                                       :: theta_pol_cor = 0.0 !-1.0 / 180.0 * pi
 end type plasma_params_type
@@ -514,7 +517,7 @@ end type plasma_params_type
   real(rkind)                        :: reflec_O
   integer(ikind)                     :: reflec_model = 0
   real(rkind)                        :: vessel_plasma_ratio
-  logical                            :: OERT, straight
+  logical                            :: straight
   logical                            :: Analytical = .False., Lambda_star = .False.,&
                                         LSODE = .true., old_cutoff = .False. !*
   logical                            :: use_maximum_for_warm_res = .true.

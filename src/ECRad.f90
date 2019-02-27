@@ -1,9 +1,9 @@
 program ecfm_model
     use f90_kind
     use mod_ecfm_refr_types,        only: rad, data_folder, output_level, &
-                                          OERT, ant, stand_alone, eval, not_eval, &
+                                          ant, stand_alone, eval, not_eval, &
                                           data_name, data_secondary_name, ffp, modes
-    use mod_ecfm_refr, only : initialize_stand_alone, make_ece_rad_temp, simulate_ida
+    use mod_ecfm_refr, only : initialize_stand_alone, make_ece_rad_temp!, simulate_ida
     use mod_ecfm_refr_utils, only : export_all_ece_data
 #ifdef OMP
     use omp_lib
@@ -18,7 +18,6 @@ program ecfm_model
     !reflec = 0.92d0 ! 31569 0.97227031967906d0!0.90d0!9d0 ! Todo : Make this an input variable <- done
     call getarg(1, working_dir)
     !call getarg(2, time_str)
-    !call getarg(3, OERT_str)
     !call getarg(4, N_ch_str)
     !call getarg(5, output_str)
     !call getarg(5, flag_1O_str)
@@ -32,7 +31,6 @@ program ecfm_model
     !read(flag_1O_str,*) flag_1O
     !read(shotnr_str,*) shot
     !read(time_str,*) time
-    !read(OERT_str,*) OERT
     ! To test the ecfm integration into ida
     ! For stand alone usage comment out the following line
     stand_alone = .True.

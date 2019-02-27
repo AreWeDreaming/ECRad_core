@@ -203,7 +203,7 @@ subroutine evaluate_em_ab_LSODE(svec, svec_extra_output, s, ds, omega, mode, mod
 ! Since a lot of if clasus are required here this routines cleans up the code below
 use mod_ecfm_refr_types,          only: rad_diag_ch_mode_ray_freq_svec_type, rad_diag_ch_mode_ray_freq_svec_extra_output_type, &
                                       output_level, data_folder, Ich_name, &
-                                      dstf, dstf_comp, OERT, rad, ffp, mode_cnt
+                                      dstf, dstf_comp, rad, ffp, mode_cnt
 use mod_ecfm_refr_em_Hu,                  only: calculate_em, simple_in_cutoff
 use constants,                    only: pi, e0, mass_e, eps0, c0
 use mod_ecfm_refr_abs_Al,         only: abs_Albajar, abs_Albajar_fast, abs_Al_tor_abs, func_N_cold, func_rel_N
@@ -390,7 +390,7 @@ subroutine calculate_Trad_LSODE(rad_ray, idiag, ich, imode, ir, ifreq, mode, Tra
 ! difficult point, the predictor, corrector method of DLSODE is not capable of solving the radiation transport equation more efficiently than the RK4 method below.
 ! DO NOT USE THIS ROUTINE!!!!
 use mod_ecfm_refr_types,        only: ant, rad_diag_ch_mode_ray_type, output_level, data_folder, Ich_name, straight, max_points_svec, &
-                                      tau_array, tau_secondary_array, dstf, dstf_comp, OERT, rad, ffp, mode_cnt, tau_thick
+                                      tau_array, tau_secondary_array, dstf, dstf_comp, rad, ffp, mode_cnt, tau_thick
 use constants,                  only: pi, e0, mass_e, eps0, c0
 use mod_ecfm_refr_abs_Al,           only: func_N_cold, func_rel_N
 use mod_ecfm_refr_interpol,       only: spline_1d
@@ -591,7 +591,7 @@ subroutine evaluate_em_ab_single(rad_freq, j, omega, mode, ds2, eval_pol_coeff, 
 ! Wrapper function for em, ab, .... since a lot of if clauses regarding dstf and dstf_comp are required this subroutine cleans up the code below.
 use mod_ecfm_refr_types,        only: rad_diag_ch_mode_ray_freq_type, &
                                       output_level, data_folder, Ich_name, &
-                                      dstf, dstf_comp, OERT, ffp, SOL_Te, SOL_ne, ne_max
+                                      dstf, dstf_comp, ffp, SOL_Te, SOL_ne, ne_max
 use mod_ecfm_refr_em_Hu,        only: calculate_em, simple_in_cutoff
 use constants,                  only: pi, e0, mass_e, eps0, c0
 use mod_ecfm_refr_abs_Al,           only: abs_Albajar, abs_Albajar_fast, abs_Al_tor_abs, func_N_cold, func_rel_N
@@ -753,7 +753,7 @@ subroutine calculate_Trad(rad_ray_freq, freq, x_vec_launch, mode, Trad, Trad_sec
 
 
 use mod_ecfm_refr_types,        only: rad_diag_ch_mode_ray_freq_type, output_level, data_folder, Ich_name, straight, &
-                                      dstf, dstf_comp, OERT, ffp, mode_cnt, tau_thick, SOL_Te, &
+                                      dstf, dstf_comp, ffp, mode_cnt, tau_thick, SOL_Te, &
                                       static_grid, plasma_vac_boundary, spl_type_1d
 use constants,                  only: pi, e0, mass_e, eps0, c0
 use mod_ecfm_refr_abs_Al,       only: func_N_cold, func_rel_N
@@ -1071,7 +1071,7 @@ end subroutine calculate_Trad
 subroutine get_em_T_fast(rad_ray_freq, freq, x_vec_launch, mode, Trad)
 ! Routine still work in progress - DO NOT USE!
 use mod_ecfm_refr_types,        only: rad_diag_ch_mode_ray_freq_type, output_level, data_folder, Ich_name, straight, &
-                                      dstf, dstf_comp, OERT, ffp, mode_cnt, tau_thick, SOL_Te, &
+                                      dstf, dstf_comp, ffp, mode_cnt, tau_thick, SOL_Te, &
                                       static_grid, plasma_vac_boundary, spl_type_1d
 use constants,                  only: pi, e0, mass_e, eps0, c0
 use mod_ecfm_refr_abs_Al,       only: func_N_cold, func_rel_N
@@ -1082,7 +1082,7 @@ real(rkind),                intent(in)    :: freq
 real(rkind), dimension(3),  intent(in)    :: x_vec_launch
 integer(ikind),             intent(in)    :: mode
 real(rkind),                intent(in)    :: Trad
-type(spl_type_1d)                         :: tau_spline
+type(spl_type_1d)                         :: ab_spline
 character(120)               :: cur_filename
 character(20)                :: ich_str
 real(rkind)    :: ab_dummy, em_dummy, omega, ds2
@@ -1102,14 +1102,14 @@ do i = 1, rad_ray_freq%total_LOS_points          ! integration over every second
                              rad_ray_freq%pol_coeff, &
                              rad_ray_freq%pol_coeff_secondary)
 enddo !i = 1, rad_ray_freq%total_LOS_points           ! integration over all points on LOS
-call make_1d_spline(tau_spline, rad_ray_freq%total_LOS_points, rad_ray_freq%svec(1:rad_ray_freq%total_LOS_points)%s, \
+call make_1d_spline(ab_spline, rad_ray_freq%total_LOS_points, rad_ray_freq%svec(1:rad_ray_freq%total_LOS_points)%s, \
                     rad_ray_freq%svec_extra_output(1:rad_ray_freq%total_LOS_points)%ab)
-do i = 1, rad_ray_freq%total_LOS_points          ! integration over every second point on LOS
-  call spline_1d_integrate(tau_spline, rad_ray_freq%svec(i)%s, rad_ray_freq%svec(rad_ray_freq%total_LOS_points)%s, rad_ray_freq%svec_extra_output(i)%T)
+rad_ray_freq%svec_extra_output(rad_ray_freq%total_LOS_points)%T = 0.d0
+do i = 1, rad_ray_freq%total_LOS_points - 1          ! integration over every second point on LOS
+  call spline_1d_integrate(ab_spline, rad_ray_freq%svec(i)%s, rad_ray_freq%svec(rad_ray_freq%total_LOS_points)%s, rad_ray_freq%svec_extra_output(i)%T)
 enddo !i = 1, rad_ray_freq%total_LOS_points
-rad_ray_freq%svec_extra_output(1:rad_ray_freq%total_LOS_points)%T = \
-  exp(rad_ray_freq%svec_extra_output(1:rad_ray_freq%total_LOS_points)%T)
-call deallocate_1d_spline(tau_spline)
+rad_ray_freq%svec_extra_output(1:rad_ray_freq%total_LOS_points)%T = exp(-rad_ray_freq%svec_extra_output(1:rad_ray_freq%total_LOS_points)%T)
+call deallocate_1d_spline(ab_spline)
 end subroutine get_em_T_fast
 
 

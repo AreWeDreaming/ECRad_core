@@ -30,11 +30,58 @@ public :: make_ecfm_LOS_grid,      &
       module procedure retrieve_n_e_single, retrieve_n_e_vector
     end interface retrieve_n_e
 
+#ifdef IDA
+    interface
+      subroutine make_temperature(par, Te, x_eval, rp_min, dTedx)
+      use f90_kind
+      implicit none
+      real(rkind), dimension(:),   intent(in)  :: par
+      real(rkind), dimension(:),   intent(out) :: Te
+      real(rkind), dimension(:),   intent(in),  optional :: x_eval
+      real(rkind),                 intent(in),  optional :: rp_min   ! for extrapolation in [0, rp_min]
+      real(rkind), dimension(:),   intent(out), optional :: dTedx
+      end subroutine make_temperature
+    end interface
+
+    interface
+      subroutine make_density(par, par_scal, ne, x_eval, x_mode, dnedx)
+      use f90_kind
+      implicit none
+      real(rkind), dimension(:),   intent(in)  :: par
+      real(rkind), dimension(:),   intent(in)  :: par_scal
+      real(rkind), dimension(:),   intent(out) :: ne
+      real(rkind), dimension(:),   intent(in),  optional :: x_eval
+      integer(ikind),              intent(in),  optional :: x_mode   ! 1/2 .. x_LiB/x_rhopol
+      real(rkind), dimension(:),   intent(out), optional :: dnedx
+      end subroutine make_density
+    end interface
+
+    interface
+      subroutine map_par_to_ece_rp_scal_te(par, ece_rp_scal_te, par_scal)
+      use f90_kind
+      implicit none
+      real(rkind), dimension(:), intent(in)            :: par            ! parameter to be fitted
+      real(rkind),               intent(out)           :: ece_rp_scal_te ! ECE index of rhopol scale of temperature profile
+      real(rkind), dimension(:), intent(in),  optional :: par_scal
+      end subroutine map_par_to_ece_rp_scal_te
+    end interface
+
+    interface
+      subroutine map_par_to_ece_rp_scal_ne(par, ece_rp_scal_ne, par_scal)
+      use f90_kind
+      implicit none
+      real(rkind), dimension(:), intent(in)            :: par            ! parameter to be fitted
+      real(rkind),               intent(out)           :: ece_rp_scal_ne ! ECE index of rhopol scale of density profile
+      real(rkind), dimension(:), intent(in),  optional :: par_scal
+      end subroutine map_par_to_ece_rp_scal_ne
+    end interface
+#endif
+
 contains
 
 subroutine read_input_file( working_dir_in)
 ! Reads the input file for stand-alone ECFM model
-use mod_ecfm_refr_types,        only : ant, rad, plasma_params, dstf, OERT, diagnostics, output_level, &
+use mod_ecfm_refr_types,        only : ant, rad, plasma_params, dstf, diagnostics, output_level, &
                                        n_e_filename, T_e_filename, vessel_bd_filename, ray_launch_file, &
                                        ratio_for_third_harmonic, straight, reflec_X, reflec_O, modes, working_dir, &
                                        mode_conv, N_freq, N_ray, CEC_exp, CTC_exp, ECI_exp, IEC_exp, &
@@ -48,7 +95,6 @@ character(200)                     :: input_filename
 ! Temporary structure of input file - something more sophisticated later...
 ! shot number
 ! time point
-! OERT/use input svec
 ! forward modelling mode dstf
 ! diagstr - for now just CEC or RMD permitted
 ! output_level (T/F)
@@ -65,9 +111,6 @@ character(200)                     :: input_filename
   working_dir = trim(working_dir_in)
   input_filename = trim(working_dir) // "ecfm_data/" // "ECFM.inp"
   open(66,file = trim(input_filename))
-  read(66,"(I5)") plasma_params%shot
-  read(66,"(E19.12E2)") plasma_params%time
-  read(66,"(L1)") OERT
   read(66, "(A2)") dstf
   read(66, "(A12)") diag_str
   len_diag_str = len_trim(diag_str)
@@ -81,12 +124,9 @@ character(200)                     :: input_filename
   else
     allocate(diagnostics(len_diag_str / 3))
     ant%N_diag = 0
-    if(index(trim(diag_str),"CEC") >= 1) then
+    if(index(trim(diag_str),"ECE") >= 1) then
       ant%N_diag = ant%N_diag + 1
-      diagnostics(ant%N_diag) = "CEC"
-    else if(index(trim(diag_str),"RMD") >= 1) then
-      ant%N_diag = ant%N_diag + 1
-      diagnostics(ant%N_diag) = "RMD"
+      diagnostics(ant%N_diag) = "ECE"
     end if
     if(index(trim(diag_str),"CTC") >= 1) then
       ant%N_diag = ant%N_diag + 1
@@ -175,7 +215,7 @@ character(200)                     :: input_filename
   if(output_level) then
     print*,"Chosen ECFM mode ", dstf
     print*, "Found ", ant%N_diag," diagnostics to model"
-    if(.not. OERT .or. straight) then
+    if(straight) then
       print*, "NO RAYTRACING"
     else
       print*, "RAYTRACING ENABLED"
@@ -185,22 +225,11 @@ character(200)                     :: input_filename
   plasma_params%time_beg = plasma_params%time - 0.5d0 * time_smth
   if( plasma_params%time_beg < 0.d0) plasma_params%time_beg = 0.d0
   plasma_params%time_end = plasma_params%time + 0.5d0 * time_smth
-  if(plasma_params%shot >= 30160) then
-    plasma_params%btf_mode = "BTFABB"
-  else
-    plasma_params%btf_mode = "old_Btf"
-    plasma_params%btf_mode = "old_Btf"
-    if(plasma_params%btf_corr_fact_ext == 1.005) then
-      print*, "Old BTF correction should be 1.0 and not 1.005"
-      print*, "Overwrote user input now using 1.0"
-      plasma_params%btf_corr_fact_ext = 1.0
-    end if
-  end if
 end subroutine read_input_file
 
 #ifdef IDA
 subroutine parse_ecfm_settings_from_ida(plasma_params, &
-                                        ecrad_verbose, shot, ray_tracing, ecrad_Bt_ripple, &
+                                        ecrad_verbose, ray_tracing, ecrad_Bt_ripple, &
                                         rhopol_max_spline_knot, ecrad_weak_rel, &
                                         ecrad_ratio_for_third_harmonic, &
                                         ecrad_modes, reflec_X_mode, reflec_O_mode, ece_1O_flag, &
@@ -211,38 +240,32 @@ subroutine parse_ecfm_settings_from_ida(plasma_params, &
                                         rhopol_scal_te, rhopol_scal_ne, btf_corr_fact_ext, &
                                         ecrad_ds_large, ecrad_ds_small, ecrad_R_shift, &    ! Allows shifting the equilbrium - moves entire flux matrix
                                         ecrad_z_shift, &    ! Allows shifting the equilbrium - moves entire flux matrix
-                                        ecrad_N_ray, ecrad_N_freq, parallelization_mode)
-#ifdef OMP
-use omp_lib
-#endif OMP
-use mod_ecfm_refr_types,        only : plasma_params_type, ant, rad, OERT, output_level, &
+                                        ecrad_N_ray, ecrad_N_freq, log_flag, parallelization_mode)
+use mod_ecfm_refr_types,        only : plasma_params_type, ant, rad, output_level, &
                                        N_freq, N_ray, diagnostics, dstf, flag_1O,&
                                        straight, ratio_for_third_harmonic, reflec_X, reflec_O, warm_plasma, &
                                        modes, mode_conv, CEC_exp, CEC_ed, vessel_bd_filename, &
                                        stand_alone, dstf_comp, use_ida_spline_Te, use_ida_spline_ne, &
-                                       max_points_svec, reflec_model
+                                       max_points_svec, reflec_model, data_name, data_secondary_name
 implicit none
 type(plasma_params_type), intent(inout)    :: plasma_params
 real(rkind), intent(in)                    :: rhopol_max_spline_knot, ecrad_ratio_for_third_harmonic, &
                                               reflec_X_mode, reflec_O_mode, ecrad_O2X_mode_conversion, &
                                               rhopol_scal_te, rhopol_scal_ne, btf_corr_fact_ext, &
                                               ecrad_ds_large, ecrad_ds_small, ecrad_R_shift, ecrad_z_shift
-integer(ikind), intent(in)                 :: shot, ecrad_modes, ecrad_max_points_svec, ecrad_N_ray, ecrad_N_freq
-logical, intent(in)                        :: ecrad_verbose, ray_tracing, ecrad_weak_rel
+integer(ikind), intent(in)                 :: ecrad_modes, ecrad_max_points_svec, ecrad_N_ray, &
+                                              ecrad_N_freq,ece_1O_flag
+logical, intent(in)                        :: ecrad_verbose, ecrad_Bt_ripple, ray_tracing, ecrad_weak_rel, log_flag
 integer(ikind), intent(in), optional       :: parallelization_mode
   allocate(diagnostics(1))
   ant%N_diag = 1
   allocate(ant%diag(ant%N_diag), rad%diag(ant%N_diag))
-  output_level = verbose
-  plasma_params%shot = shot
-  ! time is not yet determined when this routine is called
-  plasma_params%time =  -1.d0
-  plasma_params%time_beg = -1.d0
-  plasma_params%time_end = -1.d0
-  OERT = .true. ! always true
+  output_level = ecrad_verbose
   dstf = "relamax"
   dstf_comp = "TB"
   plasma_params%eq_diag = "IDA"
+  data_name = "TRadM_therm.dat"
+  data_secondary_name = "TRadM_TBeam.dat"
 #ifdef OMP
   if(present(parallelization_mode)) then
   ! If multiple IDA runs are done simulatenously we want no parallezation of the model
@@ -251,13 +274,14 @@ integer(ikind), intent(in), optional       :: parallelization_mode
     end if
   end if
 #endif
-  straight = .not. ! ida%ece%ray_tracing
+  straight = .not. ray_tracing! ida%ece%ray_tracing
   ! Overwrite the settings for stand_alone usage with the settings for library usage/ ida usage
   use_ida_spline_Te = .true.
   use_ida_spline_ne = .true.
   stand_alone = .false.
   plasma_params%w_ripple = ecrad_Bt_ripple !ida%ece%ecrad_Bt_ripple
   plasma_params%rhop_max = rhopol_max_spline_knot !ida%rhopol_max_spline_knot
+  plasma_params%prof_log_flag = log_flag
   warm_plasma            = ecrad_weak_rel !ida%ece%ecrad_weak_rel
   ! cut off correction incompatible with cold dispersion used in alabajar model
   ratio_for_third_harmonic = ecrad_ratio_for_third_harmonic !ida%ece%ecrad_ratio_for_third_harmonic ! (omega_c / omega = 0.4 => n = 2.5)
@@ -265,7 +289,7 @@ integer(ikind), intent(in), optional       :: parallelization_mode
   reflec_O = reflec_O_mode! ida%ece%reflec_O_mode
   reflec_model = 0 ! Infinite reflection model
   flag_1O = ece_1O_flag ! ida%ece%ece_1O_flag
-max_points_svec = ecrad_max_points_svec ! ida%ece%ecrad_max_points_svec
+  max_points_svec = ecrad_max_points_svec ! ida%ece%ecrad_max_points_svec
   modes =  ecrad_modes ! ida%ece%ecrad_modes ! (modes = 1 -> pure X-mode, 2 -> pure O-mode, 3 both modes and filter
   mode_conv = ecrad_O2X_mode_conversion ! ida%ece%ecrad_O2X_mode_conversion ! mode conversion ratio from O-X due to wall reflections
   ! Scaling of rhop axis for shifting on ne or Te
@@ -277,7 +301,6 @@ max_points_svec = ecrad_max_points_svec ! ida%ece%ecrad_max_points_svec
   plasma_params%dist_small        = ecrad_ds_small ! ida%ece%ecrad_ds_small
   plasma_params%R_shift           = ecrad_R_shift! ida%ece%ecrad_R_shift    ! Allows shifting the equilbrium - moves entire flux matrix
   plasma_params%z_shift           = ecrad_z_shift! ida%ece%ecrad_z_shift    ! Allows shifting the equilbrium - moves entire flux matrix
-  plasma_params%btf_mode = btf_mode !ida%ece%btf_mode
   N_freq = ecrad_N_freq ! ida%ece%N_freq N_freq > 1 -> consider bandwith
   if( int(real(N_freq + 1,8)/ 2.d0) /= real(N_freq + 1,8)/ 2.d0) then
     print*, "Please chose an odd N_freq in the input file"
@@ -404,9 +427,15 @@ subroutine prepare_ECE_diag(working_dir, f, df, R, phi, z, tor, pol, dist_foc, w
   type(nag_error)                            :: error
 #endif
   integer(ikind)                             :: i, j, N_x
-  if(output_level .and. stand_alone) open(66,file = trim(ray_launch_file))
-  if(output_level .and. stand_alone) &
+  if(output_level .and. stand_alone) then
+    open(66,file = trim(ray_launch_file))
     write(66,"(A122)") "f [GHz]        df [GHz]      x [cm]        y [cm]        z [cm]        tor [deg]     pol [deg]     dist foc[cm]  width [cm]"
+  else if(.not. stand_alone .and. present(f) .and. present(working_dir)) then
+    cur_filename = trim(working_dir) // "ece_launch.txt"
+    open(76, file = trim(cur_filename))
+    cur_filename = trim(working_dir) // "ece_freqs.txt"
+    open(77, file = trim(cur_filename))
+  end if
   mode_cnt = 1
   if(modes == 3) mode_cnt = 2
   if (N_ray > 1) then
@@ -427,13 +456,13 @@ subroutine prepare_ECE_diag(working_dir, f, df, R, phi, z, tor, pol, dist_foc, w
   if(.not. stand_alone .and. present(f)) then
     diagnostics(1)= "IDA"
   end if
-
   do idiag = 1, ant%N_diag
     ant%diag(idiag)%diag_name = diagnostics(idiag)
     !print*,"next diag", ant%diag(idiag)%diag_name
     if(output_level .and. stand_alone) print*, "Initializing: ", ant%diag(idiag)%diag_name
     if(ant%diag(idiag)%diag_name == "IDA") then
-		ant%diag(idiag)%N_ch = size(f)
+		  ant%diag(idiag)%N_ch = size(f)
+		  if(.not. stand_alone .and. present(f) .and. present(working_dir)) write(76, "(i5.5)")  ant%diag(idiag)%N_ch
     else
       cur_filename = trim(working_dir) // "ecfm_data/" // trim(ant%diag(idiag)%diag_name) // "_launch.dat"
       if(output_level .and. stand_alone) print*, "Reading ", ant%diag(idiag)%diag_name, " from external file: ", cur_filename
@@ -441,8 +470,10 @@ subroutine prepare_ECE_diag(working_dir, f, df, R, phi, z, tor, pol, dist_foc, w
       read(77, "(I5.5)") ant%diag(idiag)%N_ch
       if(trim(ant%diag(idiag)%diag_name) == "CTA" .or. &
          trim(ant%diag(idiag)%diag_name) == "CTC" .or. &
-         trim(ant%diag(idiag)%diag_name) == "IEC" ) then
+         trim(ant%diag(idiag)%diag_name) == "IEC" .or. &
+         trim(ant%diag(idiag)%diag_name) == "EXT") then
         open(78, file = trim(working_dir) // "ecfm_data/" // trim(ant%diag(idiag)%diag_name) // "_pol_coeff.dat")
+      end if
     end if
     allocate(ant%diag(idiag)%ch(ant%diag(idiag)%N_ch))
     allocate(rad%diag(idiag)%ch(ant%diag(idiag)%N_ch))
@@ -475,10 +506,10 @@ subroutine prepare_ECE_diag(working_dir, f, df, R, phi, z, tor, pol, dist_foc, w
         ant%diag(idiag)%ch(ich)%f_ECE = f(ich)
         ant%diag(idiag)%ch(ich)%df_ECE = df(ich)
         ant%diag(idiag)%ch(ich)%ray_launch(1)%R = R(ich)
-        ant%diag(idiag)%ch(ich)%ray_launch(1)%phi = phi(ich) / 180.d0 * pi
+        ant%diag(idiag)%ch(ich)%ray_launch(1)%phi = phi(ich) ! angles in IDA already in rad
         ant%diag(idiag)%ch(ich)%ray_launch(1)%z = z(ich)
-        ant%diag(idiag)%ch(ich)%ray_launch(1)%phi_tor = tor(ich) / 180.d0 * pi
-        ant%diag(idiag)%ch(ich)%ray_launch(1)%theta_pol = pol(ich) / 180.d0 * pi
+        ant%diag(idiag)%ch(ich)%ray_launch(1)%phi_tor = tor(ich) ! angles in IDA already in rad
+        ant%diag(idiag)%ch(ich)%ray_launch(1)%theta_pol = pol(ich) ! angles in IDA already in rad
         ant%diag(idiag)%ch(ich)%width = width(ich)
         ant%diag(idiag)%ch(ich)%dist_focus = dist_foc(ich)
         ant%diag(idiag)%ch(ich)%focus_shift = 0.d0 ! To be correctly implemented
@@ -504,10 +535,14 @@ subroutine prepare_ECE_diag(working_dir, f, df, R, phi, z, tor, pol, dist_foc, w
           ant%diag(idiag)%ch(ich)%ray_launch(1)%weight = 1.d0
         if(trim(ant%diag(idiag)%diag_name) == "CTA" .or. &
            trim(ant%diag(idiag)%diag_name) == "CTC" .or. &
-           trim(ant%diag(idiag)%diag_name) == "IEC" ) then
+           trim(ant%diag(idiag)%diag_name) == "IEC" .or. &
+         trim(ant%diag(idiag)%diag_name) == "EXT") then
           do imode = 1,mode_cnt
             if(imode == 1 .and. modes == 3) then
+              ! A negative polarization coefficient indicates that a toroidally alinged polarizer should be assumed
+              ! In this case ECRad computes the resulting polarization
               read(78, "(E17.10E2)") rad%diag(idiag)%ch(ich)%mode(imode)%ray(1)%freq(1)%pol_coeff
+              if(rad%diag(idiag)%ch(ich)%mode(imode)%ray(1)%freq(1)%pol_coeff < 0.d0) cycle
               rad%diag(idiag)%ch(ich)%mode(imode)%ray(1)%freq(:)%pol_coeff = rad%diag(idiag)%ch(ich)%mode(imode)%ray(1)%freq(1)%pol_coeff
               rad%diag(idiag)%ch(ich)%mode(imode)%ray(1)%freq(:)%pol_coeff_secondary = &
                 rad%diag(idiag)%ch(ich)%mode(imode)%ray(1)%freq(:)%pol_coeff
@@ -725,54 +760,51 @@ subroutine prepare_ECE_diag(working_dir, f, df, R, phi, z, tor, pol, dist_foc, w
         !print*, "Adjusting weights so that sum of weights gives 1"
         !ant%diag(idiag)%ch(ich)%ray_launch(:)%weight = ant%diag(idiag)%ch(ich)%ray_launch(:)%weight /  sum_of_weights
         !print*, "weights", ant%diag(idiag)%ch(ich)%ray_launch(:)%weight
+      else
+        ant%diag(idiag)%ch(ich)%ray_launch(1)%weight = 1.d0
       end if ! N_ray > 1
     end do ! ich
     do ich = 1, ant%diag(idiag)%N_ch
       do ir = 1, N_ray
-        if(output_level .and. stand_alone) write(66,"(E13.6E2A1E13.6E2A1E13.6E2A1E13.6E2A1E13.6E2A1E13.6E2A1E13.6E2A1E13.6E2A1E13.6E2)") &
-          ant%diag(idiag)%ch(ich)%f_ECE, " ", &
-          ant%diag(idiag)%ch(ich)%df_ECE, " ", &
-          1.d2 * ant%diag(idiag)%ch(ich)%ray_launch(ir)%x_vec(1), " ", &
-          1.d2 * ant%diag(idiag)%ch(ich)%ray_launch(ir)%x_vec(2)," ", &
-          1.d2 * ant%diag(idiag)%ch(ich)%ray_launch(ir)%x_vec(3), " ", &
-          ant%diag(idiag)%ch(ich)%ray_launch(ir)%phi_tor / pi * 1.8d2, " ", &
-          ant%diag(idiag)%ch(ich)%ray_launch(ir)%theta_pol / pi * 1.8d2, " ", &
-          1.d2 * ant%diag(idiag)%ch(ich)%dist_focus, " ", &
-          1.d2 * ant%diag(idiag)%ch(ich)%width
-       end do !N_ray
-    end do !N_ch
-    if(present(ece_strut) .and. present(ida) .and. present(working_dir)) then
-      cur_filename = trim(working_dir) // "ece_launch.txt"
-      open(76, file = trim(cur_filename))
-      cur_filename = trim(working_dir) // "ece_freqs.txt"
-      open(77, file = trim(cur_filename))
-      write(76, "(i5.5)")  ant%diag(idiag)%N_ch
-      do ich = 1, ant%diag(idiag)%N_ch
-        do ir = 1, N_ray
+        if(output_level .and. stand_alone) then
+          write(66,"(E13.6E2A1E13.6E2A1E13.6E2A1E13.6E2A1E13.6E2A1E13.6E2A1E13.6E2A1E13.6E2A1E13.6E2)") &
+                ant%diag(idiag)%ch(ich)%f_ECE, " ", &
+                ant%diag(idiag)%ch(ich)%df_ECE, " ", &
+                1.d2 * ant%diag(idiag)%ch(ich)%ray_launch(ir)%x_vec(1), " ", &
+                1.d2 * ant%diag(idiag)%ch(ich)%ray_launch(ir)%x_vec(2)," ", &
+                1.d2 * ant%diag(idiag)%ch(ich)%ray_launch(ir)%x_vec(3), " ", &
+                ant%diag(idiag)%ch(ich)%ray_launch(ir)%phi_tor / pi * 1.8d2, " ", &
+                ant%diag(idiag)%ch(ich)%ray_launch(ir)%theta_pol / pi * 1.8d2, " ", &
+                1.d2 * ant%diag(idiag)%ch(ich)%dist_focus, " ", &
+                1.d2 * ant%diag(idiag)%ch(ich)%width
+        else if(.not. stand_alone .and. present(f) .and. present(working_dir)) then
           write(76,"(E13.6E2A1E13.6E2A1E13.6E2A1E13.6E2A1E13.6E2A1E13.6E2A1E13.6E2)") &
-            ant%diag(idiag)%ch(ich)%ray_launch(ir)%x_vec(1), " ", &
-            ant%diag(idiag)%ch(ich)%ray_launch(ir)%x_vec(2)," ", &
-            ant%diag(idiag)%ch(ich)%ray_launch(ir)%x_vec(3), " ", &
-            ant%diag(idiag)%ch(ich)%ray_launch(ir)%N_vec(1), " ", &
-            ant%diag(idiag)%ch(ich)%ray_launch(ir)%N_vec(2)," ", &
-            ant%diag(idiag)%ch(ich)%ray_launch(ir)%N_vec(3), " ", &
-            ant%diag(idiag)%ch(ich)%ray_launch(ir)%weight
-        end do
-        do ifreq = 1, N_freq
-          write(77,"(E13.6E2A1E13.6E2)") &
+             ant%diag(idiag)%ch(ich)%ray_launch(ir)%x_vec(1), " ", &
+             ant%diag(idiag)%ch(ich)%ray_launch(ir)%x_vec(2)," ", &
+             ant%diag(idiag)%ch(ich)%ray_launch(ir)%x_vec(3), " ", &
+             ant%diag(idiag)%ch(ich)%ray_launch(ir)%N_vec(1), " ", &
+             ant%diag(idiag)%ch(ich)%ray_launch(ir)%N_vec(2)," ", &
+             ant%diag(idiag)%ch(ich)%ray_launch(ir)%N_vec(3), " ", &
+             ant%diag(idiag)%ch(ich)%ray_launch(ir)%weight
+        end if
+      end do !N_ray
+      do ifreq = 1, N_freq
+        write(77,"(E13.6E2A1E13.6E2)") &
             ant%diag(idiag)%ch(ich)%freq(ifreq), " ", &
             ant%diag(idiag)%ch(ich)%freq_weight(ifreq)
-        end do
       end do
-      close(76)
-      close(77)
-    end if
+    end do !N_ch
   end do !diag
 #ifdef NAG
   if(N_freq > 1) deallocate(freq_check, freq_weight_check)
   if (N_ray > 1) deallocate(x, dx, x_check, dx_check)
 #endif
-  if(output_level .and. stand_alone) close(66)
+  if(output_level .and. stand_alone) then
+    close(66)
+  else if(.not. stand_alone .and. present(f) .and. present(working_dir)) then
+    close(76)
+    close(77)
+  end if
 end subroutine prepare_ECE_diag
 
 !*******************************************************************************
@@ -845,7 +877,7 @@ implicit none
   ! Computes the distance of a point to the curve spanned by poly
   ! Uses interpolation -> quite expensive
   use f90_kind
-  use mod_ecfm_refr_interpol, only : make_1d_spline, spline_1d_vec, spline_1d_get_roots, deallocate_1d_spline
+  use mod_ecfm_refr_interpol, only : make_1d_spline, spline_1d, spline_1d_get_roots, deallocate_1d_spline
   use mod_ecfm_refr_types, only : point_type, spl_type_1d
   implicit none
   type(point_type), dimension(:), intent(in) :: poly
@@ -864,11 +896,11 @@ implicit none
   end do
   f(:) = Sqrt((poly(:)%x - x)**2 + (poly(:)%y - y)**2)
   call make_1d_spline(spl, size(poly), s, f)
-  call spline_1d_vec(spl, s, dummy, df)
+  call spline_1d(spl, s, dummy, df)
   call make_1d_spline(d_spl, size(s_high_res), s_high_res, df)
   root_cnt = size(roots)
   call spline_1d_get_roots(d_spl, roots, root_cnt)
-  call spline_1d_vec(spl, roots(1:root_cnt), dist(1:root_cnt))
+  call spline_1d(spl, roots(1:root_cnt), dist(1:root_cnt))
   distance_to_poly = minval(dist(1:root_cnt))
   call deallocate_1d_spline(spl)
   call deallocate_1d_spline(d_spl)
@@ -1111,67 +1143,132 @@ implicit none
     end if
   end function func_calc_phi
 
-subroutine retrieve_T_e_single(plasma_params, rhop, T_e, grad_T_e)
+  subroutine retrieve_T_e_single(plasma_params, rhop, T_e, grad_T_e)
     use f90_kind
-    use mod_ecfm_refr_types,        only: plasma_params_type, use_ida_spline_Te, spl_type_1d, output_level
-#ifdef IDA
-    use mod_temperature,            only: make_temperature
-#endif
+    use mod_ecfm_refr_types,        only: plasma_params_type, use_ida_spline_Te, output_level, SOL_Te
     use mod_ecfm_refr_interpol,     only: spline_1d
     implicit none
     type(plasma_params_type), intent(in)    :: plasma_params
     real(rkind),               intent(in)   :: rhop
-    real(rkind),               intent(out)   :: T_e
-    real(rkind),               intent(out), optional   :: grad_T_e
-    real(rkind), dimension(1)                :: T_e_arr, rhop_arr, grad_T_e_arr
+    real(rkind),               intent(out)  :: T_e
+    real(rkind),               intent(out), optional :: grad_T_e
     real(rkind)                              :: scaled_rhop
+    scaled_rhop = rhop * plasma_params%rhop_scale_te
+    if(present(grad_T_e)) grad_T_e = 0.d0
+    T_e = SOL_Te
+    if(scaled_rhop > plasma_params%rhop_max) return
 #ifdef IDA
     if(use_ida_spline_Te) then
-      T_e_arr(:) = 0.d0
-      rhop_arr(1) = rhop * plasma_params%rhop_scale_te
       if(present(grad_T_e)) then
-        grad_T_e_arr(:) = 0.d0
-        call make_temperature(plasma_params%par, T_e_arr, x_eval = rhop_arr, rp_min = plasma_params%rp_min, dTedx = grad_T_e_arr)
-        grad_T_e = grad_T_e_arr(1)
+        call spline_1d(plasma_params%IDA_rhop_knots_Te, plasma_params%IDA_T_e, &
+                       plasma_params%IDA_T_e_dx2, scaled_rhop, T_e, grad_T_e)
       else
-        call make_temperature(plasma_params%par, T_e_arr, x_eval = rhop_arr, rp_min = plasma_params%rp_min)
-      end if
-      T_e = T_e_arr(1)
-      return
-    end if
-#endif
-    scaled_rhop = rhop * plasma_params%rhop_scale_te
-    if(scaled_rhop > plasma_params%rhop_max) then
-      T_e = 0.d0
-      return
-    end if
-    if(present(grad_T_e)) then
-      if(output_level) then
-#ifdef NAG
-        call spline_1d(plasma_params%Te_spline, scaled_rhop, &
-          T_e, grad_T_e, plasma_params%Te_spline_nag)
-#else
-        call spline_1d(plasma_params%Te_spline, scaled_rhop, &
-          T_e, grad_T_e)
-#endif
-      else
-        call spline_1d(plasma_params%Te_spline, scaled_rhop, &
-   				       T_e, grad_T_e)
+        call spline_1d(plasma_params%IDA_rhop_knots_Te, plasma_params%IDA_T_e, &
+                       plasma_params%IDA_T_e_dx2, scaled_rhop, T_e)
       end if
     else
-      if(output_level) then
-#ifdef NAG
-        call spline_1d(plasma_params%Te_spline, scaled_rhop, &
-    			       T_e, nag_spline = plasma_params%Te_spline_nag)
-#else
-        call spline_1d(plasma_params%Te_spline, scaled_rhop, &
-         			   T_e)
 #endif
+      if(present(grad_T_e)) then
+        if(output_level) then
+#ifdef NAG
+          call spline_1d(plasma_params%Te_spline, scaled_rhop, &
+                         T_e, grad_T_e, plasma_params%Te_spline_nag)
+#else
+          call spline_1d(plasma_params%Te_spline, scaled_rhop, &
+                         T_e, grad_T_e)
+#endif
+        else
+          call spline_1d(plasma_params%Te_spline, scaled_rhop, &
+   				               T_e, grad_T_e)
+        end if
       else
-        call spline_1d(plasma_params%Te_spline, scaled_rhop, T_e)
+        if(output_level) then
+#ifdef NAG
+          call spline_1d(plasma_params%Te_spline, scaled_rhop, &
+    			               T_e, nag_spline = plasma_params%Te_spline_nag)
+#else
+          call spline_1d(plasma_params%Te_spline, scaled_rhop, &
+         			           T_e)
+#endif
+        else
+          call spline_1d(plasma_params%Te_spline, scaled_rhop, T_e)
+        end if
       end if
-    end if    
+#ifdef IDA
+    end if
+#endif
+    if(plasma_params%prof_log_flag) then
+      T_e = exp(T_e)
+      if(present(grad_T_e)) then
+        grad_T_e = grad_T_e * T_e
+      end if
+    end if
   end subroutine retrieve_T_e_single
+
+  subroutine retrieve_T_e_vector(plasma_params, rhop, T_e, grad_T_e)
+    use f90_kind
+    use mod_ecfm_refr_types,        only: plasma_params_type, use_ida_spline_Te, output_level, SOL_Te
+    use mod_ecfm_refr_interpol,     only: spline_1d
+    implicit none
+    type(plasma_params_type), intent(in)    :: plasma_params
+    real(rkind), dimension(:), intent(in)   :: rhop
+    real(rkind), dimension(:), intent(out)  :: T_e
+    real(rkind), dimension(:), intent(out), optional :: grad_T_e
+    real(rkind), dimension(size(rhop))            :: rhop_aux
+    if(present(grad_T_e)) grad_T_e = 0.d0
+    T_e = 0.d0
+    rhop_aux = rhop * plasma_params%rhop_scale_te
+    where(rhop_aux > plasma_params%rhop_max) rhop_aux = plasma_params%rhop_max
+    where(rhop_aux < 0.d0) rhop_aux = plasma_params%rhop_max
+#ifdef IDA
+    if(use_ida_spline_Te) then
+      if(present(grad_T_e)) then
+        call spline_1d(plasma_params%IDA_rhop_knots_Te, plasma_params%IDA_T_e, &
+                       plasma_params%IDA_T_e_dx2, rhop_aux, T_e, grad_T_e)
+      else
+        call spline_1d(plasma_params%IDA_rhop_knots_Te, plasma_params%IDA_T_e, &
+                       plasma_params%IDA_T_e_dx2, rhop_aux, T_e)
+      end if
+    else
+#endif
+      if(present(grad_T_e)) then
+        if(output_level) then
+#ifdef NAG
+          call spline_1d(plasma_params%Te_spline, rhop_aux, &
+                         T_e, grad_T_e, plasma_params%Te_spline_nag)
+#else
+          call spline_1d(plasma_params%Te_spline, rhop_aux, &
+                         T_e, grad_T_e)
+#endif
+        else
+          call spline_1d(plasma_params%Te_spline, rhop_aux, &
+                         T_e, grad_T_e)
+        end if
+      else
+        if(output_level) then
+#ifdef NAG
+          call spline_1d(plasma_params%Te_spline, rhop_aux, &
+                         T_e, nag_spline = plasma_params%Te_spline_nag)
+#else
+          call spline_1d(plasma_params%Te_spline, rhop_aux, &
+                         T_e)
+#endif
+        else
+          call spline_1d(plasma_params%Te_spline, rhop_aux, T_e)
+        end if
+      end if
+#ifdef IDA
+    end if
+#endif
+    if(plasma_params%prof_log_flag) then
+      T_e = exp(T_e)
+      if(present(grad_T_e)) then
+        grad_T_e = grad_T_e * T_e
+      end if
+    end if
+    where(rhop * plasma_params%rhop_scale_te > plasma_params%rhop_max) T_e = SOL_Te
+    where(rhop < 0.d0) T_e = SOL_Te
+  end subroutine retrieve_T_e_vector
 
   subroutine retrieve_T_e_mat_single(plasma_params, x_vec, T_e, spatial_grad_Te)
     use f90_kind
@@ -1217,77 +1314,6 @@ subroutine retrieve_T_e_single(plasma_params, rhop, T_e, grad_T_e)
     end if
   end subroutine retrieve_T_e_mat_single
 
-  subroutine retrieve_T_e_vector(plasma_params, rhop, T_e, grad_T_e)
-    use f90_kind
-    use mod_ecfm_refr_types,        only: plasma_params_type, use_ida_spline_Te, output_level
-#ifdef IDA
-    use mod_temperature,            only: make_temperature
-#endif
-    use mod_ecfm_refr_interpol,     only: spline_1d_vec
-    implicit none
-    type(plasma_params_type), intent(in)    :: plasma_params
-    real(rkind), dimension(:), intent(in)   :: rhop
-    real(rkind), dimension(:), intent(out)   :: T_e
-    real(rkind), dimension(:), intent(out), optional   :: grad_T_e
-    real(rkind), dimension(size(rhop))       :: scaled_rhop
-    integer(ikind)                           :: i_start, i_end
-    scaled_rhop = rhop * plasma_params%rhop_scale_Te
-    i_start = 1
-    do while((scaled_rhop(i_start) > plasma_params%rhop_max .or. rhop(i_start) == -1.d0) .and. &
-              i_start < i_end)
-      i_start = i_start + 1
-    end do
-    i_end = size(rhop)
-    do while((scaled_rhop(i_end) > plasma_params%rhop_max  .or. rhop(i_end) == -1.d0) .and. &
-              i_end > i_start)
-      i_end = i_end - 1
-    end do
-    T_e(:) = 0.d0
-    if(i_start == i_end) then
-      if(present(grad_T_e)) grad_T_e = 0.d0
-      return
-    end if
-#ifdef IDA
-    if(use_ida_spline_Te) then
-      if(present(grad_T_e)) then
-        grad_T_e(:) = 0.d0
-        call make_temperature(plasma_params%par, T_e(i_start: i_end), x_eval = scaled_rhop(i_start: i_end), rp_min = plasma_params%rp_min, dTedx = grad_T_e(i_start: i_end))
-      else
-        call make_temperature(plasma_params%par, T_e(i_start: i_end) , x_eval= scaled_rhop(i_start: i_end), rp_min = plasma_params%rp_min)
-      end if
-      return
-    end if
-#endif
-    if(present(grad_T_e)) then
-      grad_T_e(:) = 0.d0
-      if(output_level) then
-#ifdef NAG
-        call spline_1d_vec(plasma_params%Te_spline, scaled_rhop(i_start: i_end), &
-          T_e(i_start: i_end), grad_T_e(i_start: i_end), plasma_params%Te_spline_nag)
-#else
-        call spline_1d_vec(plasma_params%Te_spline, scaled_rhop(i_start: i_end), &
-          T_e(i_start: i_end), grad_T_e(i_start: i_end))
-#endif
-      else
-        call spline_1d_vec(plasma_params%Te_spline, scaled_rhop(i_start: i_end), &
-          T_e(i_start: i_end), grad_T_e(i_start: i_end))
-      end if
-    else
-      if(output_level) then
-#ifdef NAG
-        call spline_1d_vec(plasma_params%Te_spline, scaled_rhop(i_start: i_end), &
-          T_e, nag_spline = plasma_params%Te_spline_nag)
-#else
-        call spline_1d_vec(plasma_params%Te_spline, scaled_rhop(i_start: i_end), &
-          T_e)
-#endif
-      else
-        call spline_1d_vec(plasma_params%Te_spline, scaled_rhop(i_start: i_end), &
-          T_e)
-      end if
-    end if
-  end subroutine retrieve_T_e_vector
-
   subroutine retrieve_T_e_mat_vector(plasma_params, x_vec, T_e, spatial_grad_Te)
     use f90_kind
     use mod_ecfm_refr_types,        only: plasma_params_type
@@ -1308,111 +1334,140 @@ subroutine retrieve_T_e_single(plasma_params, rhop, T_e, grad_T_e)
 
   subroutine retrieve_n_e_single(plasma_params, rhop, n_e, grad_n_e)
     use f90_kind
-    use mod_ecfm_refr_types,        only: plasma_params_type, use_ida_spline_ne, output_level
-    use mod_density,            only: make_density
-    use mod_ecfm_refr_interpol, only: spline_1d
+    use mod_ecfm_refr_types,        only: plasma_params_type, output_level, use_ida_spline_ne, SOL_ne
+    use mod_ecfm_refr_interpol,     only: spline_1d
     implicit none
     type(plasma_params_type), intent(in)    :: plasma_params
     real(rkind),               intent(in)   :: rhop
-    real(rkind),               intent(out)   :: n_e
-    real(rkind),               intent(out), optional   :: grad_n_e
-    real(rkind), dimension(1)                :: n_e_arr, rhop_arr, grad_n_e_arr
+    real(rkind),               intent(out)  :: n_e
+    real(rkind),               intent(out), optional :: grad_n_e
     real(rkind)                              :: scaled_rhop
+    scaled_rhop = rhop * plasma_params%rhop_scale_te
+    if(present(grad_n_e)) grad_n_e = 0.d0
+    n_e = SOL_ne
+    if(scaled_rhop > plasma_params%rhop_max) return
+#ifdef IDA
     if(use_ida_spline_ne) then
-      n_e_arr(:) = 0.d0
-      rhop_arr(1) = rhop  * plasma_params%rhop_scale_ne
       if(present(grad_n_e)) then
-        call make_density(plasma_params%par_ne, plasma_params%par_scal, n_e_arr, rhop_arr, 2, grad_n_e_arr) ! makes only sense for rhop axis
-        grad_n_e = grad_n_e_arr(1) *  1.0d6 ! make_density gives in per cubic centimeter
+        call spline_1d(plasma_params%IDA_rhop_knots_ne, plasma_params%IDA_n_e, &
+                       plasma_params%IDA_n_e_dx2, scaled_rhop, n_e, grad_n_e)
       else
-        call make_density(plasma_params%par_ne, plasma_params%par_scal, n_e_arr, rhop_arr, 2) ! makes only sense for rhop axis
+        call spline_1d(plasma_params%IDA_rhop_knots_ne, plasma_params%IDA_n_e, &
+                       plasma_params%IDA_n_e_dx2, scaled_rhop, n_e)
       end if
-      n_e = n_e_arr(1) *  1.0d6
     else
-      scaled_rhop = rhop * plasma_params%rhop_scale_ne
-      if(scaled_rhop > plasma_params%rhop_max) then
-         n_e = 0.d0
-        return
-      end if
+#endif
       if(present(grad_n_e)) then
         if(output_level) then
 #ifdef NAG
-      call spline_1d(plasma_params%ne_spline, scaled_rhop, n_e, grad_n_e, plasma_params%ne_spline_nag)
+          call spline_1d(plasma_params%ne_spline, scaled_rhop, &
+                         n_e, grad_n_e, plasma_params%ne_spline_nag)
 #else
-      call spline_1d(plasma_params%ne_spline, scaled_rhop, n_e, grad_n_e)
+          call spline_1d(plasma_params%ne_spline, scaled_rhop, &
+                         n_e, grad_n_e)
 #endif
         else
-          call spline_1d(plasma_params%ne_spline, scaled_rhop, n_e, grad_n_e)
+          call spline_1d(plasma_params%ne_spline, scaled_rhop, &
+                         n_e, grad_n_e)
         end if
       else
         if(output_level) then
 #ifdef NAG
-      call spline_1d(plasma_params%ne_spline, scaled_rhop, n_e, nag_spline = plasma_params%ne_spline_nag)
+          call spline_1d(plasma_params%ne_spline, scaled_rhop, &
+                         n_e, nag_spline = plasma_params%ne_spline_nag)
 #else
-      call spline_1d(plasma_params%ne_spline, scaled_rhop, n_e)
+          call spline_1d(plasma_params%ne_spline, scaled_rhop, &
+                         n_e)
 #endif
         else
           call spline_1d(plasma_params%ne_spline, scaled_rhop, n_e)
         end if
       end if
+#ifdef IDA
+    end if
+#endif
+    if(plasma_params%prof_log_flag) then
+      n_e = exp(n_e)
+      if(use_ida_spline_ne) then
+        n_e = n_e * 1.e6
+      else
+        n_e = n_e * 1.e19
+      end if
+      if(present(grad_n_e)) then
+        grad_n_e = grad_n_e * n_e
+      end if
     end if
   end subroutine retrieve_n_e_single
 
-  subroutine retrieve_n_e_single(plasma_params, rhop, n_e, grad_n_e)
+  subroutine retrieve_n_e_vector(plasma_params, rhop, n_e, grad_n_e)
     use f90_kind
-    use mod_ecfm_refr_types,        only: plasma_params_type, use_ida_spline_ne, output_level
-#ifdef IDA
-    use mod_density,            only: make_density
-#endif
-    use mod_ecfm_refr_interpol, only: spline_1d
+    use mod_ecfm_refr_types,        only: plasma_params_type, output_level, use_ida_spline_ne, SOL_ne
+    use mod_ecfm_refr_interpol,     only: spline_1d
     implicit none
     type(plasma_params_type), intent(in)    :: plasma_params
-    real(rkind),               intent(in)   :: rhop
-    real(rkind),               intent(out)   :: n_e
-    real(rkind),               intent(out), optional   :: grad_n_e
-    real(rkind), dimension(1)                :: n_e_arr, rhop_arr, grad_n_e_arr
-    real(rkind)                              :: scaled_rhop
+    real(rkind), dimension(:), intent(in)   :: rhop
+    real(rkind), dimension(:), intent(out)  :: n_e
+    real(rkind), dimension(:), intent(out), optional :: grad_n_e
+    real(rkind), dimension(size(rhop))            :: rhop_aux
+    if(present(grad_n_e)) grad_n_e = 0.d0
+    n_e = SOL_ne
+    rhop_aux = rhop * plasma_params%rhop_scale_ne
+    where(rhop_aux > plasma_params%rhop_max) rhop_aux = plasma_params%rhop_max
+    where(rhop_aux < 0.d0) rhop_aux = plasma_params%rhop_max
 #ifdef IDA
     if(use_ida_spline_ne) then
-      n_e_arr(:) = 0.d0
-      rhop_arr(1) = rhop  * plasma_params%rhop_scale_ne
       if(present(grad_n_e)) then
-        call make_density(plasma_params%par_ne, plasma_params%par_scal, n_e_arr, rhop_arr, 2, grad_n_e_arr) ! makes only sense for rhop axis
-        grad_n_e = grad_n_e_arr(1) *  1.0d6 ! make_density gives in per cubic centimeter
+        call spline_1d(plasma_params%IDA_rhop_knots_ne, plasma_params%IDA_n_e, &
+                       plasma_params%IDA_n_e_dx2, rhop_aux, n_e, grad_n_e)
       else
-        call make_density(plasma_params%par_ne, plasma_params%par_scal, n_e_arr, rhop_arr, 2) ! makes only sense for rhop axis
-      end if
-      n_e = n_e_arr(1) *  1.0d6
-      return
-    end if
-#endif
-    scaled_rhop = rhop * plasma_params%rhop_scale_ne
-    if(scaled_rhop > plasma_params%rhop_max) then
-       n_e = 0.d0
-      return
-    end if
-    if(present(grad_n_e)) then
-      if(output_level) then
-#ifdef NAG
-    call spline_1d(plasma_params%ne_spline, scaled_rhop, n_e, grad_n_e, plasma_params%ne_spline_nag)
-#else
-    call spline_1d(plasma_params%ne_spline, scaled_rhop, n_e, grad_n_e)
-#endif
-      else
-        call spline_1d(plasma_params%ne_spline, scaled_rhop, n_e, grad_n_e)
+        call spline_1d(plasma_params%IDA_rhop_knots_ne, plasma_params%IDA_n_e, &
+                       plasma_params%IDA_n_e_dx2, rhop_aux, n_e)
       end if
     else
-      if(output_level) then
-#ifdef NAG
-    call spline_1d(plasma_params%ne_spline, scaled_rhop, n_e, nag_spline = plasma_params%ne_spline_nag)
-#else
-    call spline_1d(plasma_params%ne_spline, scaled_rhop, n_e)
 #endif
+      if(present(grad_n_e)) then
+        if(output_level) then
+#ifdef NAG
+          call spline_1d(plasma_params%ne_spline, rhop_aux, &
+                         n_e, grad_n_e, plasma_params%ne_spline_nag)
+#else
+          call spline_1d(plasma_params%ne_spline, rhop_aux, &
+                         n_e, grad_n_e)
+#endif
+        else
+          call spline_1d(plasma_params%ne_spline, rhop_aux, &
+                         n_e, grad_n_e)
+        end if
       else
-        call spline_1d(plasma_params%ne_spline, scaled_rhop, n_e)
+        if(output_level) then
+#ifdef NAG
+          call spline_1d(plasma_params%ne_spline, rhop_aux, &
+                         n_e, nag_spline = plasma_params%ne_spline_nag)
+#else
+          call spline_1d(plasma_params%ne_spline, rhop_aux, &
+                         n_e)
+#endif
+        else
+          call spline_1d(plasma_params%ne_spline, rhop_aux, n_e)
+        end if
+      end if
+#ifdef IDA
+    end if
+#endif
+    if(plasma_params%prof_log_flag) then
+      n_e = exp(n_e)
+      if(use_ida_spline_ne) then
+        n_e = n_e * 1.e6
+      else
+        n_e = n_e * 1.e19
+      end if
+      if(present(grad_n_e)) then
+        grad_n_e = grad_n_e * n_e
       end if
     end if
-  end subroutine retrieve_n_e_single
+    where(rhop * plasma_params%rhop_scale_ne > plasma_params%rhop_max) n_e = SOL_ne
+    where(rhop < 0.d0) n_e = SOL_ne
+  end subroutine retrieve_n_e_vector
 
   subroutine retrieve_n_e_mat_single(plasma_params, x_vec, n_e, spatial_grad_ne)
     use f90_kind
@@ -1458,79 +1513,6 @@ subroutine retrieve_T_e_single(plasma_params, rhop, T_e, grad_T_e)
     end if
   end subroutine retrieve_n_e_mat_single
 
-  subroutine retrieve_n_e_vector(plasma_params, rhop, n_e, grad_n_e)
-    use f90_kind
-    use mod_ecfm_refr_types,        only: plasma_params_type, use_ida_spline_ne, output_level
-#ifdef IDA
-    use mod_density,                only: make_density
-#endif
-    use mod_ecfm_refr_interpol,     only: spline_1d_vec
-    implicit none
-    type(plasma_params_type), intent(in)     :: plasma_params
-    real(rkind), dimension(:), intent(in)    :: rhop
-    real(rkind), dimension(:), intent(out)   :: n_e
-    real(rkind), dimension(:), intent(out), optional   :: grad_n_e
-    real(rkind), dimension(size(rhop))       :: scaled_rhop
-    integer(ikind)                           :: i_start, i_end
-    scaled_rhop = rhop * plasma_params%rhop_scale_ne
-    i_start = 1
-    do while((scaled_rhop(i_start) > plasma_params%rhop_max .or. rhop(i_start) == -1.d0) .and. &
-              i_start < i_end)
-      i_start = i_start + 1
-    end do
-    i_end = size(rhop)
-    do while((scaled_rhop(i_end) > plasma_params%rhop_max .or. rhop(i_end) == -1.d0) .and. &
-              i_end > i_start)
-      i_end = i_end - 1
-    end do
-    n_e(:) = 0.d0
-    if(i_start == i_end) then
-      if(present(grad_n_e)) grad_n_e = 0.d0
-      n_e = 0.d0
-      return
-    end if
-#ifdef IDA
-    if(use_ida_spline_ne) then
-      if(present(grad_n_e)) then
-        grad_n_e(:) = 0.d0
-        call make_density(plasma_params%par_ne, plasma_params%par_scal, n_e(i_start: i_end), scaled_rhop(i_start: i_end), 2, grad_n_e(i_start: i_end)) ! makes only sense for rhop axis
-        grad_n_e = grad_n_e * 1.0d6
-      else
-        call make_density(plasma_params%par_ne, plasma_params%par_scal, n_e(i_start: i_end) ,scaled_rhop(i_start: i_end), 2) ! makes only sense for rhop axis
-      end if
-      n_e = n_e *  1.0d6
-      return
-    end if
-#endif
-    if(present(grad_n_e)) then
-      if(output_level) then
-#ifdef NAG
-    call spline_1d_vec(plasma_params%ne_spline, scaled_rhop(i_start: i_end), &
-          n_e(i_start: i_end), grad_n_e(i_start: i_end), plasma_params%ne_spline_nag)
-#else
-    call spline_1d_vec(plasma_params%ne_spline, scaled_rhop(i_start: i_end), &
-          n_e(i_start: i_end), grad_n_e(i_start: i_end))
-#endif
-      else
-        call spline_1d_vec(plasma_params%ne_spline, scaled_rhop(i_start: i_end), &
-          n_e(i_start: i_end), grad_n_e(i_start: i_end))
-      end if
-    else
-      if(output_level) then
-#ifdef NAG
-        call spline_1d_vec(plasma_params%ne_spline, scaled_rhop(i_start: i_end), &
-          n_e(i_start: i_end), nag_spline = plasma_params%ne_spline_nag)
-#else
-        call spline_1d_vec(plasma_params%ne_spline, scaled_rhop(i_start: i_end), &
-          n_e(i_start: i_end))
-#endif
-      else
-        call spline_1d_vec(plasma_params%ne_spline, scaled_rhop(i_start: i_end), &
-          n_e(i_start: i_end))
-      end if
-    end if
-  end subroutine retrieve_n_e_vector
-
   subroutine retrieve_n_e_mat_vector(plasma_params, x_vec, n_e, spatial_grad_ne)
     use f90_kind
     use mod_ecfm_refr_types,        only: plasma_params_type
@@ -1548,53 +1530,11 @@ subroutine retrieve_T_e_single(plasma_params, rhop, T_e, grad_T_e)
       end if
     end do
   end subroutine retrieve_n_e_mat_vector
-#ifdef IDA
-subroutine make_ece_rhopol_scal_te(plasma_params, par, par_scal)
-use f90_kind
-use mod_ecfm_refr_types,       only: plasma_params_type
-use ida_global_params,         only: ida
-use mod_fit_params,            only: map_par_to_ece_rp_scal_te
-implicit none
-type(plasma_params_type), intent(inout)  :: plasma_params
-real(rkind), dimension(:),   intent(in)  :: par, par_scal
 
-if (ida%ece%rhopol_scal_te_fit == 0) then           ! value from ida.inp
-  plasma_params%rhop_scale_Te = ida%ece%rhopol_scal_te
-else if (ida%ece%rhopol_scal_te_fit == 1) then      ! fit parameter
-  call map_par_to_ece_rp_scal_te(par, plasma_params%rhop_scale_Te, par_scal=par_scal)            ! par -> rhopol scale ECE
-  !rp_scal_ece_te = 1.d0 + rp_scal_ece_te
-else
-  write(6,'(a,i2)')"ida%ece%rhopol_scal_te_fit = ", ida%ece%rhopol_scal_te_fit
-  stop "sub make_ece_rhopol_scal_te: ida%ece%rhopol_scal_te_fit not properly defined!"
-endif
-!stop "sub make_ece_rhopol_scal_te"
-end subroutine make_ece_rhopol_scal_te
-
-!*****************************************************************
-
-subroutine make_ece_rhopol_scal_ne(plasma_params, par, par_scal)
-use f90_kind
-use mod_ecfm_refr_types,       only: plasma_params_type
-use ida_global_params,         only: ida
-use mod_fit_params,            only: map_par_to_ece_rp_scal_ne
-implicit none
-type(plasma_params_type), intent(inout)  :: plasma_params
-real(rkind), dimension(:),   intent(in)  :: par, par_scal
-if (ida%ece%rhopol_scal_ne_fit == 0) then           ! value from ida.inp
-  plasma_params%rhop_scale_ne = ida%ece%rhopol_scal_ne
-else if (ida%ece%rhopol_scal_ne_fit == 1) then      ! fit parameter
-  call map_par_to_ece_rp_scal_ne(par, plasma_params%rhop_scale_ne, par_scal=par_scal)            ! par -> rhopol scale ECE
-else
-  stop "sub make_ece_rhopol_scal_ne: ida%ece%rhopol_scal_ne_fit not properly defined!"
-endif
-ida%time(plasma_params%ida_time_indx)%ece_ne_rhop_scal = plasma_params%rhop_scale_ne
-!stop "sub make_ece_rhopol_scal_ne"
-end subroutine make_ece_rhopol_scal_ne
-#endif IDA
 subroutine bin_ray_BPD_to_common_rhop(plasma_params, rad_mode, center_freq, weights, rhop, BPD, BPD_secondary)
 use f90_kind
 use mod_ecfm_refr_types,       only: plasma_params_type, rad_diag_ch_mode_type, N_ray, spl_type_1d, max_points_svec
-use mod_ecfm_refr_interpol,   only: make_1d_spline,  spline_1d, spline_1d_vec, spline_1d_get_roots, deallocate_1d_spline, spline_1d_integrate
+use mod_ecfm_refr_interpol,   only: make_1d_spline,  spline_1d, spline_1d, spline_1d_get_roots, deallocate_1d_spline, spline_1d_integrate
 use constants,                 only: pi, mass_e, e0, c0
 implicit none
 type(plasma_params_type), intent(in)  :: plasma_params
@@ -1752,8 +1692,8 @@ logical                                    :: make_secondary_BPD
           call spline_1d_get_roots(rhop_spl, roots, root_cnt)
           !print*, "rhop, amount of crossings", rhop(i), root_cnt
           if(root_cnt > 0) then
-            call spline_1d_vec(BPD_spl, roots(1:root_cnt), BPD_step(1:root_cnt))
-            if(make_secondary_BPD) call spline_1d_vec(BPD_secondary_spl, roots(1:root_cnt), BPD_secondary_step(1:root_cnt))
+            call spline_1d(BPD_spl, roots(1:root_cnt), BPD_step(1:root_cnt))
+            if(make_secondary_BPD) call spline_1d(BPD_secondary_spl, roots(1:root_cnt), BPD_secondary_step(1:root_cnt))
             do i_am_root = 1, root_cnt
               if(rad_mode%ray(ir)%Trad > 0.d0) BPD(i) = BPD(i) + weights(ir) * BPD_step(i_am_root) / rad_mode%ray(ir)%Trad
               if(make_secondary_BPD) then
@@ -1779,7 +1719,7 @@ logical                                    :: make_secondary_BPD
         call make_1d_spline(rhop_spl, int(i_seg_end - i_seg_start + 1, 4), &
                           s_arr(1 + i_seg_start - i_start :i_seg_end - i_start + 1), &
                           rhop_arr(1 + i_seg_start - i_start :i_seg_end - i_start + 1))
-        call spline_1d_vec(rhop_spl, s_aux_arr, rhop_aux_arr)
+        call spline_1d(rhop_spl, s_aux_arr, rhop_aux_arr)
         call deallocate_1d_spline(rhop_spl)
         rhop_spl%iopt_int = 0
         if(any(rhop_aux_arr /= rhop_aux_arr)) then
@@ -1797,8 +1737,8 @@ logical                                    :: make_secondary_BPD
           call spline_1d_get_roots(rhop_spl, roots, root_cnt)
           !print*, "rhop, amount of crossings", rhop(i), root_cnt
           if(root_cnt > 0) then
-            call spline_1d_vec(BPD_spl, roots(1:root_cnt), BPD_step(1:root_cnt))
-            if(make_secondary_BPD)  call spline_1d_vec(BPD_secondary_spl, roots(1:root_cnt), BPD_secondary_step(1:root_cnt))
+            call spline_1d(BPD_spl, roots(1:root_cnt), BPD_step(1:root_cnt))
+            if(make_secondary_BPD)  call spline_1d(BPD_secondary_spl, roots(1:root_cnt), BPD_secondary_step(1:root_cnt))
             do i_am_root = 1, root_cnt
               if(rad_mode%ray(ir)%Trad > 0.d0) BPD(i) = BPD(i) + weights(ir) * BPD_step(i_am_root) / rad_mode%ray(ir)%Trad
               if(make_secondary_BPD) then
@@ -1843,7 +1783,7 @@ use f90_kind
 use mod_ecfm_refr_types,       only: rad_diag_ch_mode_ray_extra_output_type, &
                                      rad_diag_ch_mode_ray_freq_type, &
                                      max_points_svec, N_freq, spl_type_1d
-use mod_ecfm_refr_interpol,   only: make_1d_spline, spline_1d_vec, deallocate_1d_spline, spline_1d_integrate
+use mod_ecfm_refr_interpol,   only: make_1d_spline, spline_1d, deallocate_1d_spline, spline_1d_integrate
 use constants,                only: c0, e0
 implicit none
 type(rad_diag_ch_mode_ray_extra_output_type), intent(inout)  :: ray_extra_output
@@ -1887,56 +1827,56 @@ real(rkind)                                :: ds, BPD_norm, BPD_secondary_norm
       call make_1d_spline(spl, int(total_LOS_points(ifreq), 4), &
                             s_freq(1:total_LOS_points(ifreq)), &
                             quant(1:total_LOS_points(ifreq)), k=1)
-      call spline_1d_vec(spl, s_arr, val)
+      call spline_1d(spl, s_arr, val)
       ray_extra_output%Trad(1:total_LOS_points(1)) = ray_extra_output%Trad(1:total_LOS_points(1)) + freq_weight(ifreq) * val
       call deallocate_1d_spline(spl)
       quant(1:total_LOS_points(ifreq)) = rad_freq(ifreq)%svec_extra_output%em
       call make_1d_spline(spl, int(total_LOS_points(ifreq), 4), &
                             s_freq(1:total_LOS_points(ifreq)), &
                             quant(1:total_LOS_points(ifreq)), k=1)
-      call spline_1d_vec(spl, s_arr, val)
+      call spline_1d(spl, s_arr, val)
       ray_extra_output%em(1:total_LOS_points(1)) = ray_extra_output%em(1:total_LOS_points(1)) + freq_weight(ifreq) * val
       call deallocate_1d_spline(spl)
       quant(1:total_LOS_points(ifreq)) = rad_freq(ifreq)%svec_extra_output%T
       call make_1d_spline(spl, int(total_LOS_points(ifreq), 4), &
                             s_freq(1:total_LOS_points(ifreq)), &
                             quant(1:total_LOS_points(ifreq)), k=1)
-      call spline_1d_vec(spl, s_arr, val)
+      call spline_1d(spl, s_arr, val)
       ray_extra_output%T(1:total_LOS_points(1)) = ray_extra_output%T(1:total_LOS_points(1)) + freq_weight(ifreq) * val
       call deallocate_1d_spline(spl)
       quant(1:total_LOS_points(ifreq)) = rad_freq(ifreq)%svec_extra_output%ab
       call make_1d_spline(spl, int(total_LOS_points(ifreq), 4), &
                             s_freq(1:total_LOS_points(ifreq)), &
                             quant(1:total_LOS_points(ifreq)), k=1)
-      call spline_1d_vec(spl, s_arr, val)
+      call spline_1d(spl, s_arr, val)
       ray_extra_output%ab(1:total_LOS_points(1)) = ray_extra_output%ab(1:total_LOS_points(1)) + freq_weight(ifreq) * val
       call deallocate_1d_spline(spl)
       quant(1:total_LOS_points(ifreq)) = rad_freq(ifreq)%svec_extra_output%Trad_secondary
       call make_1d_spline(spl, int(total_LOS_points(ifreq), 4), &
                             s_freq(1:total_LOS_points(ifreq)), &
                             quant(1:total_LOS_points(ifreq)), k=1)
-      call spline_1d_vec(spl, s_arr, val)
+      call spline_1d(spl, s_arr, val)
       ray_extra_output%Trad_secondary(1:total_LOS_points(1)) = ray_extra_output%Trad_secondary(1:total_LOS_points(1)) + freq_weight(ifreq) * val
       call deallocate_1d_spline(spl)
       quant(1:total_LOS_points(ifreq)) = rad_freq(ifreq)%svec_extra_output%em_secondary
       call make_1d_spline(spl, int(total_LOS_points(ifreq), 4), &
                             s_freq(1:total_LOS_points(ifreq)), &
                             quant(1:total_LOS_points(ifreq)), k=1)
-      call spline_1d_vec(spl, s_arr, val)
+      call spline_1d(spl, s_arr, val)
       ray_extra_output%em_secondary(1:total_LOS_points(1)) = ray_extra_output%em_secondary(1:total_LOS_points(1)) + freq_weight(ifreq) * val
       call deallocate_1d_spline(spl)
       quant(1:total_LOS_points(ifreq)) = rad_freq(ifreq)%svec_extra_output%T_secondary
       call make_1d_spline(spl, int(total_LOS_points(ifreq), 4), &
                             s_freq(1:total_LOS_points(ifreq)), &
                             quant(1:total_LOS_points(ifreq)), k=1)
-      call spline_1d_vec(spl, s_arr, val)
+      call spline_1d(spl, s_arr, val)
       ray_extra_output%T_secondary(1:total_LOS_points(1)) = ray_extra_output%T_secondary(1:total_LOS_points(1)) + freq_weight(ifreq) * val
       call deallocate_1d_spline(spl)
       quant(1:total_LOS_points(ifreq)) = rad_freq(ifreq)%svec_extra_output%ab_secondary
       call make_1d_spline(spl, int(total_LOS_points(ifreq), 4), &
                             s_freq(1:total_LOS_points(ifreq)), &
                             quant(1:total_LOS_points(ifreq)), k=1)
-      call spline_1d_vec(spl, s_arr, val)
+      call spline_1d(spl, s_arr, val)
       ray_extra_output%ab_secondary(1:total_LOS_points(1)) = ray_extra_output%ab_secondary(1:total_LOS_points(1)) + freq_weight(ifreq) * val
       call deallocate_1d_spline(spl)
     end do ! ifreq =1, N_freq
@@ -1969,7 +1909,7 @@ use f90_kind
 use mod_ecfm_refr_types,       only: rad_diag_ch_mode_ray_extra_output_type, &
                                      rad_diag_ch_mode_ray_freq_type, &
                                      max_points_svec, N_freq, spl_type_1d
-use mod_ecfm_refr_interpol,   only: make_1d_spline, spline_1d_vec, deallocate_1d_spline, spline_1d_integrate
+use mod_ecfm_refr_interpol,   only: make_1d_spline, spline_1d, deallocate_1d_spline, spline_1d_integrate
 use constants,                only: c0, e0
 implicit none
 type(rad_diag_ch_mode_ray_extra_output_type), intent(inout)  :: ray_extra_output
@@ -2001,14 +1941,14 @@ real(rkind)                                :: ds, BPD_norm, BPD_secondary_norm
       call make_1d_spline(spl, int(total_LOS_points(ifreq), 4), &
                             s_freq(1:total_LOS_points(ifreq)), &
                             quant(1:total_LOS_points(ifreq)), k=1)
-      call spline_1d_vec(spl, s_arr, val)
+      call spline_1d(spl, s_arr, val)
       ray_extra_output%em(1:total_LOS_points(1)) = ray_extra_output%em(1:total_LOS_points(1)) + freq_weight(ifreq) * val
       call deallocate_1d_spline(spl)
       quant(1:total_LOS_points(ifreq)) = rad_freq(ifreq)%svec_extra_output%T
       call make_1d_spline(spl, int(total_LOS_points(ifreq), 4), &
                             s_freq(1:total_LOS_points(ifreq)), &
                             quant(1:total_LOS_points(ifreq)), k=1)
-      call spline_1d_vec(spl, s_arr, val)
+      call spline_1d(spl, s_arr, val)
       ray_extra_output%T(1:total_LOS_points(1)) = ray_extra_output%T(1:total_LOS_points(1)) + freq_weight(ifreq) * val
       call deallocate_1d_spline(spl)
     end do ! ifreq =1, N_freq
@@ -2032,7 +1972,7 @@ real(rkind)                                :: ds, BPD_norm, BPD_secondary_norm
   deallocate(s_arr)
 end subroutine bin_freq_to_ray_light
 
-subroutine make_warm_res_mode(plasma_params, rad_mode, weights, f_ECE)
+subroutine make_warm_res_mode(plasma_params, rad_mode, weights, f_ECE, make_secondary)
 use f90_kind
 use mod_ecfm_refr_types,       only: plasma_params_type, rad_diag_ch_mode_type, N_ray, &
                                      N_freq, use_maximum_for_warm_res
@@ -2041,34 +1981,39 @@ implicit none
 type(plasma_params_type), intent(in)  :: plasma_params
 type(rad_diag_ch_mode_type), intent(inout) :: rad_mode
 real(rkind), dimension(:), intent(in)      :: weights
+logical, intent(in)                        :: make_secondary
 real(rkind), intent(in)                    :: f_ECE ! ray weights, freq_weights
 integer(ikind)                             :: ir, i, i_max_BDOP, i_max_BDOP_secondary
 real(rkind)                                :: sTrad, Trad, sTrad_secondary, Trad_secondary, max_BDOP, &
                                               BPD_cur, BPD_cur_secondary, ds
   sTrad = 0.d0
   Trad = 0.d0
-  sTrad_secondary = 0.d0
-  Trad_secondary= 0.d0
   i_max_BDOP = 1
-  i_max_BDOP_secondary = 1
   rad_mode%rel_s_res = 0.d0
   rad_mode%rel_R_res = 0.d0
   rad_mode%rel_z_res = 0.d0
   rad_mode%rel_rhop_res = 0.d0
-  rad_mode%rel_s_res_secondary = 0.d0
-  rad_mode%rel_R_res_secondary = 0.d0
-  rad_mode%rel_z_res_secondary = 0.d0
-  rad_mode%rel_rhop_res_secondary = 0.d0
+  if(make_secondary) then
+    sTrad_secondary = 0.d0
+    Trad_secondary= 0.d0
+    i_max_BDOP_secondary = 1
+    rad_mode%rel_s_res_secondary = 0.d0
+    rad_mode%rel_R_res_secondary = 0.d0
+    rad_mode%rel_z_res_secondary = 0.d0
+    rad_mode%rel_rhop_res_secondary = 0.d0
+  end if
   do ir = 1, N_ray
     ! two steps - first find warm res for each ray and then sum the rays
     rad_mode%ray(ir)%rel_s_res = 0.d0
     rad_mode%ray(ir)%rel_R_res = 0.d0
     rad_mode%ray(ir)%rel_z_res = 0.d0
     rad_mode%ray(ir)%rel_rhop_res = 0.d0
-    rad_mode%ray(ir)%rel_s_res_secondary = 0.d0
-    rad_mode%ray(ir)%rel_R_res_secondary = 0.d0
-    rad_mode%ray(ir)%rel_z_res_secondary = 0.d0
-    rad_mode%ray(ir)%rel_rhop_res_secondary = 0.d0
+    if(make_secondary) then
+      rad_mode%ray(ir)%rel_s_res_secondary = 0.d0
+      rad_mode%ray(ir)%rel_R_res_secondary = 0.d0
+      rad_mode%ray(ir)%rel_z_res_secondary = 0.d0
+      rad_mode%ray(ir)%rel_rhop_res_secondary = 0.d0
+    end if
     ! Two options here, either point of maximum emission, or mean of the distribution
     ! the mean has the disadvantage to be horribly wrong for a non-unimodal BPD
     ! the maximum can give one a false sence of  for a non-unimodal BPD
@@ -2076,14 +2021,14 @@ real(rkind)                                :: sTrad, Trad, sTrad_secondary, Trad
     if(use_maximum_for_warm_res) then
       i_max_BDOP = maxloc(rad_mode%ray_extra_output(ir)%em(:) * &
                           rad_mode%ray_extra_output(ir)%T(:), dim=1)
-      i_max_BDOP_secondary = maxloc(rad_mode%ray_extra_output(ir)%em_secondary(:) * &
+      if(make_secondary)  i_max_BDOP_secondary = maxloc(rad_mode%ray_extra_output(ir)%em_secondary(:) * &
                              rad_mode%ray_extra_output(ir)%T_secondary(:), dim=1)
     else
       do i = 1, rad_mode%ray(ir)%freq(1)%total_LOS_points
         BPD_cur = rad_mode%ray_extra_output(ir)%em(i) * &
               rad_mode%ray_extra_output(ir)%T(i) /  &
               rad_mode%ray(ir)%Trad * c0**2 / (f_ECE**2 * e0)
-        BPD_cur_secondary = rad_mode%ray_extra_output(ir)%em_secondary(i) * &
+        if(make_secondary)  BPD_cur_secondary = rad_mode%ray_extra_output(ir)%em_secondary(i) * &
                         rad_mode%ray_extra_output(ir)%T_secondary(i) /  &
                         rad_mode%ray(ir)%Trad_secondary * c0**2 / (f_ECE * e0)
       ! Simple Trapezoid integration
@@ -2092,51 +2037,53 @@ real(rkind)                                :: sTrad, Trad, sTrad_secondary, Trad
                 rad_mode%ray(ir)%freq(1)%svec(i)%s) * 0.5d0
           sTrad = sTrad + BPD_cur *  &
                   rad_mode%ray(ir)%freq(1)%svec(i)%s * ds
-          sTrad_secondary = sTrad_secondary + BPD_cur_secondary *  &
+          if(make_secondary)  sTrad_secondary = sTrad_secondary + BPD_cur_secondary *  &
                   rad_mode%ray(ir)%freq(1)%svec(i)%s * ds
           Trad = Trad + BPD_cur * ds
-          Trad_secondary = Trad_secondary + BPD_cur_secondary * ds
+          if(make_secondary)  Trad_secondary = Trad_secondary + BPD_cur_secondary * ds
             ! normalize with the Trad from the integrated Trad, since Trad from the differential equation might be slightly different (numerical errors)
         else if(i == rad_mode%ray(ir)%freq(1)%total_LOS_points) then
           ds = (rad_mode%ray(ir)%freq(1)%svec(i)%s  - &
                 rad_mode%ray(ir)%freq(1)%svec(i - 1)%s) * 0.5d0
           sTrad = sTrad + BPD_cur *  &
                   rad_mode%ray(ir)%freq(1)%svec(i)%s * ds
-          sTrad_secondary = sTrad_secondary + BPD_cur_secondary *  &
+          if(make_secondary)  sTrad_secondary = sTrad_secondary + BPD_cur_secondary *  &
                   rad_mode%ray(ir)%freq(1)%svec(i)%s * ds
           Trad = Trad + BPD_cur * ds
-          Trad_secondary = Trad_secondary + BPD_cur_secondary * ds
+          if(make_secondary)  Trad_secondary = Trad_secondary + BPD_cur_secondary * ds
         else
           ds = rad_mode%ray(ir)%freq(1)%svec(i + 1)%s  - &
                 rad_mode%ray(ir)%freq(1)%svec(i)%s
           sTrad = sTrad + BPD_cur *  &
                   rad_mode%ray(ir)%freq(1)%svec(i)%s * ds
-          sTrad_secondary = sTrad_secondary + BPD_cur_secondary *  &
+          if(make_secondary)  sTrad_secondary = sTrad_secondary + BPD_cur_secondary *  &
                   rad_mode%ray(ir)%freq(1)%svec(i)%s * ds
           Trad = Trad + BPD_cur * ds
-          Trad_secondary = Trad_secondary + BPD_cur_secondary * ds
+          if(make_secondary) Trad_secondary = Trad_secondary + BPD_cur_secondary * ds
         end if
       end do !i
       i_max_BDOP  = minloc(abs(sTrad / Trad - rad_mode%ray(ir)%freq(1)%svec(1:rad_mode%ray(ir)%freq(1)%total_LOS_points)%s), dim = 1)
-      i_max_BDOP_secondary  = minloc(abs(sTrad_secondary / Trad_secondary - rad_mode%ray(ir)%freq(1)%svec(1:rad_mode%ray(ir)%freq(1)%total_LOS_points)%s), dim = 1)
+      if(make_secondary)  i_max_BDOP_secondary  = minloc(abs(sTrad_secondary / Trad_secondary - rad_mode%ray(ir)%freq(1)%svec(1:rad_mode%ray(ir)%freq(1)%total_LOS_points)%s), dim = 1)
     end if
     print*, "rhop warm res ir", rad_mode%ray(ir)%freq(1)%svec(i_max_BDOP)%rhop, ir
     rad_mode%ray(ir)%rel_s_res = rad_mode%ray(ir)%freq(1)%svec(i_max_BDOP)%s
     rad_mode%ray(ir)%rel_R_res = rad_mode%ray(ir)%freq(1)%svec(i_max_BDOP)%R
     rad_mode%ray(ir)%rel_z_res = rad_mode%ray(ir)%freq(1)%svec(i_max_BDOP)%z
     rad_mode%ray(ir)%rel_rhop_res = rad_mode%ray(ir)%freq(1)%svec(i_max_BDOP)%rhop
-    rad_mode%ray(ir)%rel_s_res_secondary = rad_mode%ray(ir)%freq(1)%svec(i_max_BDOP_secondary)%s
-    rad_mode%ray(ir)%rel_R_res_secondary = rad_mode%ray(ir)%freq(1)%svec(i_max_BDOP_secondary)%R
-    rad_mode%ray(ir)%rel_z_res_secondary = rad_mode%ray(ir)%freq(1)%svec(i_max_BDOP_secondary)%z
-    rad_mode%ray(ir)%rel_rhop_res_secondary = rad_mode%ray(ir)%freq(1)%svec(i_max_BDOP_secondary)%rhop
     rad_mode%rel_s_res = rad_mode%rel_s_res + rad_mode%ray(ir)%rel_s_res * weights(ir)
     rad_mode%rel_R_res = rad_mode%rel_R_res + rad_mode%ray(ir)%rel_R_res * weights(ir)
     rad_mode%rel_z_res = rad_mode%rel_z_res + rad_mode%ray(ir)%rel_z_res * weights(ir)
     rad_mode%rel_rhop_res = rad_mode%rel_rhop_res + rad_mode%ray(ir)%rel_rhop_res * weights(ir)
-    rad_mode%rel_s_res_secondary = rad_mode%rel_s_res_secondary + rad_mode%ray(ir)%rel_s_res_secondary * weights(ir)
-    rad_mode%rel_R_res_secondary = rad_mode%rel_R_res_secondary + rad_mode%ray(ir)%rel_R_res_secondary * weights(ir)
-    rad_mode%rel_z_res_secondary = rad_mode%rel_z_res_secondary + rad_mode%ray(ir)%rel_z_res_secondary * weights(ir)
-    rad_mode%rel_rhop_res_secondary = rad_mode%rel_rhop_res_secondary + rad_mode%ray(ir)%rel_rhop_res_secondary * weights(ir)
+    if(make_secondary)  then
+      rad_mode%ray(ir)%rel_s_res_secondary = rad_mode%ray(ir)%freq(1)%svec(i_max_BDOP_secondary)%s
+      rad_mode%ray(ir)%rel_R_res_secondary = rad_mode%ray(ir)%freq(1)%svec(i_max_BDOP_secondary)%R
+      rad_mode%ray(ir)%rel_z_res_secondary = rad_mode%ray(ir)%freq(1)%svec(i_max_BDOP_secondary)%z
+      rad_mode%ray(ir)%rel_rhop_res_secondary = rad_mode%ray(ir)%freq(1)%svec(i_max_BDOP_secondary)%rhop
+      rad_mode%rel_s_res_secondary = rad_mode%rel_s_res_secondary + rad_mode%ray(ir)%rel_s_res_secondary * weights(ir)
+      rad_mode%rel_R_res_secondary = rad_mode%rel_R_res_secondary + rad_mode%ray(ir)%rel_R_res_secondary * weights(ir)
+      rad_mode%rel_z_res_secondary = rad_mode%rel_z_res_secondary + rad_mode%ray(ir)%rel_z_res_secondary * weights(ir)
+      rad_mode%rel_rhop_res_secondary = rad_mode%rel_rhop_res_secondary + rad_mode%ray(ir)%rel_rhop_res_secondary * weights(ir)
+    end if
   end do !ir
 end subroutine make_warm_res_mode
 
@@ -2170,8 +2117,7 @@ if(ant%N_diag > 1) then
   stop "Import of svec not supported for multiple diagnostic"
 end if
 if(modes /= 1) then
-  print*, "Only the OERT version of the ECFM supports the O-mode"
-  print*, "Set either OERT = T or modes = 3 in the input file"
+  print*, "Loading rays is not supported for O-mode"
   print*, "Input Error in initialize_LOS.f90"
   call abort
 end if
@@ -2279,7 +2225,7 @@ implicit None
 end subroutine init_non_therm
 
 subroutine read_bi_max_data()
-use mod_ecfm_refr_types, only: bi_max, data_folder, OERT, min_level_log_ne
+use mod_ecfm_refr_types, only: bi_max, data_folder, min_level_log_ne
 use mod_ecfm_refr_interpol,    only: make_1d_spline
 #ifdef NAG
 USE nag_spline_1d,             only: nag_spline_1d_interp
@@ -2307,7 +2253,7 @@ Character(200)  :: cur_filename
 end subroutine read_bi_max_data
 
 subroutine read_runaway_data()
-use mod_ecfm_refr_types, only: runaway, data_folder, OERT, min_level_log_ne
+use mod_ecfm_refr_types, only: runaway, data_folder, min_level_log_ne
 use mod_ecfm_refr_interpol,    only: make_1d_spline
 #ifdef NAG
 USE nag_spline_1d,             only: nag_spline_1d_interp
@@ -2335,7 +2281,7 @@ Character(200)  :: cur_filename
 end subroutine read_runaway_data
 
 subroutine read_drift_m_data()
-use mod_ecfm_refr_types, only: drift_m, data_folder, OERT, min_level_log_ne
+use mod_ecfm_refr_types, only: drift_m, data_folder, min_level_log_ne
 use mod_ecfm_refr_interpol,    only: make_1d_spline
 #ifdef NAG
 USE nag_spline_1d,             only: nag_spline_1d_interp
@@ -2365,7 +2311,7 @@ Character(200)  :: cur_filename
 end subroutine read_drift_m_data
 
 subroutine read_multi_slope_data()
-use mod_ecfm_refr_types, only: multi_slope, data_folder, OERT
+use mod_ecfm_refr_types, only: multi_slope, data_folder
 use mod_ecfm_refr_interpol,    only: make_1d_spline
 #ifdef NAG
 USE nag_spline_1d,             only: nag_spline_1d_interp
@@ -2391,7 +2337,7 @@ Character(200)  :: cur_filename
 end subroutine read_multi_slope_data
 
 subroutine read_ffp_data()
-  use mod_ecfm_refr_types, only: ffp, data_folder, dst_data_folder, OERT
+  use mod_ecfm_refr_types, only: ffp, data_folder, dst_data_folder
   use mod_ecfm_refr_fp_dist_utils, only: setup_f_rhop_splines, make_rhop_Bmin
   use constants, only: pi
   implicit none
@@ -2443,11 +2389,11 @@ subroutine read_ffp_data()
   ffp%rhop_min = ffp%rhop(1)
   ffp%rhop_max = ffp%rhop(ffp%N_rhop) - 1.d-2 ! set boundary in a way that we can fall back to thermal
   call setup_f_rhop_splines(ffp)
-  if(OERT) call make_rhop_Bmin()
+  call make_rhop_Bmin()
 end subroutine read_ffp_data
 
 subroutine read_fgene_data()
-  use mod_ecfm_refr_types, only: fgene, data_folder, dst_data_folder, OERT, N_absz_large
+  use mod_ecfm_refr_types, only: fgene, data_folder, dst_data_folder, N_absz_large
   use mod_ecfm_refr_interpol, only: make_rect_spline
   use mod_ecfm_refr_gene_dist_utils, only: setup_fgene_rhop_splines
 #ifdef NAG
@@ -2525,7 +2471,7 @@ subroutine read_fgene_data()
 end subroutine read_fgene_data
 
 subroutine read_Gene_Bi_max_data()
-use mod_ecfm_refr_types, only: fgene, data_folder, OERT
+use mod_ecfm_refr_types, only: fgene, data_folder
 use mod_ecfm_refr_interpol,    only: make_1d_spline
 #ifdef NAG
 USE nag_spline_1d,             only: nag_spline_1d_interp
@@ -2576,7 +2522,7 @@ Character(1)    :: blanc
 end subroutine read_Gene_Bi_max_data
 
 subroutine read_Spitzer_data()
-use mod_ecfm_refr_types, only: data_folder, OERT, Spitzer
+use mod_ecfm_refr_types, only: data_folder, Spitzer
 use mod_ecfm_refr_interpol,    only: make_1d_spline
 #ifdef NAG
 USE nag_spline_1d,             only: nag_spline_1d_interp
@@ -2646,7 +2592,7 @@ end subroutine read_wall_Trad
 
 ! Decaprecated to avoid unnecessary usage of kk routines
 !subroutine make_Bmin_los()
-!  USE mod_ecfm_refr_types, only: ant, rad, plasma_params,data_folder, OERT, N_freq, N_ray, ffp
+!  USE mod_ecfm_refr_types, only: ant, rad, plasma_params,data_folder, N_freq, N_ray, ffp
 !  use aug_db_routines,     only: aug_kkrzBrzt
 !  use constants,                  only: mass_e, e0, pi
 !  use mod_ecfm_refr_interpol,    only: make_1d_spline
@@ -2774,7 +2720,7 @@ end subroutine fgene_clean_up
 
 !*******************************************************************************
 subroutine import_all_ece_data()
-USE mod_ecfm_refr_types, only: ant, rad, data_folder, dstf, OERT,  N_ray, N_freq, plasma_params, ffp
+USE mod_ecfm_refr_types, only: ant, rad, data_folder, dstf,  N_ray, N_freq, plasma_params, ffp
 use mod_ecfm_refr_interpol,    only: make_1d_spline
 #ifdef NAG
   USE nag_spline_1d,                only: nag_spline_1d_interp
@@ -2853,11 +2799,11 @@ end if
 end subroutine import_all_ece_data
 
 subroutine export_all_ece_data()
-USE mod_ecfm_refr_types, only: ant, rad, data_folder, dstf, N_ray, N_freq, OERT, mode_cnt, plasma_params, ffp
+USE mod_ecfm_refr_types, only: ant, rad, data_folder, dstf, N_ray, N_freq, mode_cnt, plasma_params, ffp
 implicit none
 Character(200)                         :: cur_filename, filename
 character(12)                          :: ich_str
-Integer(ikind)                        :: idiag, ich, ir, ifreq, iint, imode, N_ch_prior
+Integer(ikind)                         :: idiag, ich, ir, ifreq, iint, imode, N_ch_prior
 character(1)   :: sep
 sep = " "
 filename =  trim(data_folder) // "cnt.dat"

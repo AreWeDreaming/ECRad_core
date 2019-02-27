@@ -36,7 +36,7 @@ subroutine integrate_Trad(rad_ray, idiag, ich, imode, ir,  ifreq, mode, Trad, Tr
 ! observed radiation are considered. I.e. regions, where the emitted radiation is fully reabsorbed are not considered.
 ! The Integral is solved on many subsegments. These subsegments given by the ray obtained with ray tracing.
 use mod_ecfm_refr_types,        only: ant, rad_diag_ch_mode_ray_type, output_level, data_folder, Ich_name, ray_out_folder,&
-                                      Ich_name, tau_array,tau_secondary_array, dstf, dstf_comp, OERT, plasma_params
+                                      Ich_name, tau_array,tau_secondary_array, dstf, dstf_comp, plasma_params
 use mod_ecfm_refr_em_Hu,                  only: calculate_em, simple_in_cutoff
 use constants,                  only: pi, e0, mass_e, eps0, c0
 use mod_ecfm_refr_abs_Al,         only: abs_Albajar, abs_Al_tor_abs, func_N_cold, func_rel_N
@@ -72,7 +72,7 @@ plasma_params%ray_segment(1)%x_vec = ant%diag(idiag)%ch(ich)%ray_launch(ir)%x_ve
 plasma_params%ray_segment(1)%N_vec = ant%diag(idiag)%ch(ich)%ray_launch(ir)%N_vec ! get launching angles
 ray_segment_cnt = 0
 if(extra_output) print*, "first point before plasma search", plasma_params%ray_segment(1)%s
-if(OERT .and. output_level) then
+if(output_level) then
     write(cur_filename, "(A53A5I3.3A4)") ray_out_folder,"Raych", ich,".dat"
     open(74, file=cur_filename)
     write(cur_filename, "(A49A5A4I3.3A4)") data_folder,Ich_name,"/Nch", ich,".dat"
@@ -82,7 +82,7 @@ if(OERT .and. output_level) then
 !  !write(cur_filename_3X, "(A64A5A10I3.3A4)") data_folder,Ich_name,"/Irhopch3X", ich,".dat"
   open(75, file=cur_filename)
 call find_first_point_in_plasma(plasma_params, omega, plasma_params%ray_segment, last_N) ! find first point in plasma (rhop defined)
-if(OERT .and. output_level) then
+if(output_level) then
   do N=1, last_N
     write(74,"(E18.10E3,A1,E18.10E3,A1,E18.10E3,A1,E18.10E3,A1,E18.10E3)") &
       plasma_params%ray_segment(N)%s, " ", plasma_params%ray_segment(N)%R_vec(1), " ", plasma_params%ray_segment(N)%R_vec(2), " ",&
@@ -147,7 +147,7 @@ do while(transport)
     end if
     plasma_params%ray_segment(1) = plasma_params%ray_segment(last_N)
     call make_ray_segment(distance, plasma_params, omega, plasma_params%ray_segment, last_N, wall_hit) ! prepare the next segment
-    if(OERT .and. output_level) then
+    if(output_level) then
       do N=1, last_N
         write(74,"(E18.10E3,A1,E18.10E3,A1,E18.10E3,A1,E18.10E3,A1,E18.10E3)") &
           plasma_params%ray_segment(N)%s, " ", plasma_params%ray_segment(N)%R_vec(1), " ", plasma_params%ray_segment(N)%R_vec(2), " ",&
@@ -242,7 +242,7 @@ do while(transport)
       ! better to redo this step on a very fine grid
     end if
     if(output_level) then
-      if(OERT .and. output_level) then
+      if(output_level) then
         N_cor = func_rel_N(omega, rad_ray%freq(ifreq)%svec(j), mode)!rad_ray%freq(ifreq)%svec(j)%N_cold
         N_cold = func_N_cold(omega, rad_ray%freq(ifreq)%svec(j), mode)
         N_gray = N_cor
@@ -275,7 +275,7 @@ do while(transport)
       rad_ray%freq(ifreq)%svec(j)%ab_secondary = ab_secondary(k)
     end if
     rad_ray%freq(ifreq)%svec(j)%em = em(k)
-    if(output_level .and. OERT) write(75,"(E18.10E3,A1,E18.10E3,A1,E18.10E3,A1,E18.10E3,A1,E18.10E3)") &
+    if(output_level) write(75,"(E18.10E3,A1,E18.10E3,A1,E18.10E3,A1,E18.10E3,A1,E18.10E3)") &
         rad_ray%freq(ifreq)%svec(j)%rhop, " ", rad_ray%freq(ifreq)%svec(j)%N_cold, " ", N_cold, " ",&
          N_cor," ", N_gray
     j = j + 1
@@ -421,7 +421,7 @@ if(rad_ray%freq(ifreq)%s_res /= -1.d0) then
   if(extra_output) stop "ray_done"
   if(output_level) then
     close(75)
-    if(OERT) close(74)
+    close(74)
   end if
   return
 end if
@@ -440,7 +440,7 @@ do while(rad_ray%freq(ifreq)%s_res == -1.d0 .and. wall_hit == .false.) ! no need
   if(extend_ray) then
     plasma_params%ray_segment(1) = plasma_params%ray_segment(last_N) ! copy last part to ray to start of next
     call make_ray_segment(distance, plasma_params, omega, plasma_params%ray_segment, last_N, wall_hit) ! prepare the next segment
-    if(OERT .and. output_level) then
+    if(output_level) then
       do N=1, last_N
         write(74,"(E18.10E3,A1,E18.10E3,A1,E18.10E3,A1,E18.10E3,A1,E18.10E3)") &
           plasma_params%ray_segment(N)%s, " ", plasma_params%ray_segment(N)%R_vec(1), " ", plasma_params%ray_segment(N)%R_vec(2), " ",&
@@ -479,7 +479,7 @@ if(rad_ray%freq(ifreq)%s_res == -1.d0) then
 end if
 if(output_level) then
   close(75)
-  if(OERT) close(74)
+  close(74)
 end if
 end subroutine integrate_Trad
 
@@ -687,7 +687,7 @@ end subroutine integrate_Trad
 
 ! Outdated and needs fixing before compileable
 !  subroutine calculate_Irad_euler(rad_ray, ich, ifreq, ir, Irad, tau, em_max, R_max)
-!    use mod_ecfm_refr_types,        only: ant, rad_diag_ch_mode_ray_type, dstf_comp, output_level, data_folder, Ich_name, OERT
+!    use mod_ecfm_refr_types,        only: ant, rad_diag_ch_mode_ray_type, dstf_comp, output_level, data_folder, Ich_name
 !    use mod_ecfm_refr_em_Hu,                  only: calculate_em, calculate_N
 !    use constants,                  only: pi, e0, mass_e, eps0, c0
 !    use mod_ecfm_refr_abs_Al,         only: abs_Albajar, abs_Al_tor_abs,abs_Al_all_N
@@ -705,10 +705,6 @@ end subroutine integrate_Trad
 !    em_max  = 0.d0
 !    R_max   = 0.d0
 !    if(output_level .and. ifreq == 1) then
-!        if(OERT) then
-!          write(cur_filename, "(A49A5A9I3.3A4)") data_folder,Ich_name,"/Irhopchs", ich,".dat"
-!        else
-!          write(cur_filename, "(A45A5A9I3.3A4)") trim(data_folder),Ich_name,"/Irhopchs", ich,".dat"
 !        end if
 !        open(66, file=cur_filename)
 !        !write(cur_filename_3X, "(A64A5A11I3.3A4)") data_folder,Ich_name,"/Irhopchs3X", ich,".dat"

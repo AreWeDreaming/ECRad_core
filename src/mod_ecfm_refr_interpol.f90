@@ -1,15 +1,40 @@
 module mod_ecfm_refr_interpol
     implicit none
-    public :: make_rect_spline, &
+#ifdef IDA
+  public ::   make_rect_spline, &
               make_1d_spline, &
               deallocate_rect_spline, &
               deallocate_1d_spline, &
               rect_spline, &
               rect_spline_vec, &
+              bispline_1d, &
+              bispline_1d_vec, &
               spline_1d, &
-              spline_1d_vec, &
+              spline_1d_get_roots, &
+              spline_1d_integrate, &
+              splint_1d, &
+              splint_1d_vec
+#else
+  public ::   make_rect_spline, &
+              make_1d_spline, &
+              deallocate_rect_spline, &
+              deallocate_1d_spline, &
+              rect_spline, &
+              rect_spline_vec, &
+              bispline_1d, &
+              bispline_1d_vec, &
+              spline_1d, &
               spline_1d_get_roots, &
               spline_1d_integrate
+#endif
+
+    interface spline_1d
+#ifdef IDA
+      module procedure bispline_1d, bispline_1d_vec, splint_1d, splint_1d_vec
+#else
+      module procedure bispline_1d, bispline_1d_vec
+#endif
+    end interface spline_1d
 
     contains
 
@@ -166,9 +191,9 @@ module mod_ecfm_refr_interpol
   end subroutine
 
 #ifdef NAG
-subroutine rect_spline(spl,x,y,f,dfdx,dfdy, nag_spline)
+  subroutine rect_spline(spl,x,y,f,dfdx,dfdy, nag_spline)
 #else
-subroutine rect_spline(spl,x,y,f,dfdx,dfdy)
+  subroutine rect_spline(spl,x,y,f,dfdx,dfdy)
 #endif
   ! Spline evaluation routine for B and Te/ne in 2D mode
   ! WARNING: This routine does not check bounds - out of bounds interpolations are prone to very large errors
@@ -386,10 +411,49 @@ subroutine rect_spline(spl,x,y,f,dfdx,dfdy)
     end if
 #endif
   end subroutine rect_spline_vec
+
+#ifdef IDA
+  subroutine splint_1d(knot_pos, val, deriv2, x, y, dydx)
+  ! Spline evaluation routine for B and Te/ne in 2D mode
+  ! WARNING: This routine does not check bounds - out of bounds interpolations are prone to very large errors
+    use f90_kind
+    USE nr_spline, only  : splint, splintg
+    implicit none
+    real(rkind), dimension(:),        intent(in)  :: knot_pos, val, deriv2
+    real(rkind),                      intent(in)  :: x
+    real(rkind),                      intent(out) :: y
+    real(rkind),            intent(out), optional :: dydx
+    if(present(dydx)) then
+      call splintg(knot_pos, val, deriv2, x, y, dydx)
+    else
+      y = splint(knot_pos, val, deriv2, x)
+    end if
+  end subroutine splint_1d
+
+  subroutine splint_1d_vec(knot_pos, val, deriv2, x, y, dydx)
+  ! Spline evaluation routine for B and Te/ne in 2D mode
+  ! WARNING: This routine does not check bounds - out of bounds interpolations are prone to very large errors
+    use f90_kind
+    implicit none
+    real(rkind), dimension(:),        intent(in)  :: knot_pos, val, deriv2
+    real(rkind), dimension(:),        intent(in)  :: x
+    real(rkind), dimension(:),        intent(out) :: y
+    real(rkind), dimension(:), intent(out), optional :: dydx
+    integer(ikind)                                   :: i
+    do i= 1, size(x)
+      if(present(dydx)) then
+        call splint_1d(knot_pos, val, deriv2, x(i), y(i), dydx(i))
+      else
+        call splint_1d(knot_pos, val, deriv2, x(i), y(i))
+      end if
+    end do
+  end subroutine splint_1d_vec
+#endif
+
 #ifdef NAG
-  subroutine spline_1d(spl,x,f,dfdx, nag_spline)
+  subroutine bispline_1d(spl,x,f,dfdx, nag_spline)
 #else
-  subroutine spline_1d(spl,x,f,dfdx)
+  subroutine bispline_1d(spl,x,f,dfdx)
 #endif
   ! Spline evaluation routine for B and Te/ne in 2D mode
   ! WARNING: This routine does not check bounds - out of bounds interpolations are prone to very large errors
@@ -462,12 +526,12 @@ subroutine rect_spline(spl,x,y,f,dfdx,dfdy)
       end if
     end if
 #endif
-  end subroutine spline_1d
+  end subroutine bispline_1d
 
 #ifdef NAG
-  subroutine spline_1d_vec(spl, x, f, dfdx, nag_spline)
+  subroutine bispline_1d_vec(spl, x, f, dfdx, nag_spline)
 #else
-  subroutine spline_1d_vec(spl, x, f, dfdx)
+  subroutine bispline_1d_vec(spl, x, f, dfdx)
 #endif
   ! Spline evaluation routine for B and Te/ne in 2D mode
   ! WARNING: This routine does not check bounds - out of bounds interpolations are prone to very large errors
@@ -533,7 +597,7 @@ subroutine rect_spline(spl,x,y,f,dfdx,dfdy)
       end if
     end if
 #endif
-  end subroutine spline_1d_vec
+  end subroutine bispline_1d_vec
 
   subroutine spline_1d_get_roots(spl, roots, root_cnt)
   ! Finds the root of a 1D spline
@@ -580,5 +644,4 @@ subroutine rect_spline(spl,x,y,f,dfdx,dfdy)
     real(rkind), external :: splint
     int_val = splint(spl%t,spl%n,spl%c, spl%k, a, b, wrk)
   end subroutine spline_1d_integrate
-
 end module mod_ecfm_refr_interpol

@@ -6,7 +6,7 @@ contains
 
 
 subroutine make_rhop_Bmin()
-  USE mod_ecfm_refr_types, only: ant, rad, plasma_params, data_folder, OERT, N_freq, N_ray, ffp, output_level
+  USE mod_ecfm_refr_types, only: ant, rad, plasma_params, data_folder, N_freq, N_ray, ffp, output_level
   use constants,           only: mass_e, e0, pi
   use mod_ecfm_refr_interpol,    only: make_1d_spline, rect_spline
   use mod_contour, only: contour_type, contouring, contour_indx2rz

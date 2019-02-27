@@ -49,20 +49,19 @@ module mod_ecfm_refr_raytrace_initialize
     call rect_spline(Psi_spline, R(1), R(2), eval_Psi)
   end function eval_Psi
 
-  subroutine read_topfile(plasma_params, R, z, rhop, Br, Bt, Bz, R0, Btf0, itime)
+  subroutine read_topfile(plasma_params, R, z, rhop, Br, Bt, Bz, itime)
       use f90_kind
-      use mod_ecfm_refr_types,       only: plasma_params_type, data_folder
-      use mod_ecfm_refr_interpol,    only: make_rect_spline
+      use mod_ecfm_refr_types,       only: plasma_params_type, data_folder, output_level
+      use mod_ecfm_refr_interpol,    only: make_rect_spline, deallocate_rect_spline
       implicit none
       type(plasma_params_type) , intent(inout) :: plasma_params
       real(rkind), dimension(:), allocatable, intent(out) :: R, z
       real(rkind), dimension(:,:), allocatable, intent(out) ::  Br, Bt, Bz
       real(rkind), dimension(:,:), allocatable, intent(out) ::  rhop
-      real(rkind)                            , intent(out)  :: R0, Btf0
       integer(ikind), intent(in), optional                  :: itime
       character(250) :: filename
       integer(ikind) :: i, j, k, i_ax, j_ax
-      real(rkind) :: radin, radout, sgn
+      real(rkind) :: radin, radout, sgn, pf_sxp, pf_mag
       character(70) :: line
       if(present(itime)) then
         write(filename, fmt = "(A7I5.5)") "topfile",  itime
@@ -73,12 +72,12 @@ module mod_ecfm_refr_raytrace_initialize
       open(70,status='unknown',file=filename)
       read(70,'(A)') line
       read(70,*) plasma_params%m, plasma_params%n
-      print*, "Dimensions of external data: ", plasma_params%m, plasma_params%n
+      if(output_level) print*, "Dimensions of external data: ", plasma_params%m, plasma_params%n
       allocate(R(plasma_params%m), z(plasma_params%n), Br(plasma_params%m,plasma_params%n), &
                Bt(plasma_params%m,plasma_params%n), Bz(plasma_params%m,plasma_params%n), &
                rhop(plasma_params%m, plasma_params%n))
       read(70,'(A)') line
-      read(70,*) radin,radout, plasma_params%pf_sxp
+      read(70,*) radin,radout, pf_sxp
 ! ... Grid: X-coordinates
       read(70,'(A)') line  ;  read(70,fmt=*)(R(i),i=1,plasma_params%m)
 
@@ -94,18 +93,18 @@ module mod_ecfm_refr_raytrace_initialize
       read(70,'(A)') line  ;  read(70,fmt=*)((rhop(i,j),i=1,plasma_params%m),j=1,plasma_params%n)
 
       close(70)
-      if(rhop(2, plasma_params%n/2) > rhop(plasma_params%m/2, plasma_params%n/2)) then
-         sgn = 1.e0_rkind
-      else
+      if(pf_sxp < rhop(plasma_params%m/2, plasma_params%n/2)) then
          sgn = -1.e0_rkind
+         pf_sxp = pf_sxp * sgn
+      else
+         sgn = 1.e0_rkind
       endif
-      plasma_params%pf_sxp = plasma_params%pf_sxp * sgn
-      plasma_params%pf_mag = 1.d99
+      pf_mag = 1.d99
       i_ax = -1
       do j = 1, plasma_params%n
         rhop(:,j) = rhop(:,j) * sgn
-        if(plasma_params%pf_mag > minval(rhop(:,j))) then
-           plasma_params%pf_mag = minval(rhop(:,j))
+        if(pf_mag > minval(rhop(:,j))) then
+          pf_mag = minval(rhop(:,j))
           i_ax = minloc(rhop(:,j), dim = 1)
           j_ax = j
         end if
@@ -113,21 +112,18 @@ module mod_ecfm_refr_raytrace_initialize
       if(i_ax == -1) then
         print*, "Could not find magnetic axis in read_topfile in mod_raytrace_initialize.f90"
         print*, "Check if psi matrix dimensions correct: R, z", plasma_params%m, plasma_params%n
-        stop "Input error - check topifle"
+        stop "Input error - check topfile"
       end if
-      R0 = R(i_ax)
-      Btf0 = Bt(i_ax, j_ax)
-      plasma_params%Btf0 = Btf0
-      plasma_params%R0 = R0
       !print*, "Retrieving magn axis"
       call make_rect_spline(Psi_spline, int(plasma_params%m, 4), int(plasma_params%n, 4), R, z, rhop)
-      call get_psi_ax(R, z, i_ax, j_ax, plasma_params%pf_sxp, plasma_params%pf_mag, plasma_params%R_ax, plasma_params%z_ax)
-      rhop = sqrt((rhop - plasma_params%pf_mag)/(plasma_params%pf_sxp - plasma_params%pf_mag))
+      call get_psi_ax(R, z, i_ax, j_ax, pf_sxp, pf_mag, plasma_params%R_ax, plasma_params%z_ax)
+      rhop = sqrt((rhop - pf_mag)/(pf_sxp - pf_mag))
       if(any(rhop /= rhop) .or. minval(rhop) < 0.d0) then
         print*, "critical error when reading topfile, NAN or negative value in rho_pol found"
         print*, rhop
         stop "sub read topfile in mod_raytrace_intialize"
       end if
+      call deallocate_rect_spline(Psi_spline)
   end subroutine read_topfile
 
   subroutine read_Te_ne_matrix(plasma_params, R, z, Te, ne)
@@ -193,54 +189,25 @@ module mod_ecfm_refr_raytrace_initialize
       end if
   end subroutine read_Te_ne_matrix
   
-#ifdef AUG
-  subroutine setup_eq_from_ida(plasma_params, R, z, rhop, Br, Bt, Bz, R0, Btf0)
+  subroutine make_topfile(R, z, rhop, Br, Bt, Bz, itime)
     use f90_kind
-    use mod_ecfm_refr_types,        only: output_level, m_eq, n_eq, plasma_params_type
-    implicit none
-    type(plasma_params_type), intent(inout)     :: plasma_params
-    real(rkind), dimension(:), allocatable, intent(out) :: R, z
-    real(rkind), dimension(:,:), allocatable, intent(out) ::  Br, Bt, Bz
-    real(rkind), dimension(:,:), allocatable, intent(out) ::  rhop
-    real(rkind),                              intent(out)  :: R0, Btf0
-    call load_eqi_for_ECRad(plasma_params%time, plasma_params%time_beg, plasma_params%time_end, & !in
-                            plasma_params%btf_mode, plasma_params%btf_corr_fact_ext, & !in
-                            m_eq, n_eq, & ! in
-                            R, z, rhop, Br, Bt, Bz, R0, plasma_params%Btf0, &
-                            plasma_params%R_ax, plasma_params%z_ax, plasma_params%pf_mag, &
-                            plasma_params%R_sep, plasma_params%z_sep, plasma_params%pf_sxp)
-    Btf0 = plasma_params%Btf0
-  end subroutine setup_eq_from_ida
-#else
-subroutine setup_eq_from_ida(plasma_params, R, z, rhop, Br, Bt, Bz, R0, Btf0)
-    use f90_kind
-    use mod_ecfm_refr_types,        only: plasma_params_type
-    implicit none
-    type(plasma_params_type), intent(inout)     :: plasma_params
-    ! All inout -> no warnings about unassigned variables with explicit out
-    real(rkind), dimension(:), allocatable, intent(inout) :: R, z
-    real(rkind), dimension(:,:), allocatable, intent(inout) ::  Br, Bt, Bz
-    real(rkind), dimension(:,:), allocatable, intent(inout) ::  rhop
-    real(rkind),                             intent(inout)  :: R0, Btf0
-    print*, "Subroutine setup_eq_from_ida is AUG specific and must not be used on non-AUG devices"
-    call abort()
-end subroutine setup_eq_from_ida
-#endif
-  subroutine make_topfile(R, z, rhop, Br, Bt, Bz, working_dir, itime)
-    use f90_kind
+    use mod_ecfm_refr_types,       only: data_folder
     implicit none
     real(rkind), dimension(:), allocatable, intent(in) :: R, z
     real(rkind), dimension(:,:), allocatable, intent(in) ::  Br, Bt, Bz
     real(rkind), dimension(:,:), allocatable, intent(in) ::  rhop
-    character(*), intent(in)                             :: working_dir
-    integer(ikind)                                       ::  itime
+    integer(ikind), intent(in), optional                  ::  itime
     character(250) :: filename
     integer(ikind) :: i,j,k
     real(rkind) :: radin,radout,psi_sep,sgn, psi_ax
     character(70) :: line
     character(12) :: format_str
-    write(filename, fmt = "(A7I5.5)") "topfile",  itime
-    filename = trim(working_dir) // trim(filename)
+    if(present(itime)) then
+      write(filename, fmt = "(A7I5.5)") "topfile",  itime
+      filename = trim(data_folder) // trim(filename)
+    else
+      filename =  trim(data_folder) // "topfile"
+    end if
     open(70,status='unknown',file=filename)
     write(70,'(A)') "Number of radial and vertical grid points"
     write(70,*) size(R), size(z)
@@ -264,36 +231,7 @@ end subroutine setup_eq_from_ida
     close(70)
   end subroutine make_topfile
 
-  subroutine update_plasma_params(plasma_params, par, par_ne, par_scal)
-    use f90_kind
-    use mod_ecfm_refr_types,        only: plasma_params_type
-#ifdef NAG
-    USE nag_spline_1d,              only: nag_spline_1d_interp
-#endif
-    implicit none
-    type(plasma_params_type), intent(inout) :: plasma_params
-    real(rkind), dimension(:), intent(in)   :: par, par_ne, par_scal
-    if(.not. allocated(plasma_params%par)) then
-      if(size(par) == 0) then
-        print*, "The vector par containing the fit parameters in ida was not allocated when update_plasma_params was called"
-        stop "Critical error in update_plasma_params in mod_ecfm_refr_raytrace_initialize.f90"
-      end if
-      if(size(par_scal) == 0) then
-        print*, "The vector par_scal containing the scaling of the fit parameters in ida was not allocated when update_plasma_params was called"
-        stop "Critical error in update_plasma_params in mod_ecfm_refr_raytrace_initialize.f90"
-      end if
-      if(size(par_ne) == 0) then
-        print*, "The vector par_ne containing static fit parameters for ne in ida was not allocated when update_plasma_params was called"
-        stop "Critical error in update_plasma_params in mod_ecfm_refr_raytrace_initialize.f90"
-      end if
-      allocate(plasma_params%par(size(par)), plasma_params%par_ne(size(par_ne)), plasma_params%par_scal(size(par_scal)))
-    end if
-    plasma_params%par = par
-    plasma_params%par_ne = par_ne
-    plasma_params%par_scal = par_scal
-  end subroutine update_plasma_params
-
-  subroutine setup_plasma_params(plasma_params, R, z, rhop, Br, Bt, Bz, R_ax, B_ax)
+  subroutine setup_plasma_params(plasma_params, R_in, z_in, rhop_in, B_r_in, B_t_in, B_z_in, R_ax, z_ax)
     use f90_kind
     use mod_ecfm_refr_types,        only: plasma_params_type, h_x_glob, h_check, output_level, double_check_splines, &
                                           stand_alone, output_level, vessel_bd_filename, max_points_svec
@@ -309,36 +247,44 @@ end subroutine setup_eq_from_ida
     use ripple3d,                   only: init_ripple!, validate_ripple_grad
     implicit none
     type(plasma_params_type), intent(inout)     :: plasma_params
-	real(rkind), dimension(:), intent(in), optional :: R, z
-    real(rkind), dimension(:,:), intent(in), optional :: rhop, Br, Bt, Bz
-    real(rkind), intent(in), optional                 :: R_ax, B_ax
+	real(rkind), dimension(:), intent(in), optional :: R_in, z_in
+    real(rkind), dimension(:,:), intent(in), optional :: rhop_in, B_r_in, B_t_in, B_z_in
+    real(rkind), intent(in), optional                 :: R_ax, z_ax
     real(rkind), dimension(:,:), allocatable    :: B_r, B_t, B_z, T_e, n_e
     integer(ikind), dimension(:), allocatable   :: R_index_lower, z_index_lower, R_index_upper, z_index_upper
     real(rkind), dimension(:), allocatable      :: rhop_Te, rhop_ne, ne_ext, Te_ext
     real(rkind)                                 :: R_mag, z_mag, pf_mag, R_sxp, z_sxp, pf_sxp, rhop_dx_dummy, &
                                                    rhop_dy_dummy, rhop_dxx_dummy, rhop_dxy_dummy, rhop_dyy_dummy, &
-                                                   R0, Btf0, rhop_X, B_last
+                                                   rhop_X, B_last
     integer(ikind)                              :: i, j
     character(20) :: format_str
     character(1)  :: sep
-    if(.not. present(R)) then
-      call read_topfile(plasma_params, plasma_params%R, plasma_params%z, plasma_params%rhop, B_r, B_t, B_z, R0, Btf0)
+    if(.not. present(R_in)) then
+      call read_topfile(plasma_params, plasma_params%R, plasma_params%z, plasma_params%rhop, B_r, B_t, B_z)
       if(plasma_params%Te_ne_mat) then
         call read_Te_ne_matrix(plasma_params, plasma_params%R, plasma_params%z, T_e, n_e)
         plasma_params%rhop_max = plasma_params%rhop_entry !
       end if
     else
-      plasma_params%R=R
-      plasma_params%z=z
-      plasma_params%rhop=rhop
-	  plasma_params%B_r = Br
-	  plasma_params%B_t =Bt
-	  plasma_params%B_z = Bz
-	  R0 = R_ax
-	  Btf0 = B_ax 
+      plasma_params%m = size(R_in)
+      plasma_params%n = size(z_in)
+      allocate(plasma_params%R(plasma_params%m), &
+               plasma_params%z(plasma_params%n), &
+               plasma_params%rhop(plasma_params%m,plasma_params%n), &
+               B_r(plasma_params%m,plasma_params%n), &
+               B_t(plasma_params%m,plasma_params%n), &
+               B_z(plasma_params%m,plasma_params%n))
+      plasma_params%R=R_in
+      plasma_params%z=z_in
+      do i =1, plasma_params%m
+        plasma_params%rhop(i,:)=rhop_in(i,:)
+        B_r(i,:) = B_r_in(i,:)
+        B_t(i,:) = B_t_in(i,:)
+        B_z(i,:) = B_z_in(i,:)
+      end do
+      plasma_params%R_ax = R_ax
+      plasma_params%z_ax = z_ax
     end if
-    plasma_params%m = size(plasma_params%R)
-    plasma_params%n = size(plasma_params%z)
 !    do j = 1, plasma_params%n
 !      print*, B_t(:,j)
 !    end do
@@ -357,10 +303,14 @@ end subroutine setup_eq_from_ida
         call nag_spline_1d_interp(plasma_params%rhop_vec_Te, plasma_params%T_e_prof, plasma_params%Te_spline_nag)
       end if
 #endif
-      call make_1d_spline( plasma_params%ne_spline, int(size(plasma_params%rhop_vec_ne),4), plasma_params%rhop_vec_ne, plasma_params%n_e_prof)
-      call make_1d_spline( plasma_params%Te_spline, int(size(plasma_params%rhop_vec_Te),4), plasma_params%rhop_vec_Te, plasma_params%T_e_prof)
+      if(plasma_params%prof_log_flag) then
+        call make_1d_spline( plasma_params%ne_spline, int(size(plasma_params%rhop_vec_ne),4), plasma_params%rhop_vec_ne, log(plasma_params%n_e_prof * 1.e-19))
+        call make_1d_spline( plasma_params%Te_spline, int(size(plasma_params%rhop_vec_Te),4), plasma_params%rhop_vec_Te, log(plasma_params%T_e_prof))
+      else
+        call make_1d_spline( plasma_params%ne_spline, int(size(plasma_params%rhop_vec_ne),4), plasma_params%rhop_vec_ne, plasma_params%n_e_prof)
+        call make_1d_spline( plasma_params%Te_spline, int(size(plasma_params%rhop_vec_Te),4), plasma_params%rhop_vec_Te, plasma_params%T_e_prof)
+      end if
     end if
-    call init_ripple(R0, Btf0)
     call make_rect_spline(plasma_params%rhop_spline, int(plasma_params%m, 4), int(plasma_params%n, 4), plasma_params%R, plasma_params%z, plasma_params%rhop)
     call make_rect_spline(plasma_params%B_r_spline, int(plasma_params%m, 4), int(plasma_params%n, 4), plasma_params%R, plasma_params%z, B_r)
     call make_rect_spline(plasma_params%B_t_spline, int(plasma_params%m, 4), int(plasma_params%n, 4), plasma_params%R, plasma_params%z, B_t)
@@ -389,13 +339,14 @@ end subroutine setup_eq_from_ida
     end if
 #endif
     plasma_params%B_ax = 0.d0
-    call rect_spline(plasma_params%B_r_spline,plasma_params%R_ax,plasma_params%z_ax,B_last)
+    call rect_spline(plasma_params%B_r_spline, plasma_params%R_ax,plasma_params%z_ax,B_last)
     plasma_params%B_ax = plasma_params%B_ax + B_last**2
     call rect_spline(plasma_params%B_t_spline,plasma_params%R_ax,plasma_params%z_ax,B_last)
     plasma_params%B_ax = plasma_params%B_ax + B_last**2
     call rect_spline(plasma_params%B_z_spline,plasma_params%R_ax,plasma_params%z_ax,B_last)
     plasma_params%B_ax = plasma_params%B_ax + B_last**2
     plasma_params%B_ax = Sqrt(plasma_params%B_ax)
+    call init_ripple(plasma_params%R_ax, plasma_params%B_ax)
     allocate(R_index_lower(plasma_params%n), z_index_lower(plasma_params%m), R_index_upper(plasma_params%n), z_index_upper(plasma_params%m))
     R_index_lower(:) = 1
     z_index_lower(:) = 1
@@ -418,6 +369,7 @@ end subroutine setup_eq_from_ida
 !      write(80, fmt = format_str),(T_e(i,j), " ", i = 1, plasma_params%m)
 !    end do
 !    close(80)
+    !call make_topfile(plasma_params%R, plasma_params%z, plasma_params%rhop, B_r, B_z, B_t)
     deallocate(B_r, B_z, B_t, R_index_lower,z_index_lower,R_index_upper,z_index_upper)!, B_t
     if(plasma_params%Te_ne_mat) deallocate(T_e, n_e)
     ! Load the polygon describing the vessel wall
@@ -513,7 +465,7 @@ end subroutine setup_eq_from_ida
     end if
   end subroutine read_input_lists
 
-  subroutine init_raytrace(plasma_params, R, z, rhop, Br, Bt, Bz, R_ax, B_ax)
+  subroutine init_raytrace(plasma_params, R, z, rhop, Br, Bt, Bz, R_ax, z_ax)
     use f90_kind
     use mod_ecfm_refr_types,       only: plasma_params_type, stand_alone
     Use constants                , only : pi
@@ -521,22 +473,15 @@ end subroutine setup_eq_from_ida
     type(plasma_params_type), intent(inout)           :: plasma_params
     real(rkind), dimension(:), intent(in), optional   :: R, z
     real(rkind), dimension(:,:), intent(in), optional :: rhop, Br, Bt, Bz
-    real(rkind), intent(in), optional                 :: R_ax, B_ax
-    if(plasma_params%eq_exp == "Ext" .or. plasma_params%eq_exp == "EXT" .or.&
-          plasma_params%eq_exp == "ext") then
-        eq_from_shotfile = .false.
-        if(plasma_params%eq_diag == "E2D") then
-          plasma_params%Te_ne_mat = .true.
-        end if
-      else
-        eq_from_shotfile = .true.
-      end if
+    real(rkind), intent(in), optional                 :: R_ax, z_ax
+    if(plasma_params%eq_diag == "E2D") then
+      plasma_params%Te_ne_mat = .true.
     end if
     if(stand_alone) then
       if(.not. plasma_params%Te_ne_mat) call read_input_lists(plasma_params)
       call setup_plasma_params(plasma_params)
     else
-      call setup_plasma_params(plasma_params, R, z, rhop, Br, Bt, Bz, R_ax, B_ax)
+      call setup_plasma_params(plasma_params, R, z, rhop, Br, Bt, Bz, R_ax, z_ax)
     end if
   end subroutine init_raytrace
 
@@ -549,13 +494,10 @@ end subroutine setup_eq_from_ida
 #endif
   use mod_ecfm_refr_interpol,       only: deallocate_rect_spline, deallocate_1d_spline
   implicit none
-  type(plasma_params_type), intent(inout)                      :: plasma_params
-  integer(ikind)                                             :: i
+  type(plasma_params_type), intent(inout)                    :: plasma_params
     if(stand_alone) then
       deallocate(plasma_params%n_e_prof, plasma_params%rhop_vec_ne)
       deallocate(plasma_params%T_e_prof, plasma_params%rhop_vec_Te)
-      call deallocate_1d_spline(plasma_params%Te_spline)
-      call deallocate_1d_spline(plasma_params%ne_spline)
 #ifdef NAG
       if(output_level .and. double_check_splines) then
         call nag_deallocate(plasma_params%ne_spline_nag)
@@ -563,12 +505,12 @@ end subroutine setup_eq_from_ida
       end if
 #endif
     else
-      if(allocated(plasma_params%par)) deallocate(plasma_params%par)
-      if(allocated(plasma_params%par_ne)) deallocate(plasma_params%par_ne)
-      if(allocated(plasma_params%par_scal)) deallocate(plasma_params%par_scal)
+      call deallocate_1d_spline(plasma_params%Te_spline)
+      call deallocate_1d_spline(plasma_params%ne_spline)
     end if
     deallocate(plasma_params%Int_absz, plasma_params%Int_weights)
     deallocate(plasma_params%vessel_poly)
+    deallocate(plasma_params%R, plasma_params%z, plasma_params%rhop)
     call deallocate_rect_spline(plasma_params%rhop_spline)
     call deallocate_rect_spline(plasma_params%B_R_spline)
     call deallocate_rect_spline(plasma_params%B_t_spline)
