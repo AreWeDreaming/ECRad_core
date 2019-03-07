@@ -223,7 +223,6 @@ type rad_diag_ch_mode_extra_output_type
                                             em, em_secondary, ab, ab_secondary, &
                                             T, T_secondary, N_cold, N_cor, N_warm, Te, ne
   real(rkind), dimension(:), allocatable :: rhop_BPD, BPD, BPD_secondary
-  integer(ikind)                         :: pnts_BPD = 2000 !*
 end type rad_diag_ch_mode_extra_output_type
 
 type rad_diag_ch_type
@@ -520,6 +519,7 @@ end type plasma_params_type
   logical                            :: straight
   logical                            :: Analytical = .False., Lambda_star = .False.,&
                                         LSODE = .true., old_cutoff = .False. !*
+  integer(ikind)                     :: pnts_BPD = 2000 !*
   logical                            :: use_maximum_for_warm_res = .true.
                                         !* If false uses first moment of BPD
   integer(ikind)                     :: k_int = 0

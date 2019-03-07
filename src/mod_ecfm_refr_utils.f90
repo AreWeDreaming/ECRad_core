@@ -788,11 +788,11 @@ subroutine prepare_ECE_diag(working_dir, f, df, R, phi, z, tor, pol, dist_foc, w
              ant%diag(idiag)%ch(ich)%ray_launch(ir)%weight
         end if
       end do !N_ray
-      do ifreq = 1, N_freq
-        write(77,"(E13.6E2A1E13.6E2)") &
-            ant%diag(idiag)%ch(ich)%freq(ifreq), " ", &
-            ant%diag(idiag)%ch(ich)%freq_weight(ifreq)
-      end do
+!      do ifreq = 1, N_freq
+!        write(77,"(E13.6E2A1E13.6E2)") &
+!            ant%diag(idiag)%ch(ich)%freq(ifreq), " ", &
+!            ant%diag(idiag)%ch(ich)%freq_weight(ifreq)
+!      end do
     end do !N_ch
   end do !diag
 #ifdef NAG
@@ -1782,7 +1782,8 @@ subroutine bin_freq_to_ray(ray_extra_output, freq_weight, rad_freq, total_LOS_po
 use f90_kind
 use mod_ecfm_refr_types,       only: rad_diag_ch_mode_ray_extra_output_type, &
                                      rad_diag_ch_mode_ray_freq_type, &
-                                     max_points_svec, N_freq, spl_type_1d
+                                     max_points_svec, N_freq, spl_type_1d, &
+                                     output_level
 use mod_ecfm_refr_interpol,   only: make_1d_spline, spline_1d, deallocate_1d_spline, spline_1d_integrate
 use constants,                only: c0, e0
 implicit none
@@ -1797,23 +1798,27 @@ real(rkind)                                :: ds, BPD_norm, BPD_secondary_norm
   allocate(s_arr(total_LOS_points(1)), quant(maxval(total_LOS_points(:))))
   s_arr(:) = rad_freq(1)%svec(1:total_LOS_points(1))%s
   if(N_freq == 1) then
-    ray_extra_output%Trad(:) = rad_freq(1)%svec_extra_output%Trad
-    ray_extra_output%em(:) = rad_freq(1)%svec_extra_output%em
-    ray_extra_output%T(:) = rad_freq(1)%svec_extra_output%T
-    ray_extra_output%ab(:) = rad_freq(1)%svec_extra_output%ab
-    ray_extra_output%Trad_secondary(:) = rad_freq(1)%svec_extra_output%Trad_secondary
-    ray_extra_output%em_secondary(:) = rad_freq(1)%svec_extra_output%em_secondary
-    ray_extra_output%T_secondary(:) = rad_freq(1)%svec_extra_output%T_secondary
-    ray_extra_output%ab_secondary(:) = rad_freq(1)%svec_extra_output%ab_secondary
+    ray_extra_output%Trad(1:total_LOS_points(1)) = rad_freq(1)%svec_extra_output(1:total_LOS_points(1))%Trad
+    ray_extra_output%em(1:total_LOS_points(1)) = rad_freq(1)%svec_extra_output(1:total_LOS_points(1))%em
+    ray_extra_output%T(1:total_LOS_points(1)) = rad_freq(1)%svec_extra_output(1:total_LOS_points(1))%T
+    ray_extra_output%ab(1:total_LOS_points(1)) = rad_freq(1)%svec_extra_output(1:total_LOS_points(1))%ab
+    if(output_level) then
+      ray_extra_output%Trad_secondary(1:total_LOS_points(1))= rad_freq(1)%svec_extra_output(1:total_LOS_points(1))%Trad_secondary
+      ray_extra_output%em_secondary(1:total_LOS_points(1)) = rad_freq(1)%svec_extra_output(1:total_LOS_points(1))%em_secondary
+      ray_extra_output%T_secondary(1:total_LOS_points(1)) = rad_freq(1)%svec_extra_output(1:total_LOS_points(1))%T_secondary
+      ray_extra_output%ab_secondary(1:total_LOS_points(1)) = rad_freq(1)%svec_extra_output(1:total_LOS_points(1))%ab_secondary
+    end if
   else
     ray_extra_output%Trad(:) = 0.d0
     ray_extra_output%em(:) = 0.d0
     ray_extra_output%T(:) = 0.d0
     ray_extra_output%ab(:) = 0.d0
-    ray_extra_output%Trad_secondary(:) = 0.d0
-    ray_extra_output%em_secondary(:) = 0.d0
-    ray_extra_output%T_secondary(:) = 0.d0
-    ray_extra_output%ab_secondary(:) = 0.d0
+    if(output_level) then
+      ray_extra_output%Trad_secondary(:) = 0.d0
+      ray_extra_output%em_secondary(:) = 0.d0
+      ray_extra_output%T_secondary(:) = 0.d0
+      ray_extra_output%ab_secondary(:) = 0.d0
+    end if
     allocate(val(total_LOS_points(1)), s_freq(maxval(total_LOS_points(:))))
     !print*, "s_arr", s_arr(1:total_LOS_points(1))
     do ifreq = 2, N_freq
@@ -1851,6 +1856,7 @@ real(rkind)                                :: ds, BPD_norm, BPD_secondary_norm
       call spline_1d(spl, s_arr, val)
       ray_extra_output%ab(1:total_LOS_points(1)) = ray_extra_output%ab(1:total_LOS_points(1)) + freq_weight(ifreq) * val
       call deallocate_1d_spline(spl)
+      if(.not. output_level) cycle
       quant(1:total_LOS_points(ifreq)) = rad_freq(ifreq)%svec_extra_output%Trad_secondary
       call make_1d_spline(spl, int(total_LOS_points(ifreq), 4), &
                             s_freq(1:total_LOS_points(ifreq)), &
@@ -1884,93 +1890,27 @@ real(rkind)                                :: ds, BPD_norm, BPD_secondary_norm
   end if ! N_freq == 1
   ray_extra_output%BPD(1:total_LOS_points(1)) = ray_extra_output%T(1:total_LOS_points(1)) * ray_extra_output%em(1:total_LOS_points(1)) * &
                                                 c0**2 / (100.d9**2 * e0) ! brings integral closer to 1
-  ray_extra_output%BPD_secondary(1:total_LOS_points(1)) = ray_extra_output%T_secondary(1:total_LOS_points(1)) * ray_extra_output%em_secondary(1:total_LOS_points(1)) * &
-                                                          c0**2 / (100.d9**2 * e0) ! brings integral closer to 1
+  if(output_level) then
+    ray_extra_output%BPD_secondary(1:total_LOS_points(1)) = ray_extra_output%T_secondary(1:total_LOS_points(1)) * ray_extra_output%em_secondary(1:total_LOS_points(1)) * &
+                                                            c0**2 / (100.d9**2 * e0) ! brings integral closer to 1
+  end if
   quant(1:total_LOS_points(1)) = ray_extra_output%BPD(1:total_LOS_points(1))
   call make_1d_spline(spl, int(total_LOS_points(1), 4), &
                             s_arr(1:total_LOS_points(1)), &
                             quant(1:total_LOS_points(1)))
   call spline_1d_integrate(spl, s_arr(1), s_arr(total_LOS_points(1)), BPD_norm)
   call deallocate_1d_spline(spl)
-  quant(1:total_LOS_points(1)) = ray_extra_output%BPD_secondary(1:total_LOS_points(1))
-  call make_1d_spline(spl, int(total_LOS_points(1), 4), &
+  if(BPD_norm > 0.d0) ray_extra_output%BPD(1:total_LOS_points(1)) = ray_extra_output%BPD(1:total_LOS_points(1)) / BPD_norm
+  if(output_level) then
+    quant(1:total_LOS_points(1)) = ray_extra_output%BPD_secondary(1:total_LOS_points(1))
+    call make_1d_spline(spl, int(total_LOS_points(1), 4), &
                             s_arr(1:total_LOS_points(1)), &
                             quant(1:total_LOS_points(1)))
-  call spline_1d_integrate(spl, s_arr(1), s_arr(total_LOS_points(1)), BPD_secondary_norm)
-  if(BPD_norm > 0.d0) ray_extra_output%BPD(1:total_LOS_points(1)) = ray_extra_output%BPD(1:total_LOS_points(1)) / BPD_norm
-  if(BPD_secondary_norm > 0.d0)ray_extra_output%BPD_secondary(1:total_LOS_points(1)) = ray_extra_output%BPD_secondary(1:total_LOS_points(1)) / BPD_secondary_norm
+    call spline_1d_integrate(spl, s_arr(1), s_arr(total_LOS_points(1)), BPD_secondary_norm)
+    if(BPD_secondary_norm > 0.d0) ray_extra_output%BPD_secondary(1:total_LOS_points(1)) = ray_extra_output%BPD_secondary(1:total_LOS_points(1)) / BPD_secondary_norm
+  end if
   deallocate(s_arr, quant)
 end subroutine bin_freq_to_ray
-
-subroutine bin_freq_to_ray_light(ray_extra_output, freq_weight, rad_freq, total_LOS_points)
-! This modified version of bin_freq_to_ray only bins the primary emissivity and tranmittance
-! which are required to create the birthplace distribution
-use f90_kind
-use mod_ecfm_refr_types,       only: rad_diag_ch_mode_ray_extra_output_type, &
-                                     rad_diag_ch_mode_ray_freq_type, &
-                                     max_points_svec, N_freq, spl_type_1d
-use mod_ecfm_refr_interpol,   only: make_1d_spline, spline_1d, deallocate_1d_spline, spline_1d_integrate
-use constants,                only: c0, e0
-implicit none
-type(rad_diag_ch_mode_ray_extra_output_type), intent(inout)  :: ray_extra_output
-real(rkind), dimension(:), intent(in)      :: freq_weight
-type(rad_diag_ch_mode_ray_freq_type), dimension(:),  intent(in) :: rad_freq
-integer(ikind), dimension(:), intent(in)   :: total_LOS_points
-integer(ikind)                             :: ifreq, i
-type(spl_type_1d)                          :: spl
-real(rkind), dimension(:), allocatable     :: s_arr, val, s_freq, quant
-real(rkind)                                :: ds, BPD_norm, BPD_secondary_norm
-  allocate(s_arr(total_LOS_points(1)))
-  s_arr(:) = rad_freq(1)%svec(1:total_LOS_points(1))%s
-  if(N_freq == 1) then
-    ray_extra_output%em(:) = rad_freq(1)%svec_extra_output%em
-    ray_extra_output%T(:) = rad_freq(1)%svec_extra_output%T
-  else
-    ray_extra_output%em(:) = 0.d0
-    ray_extra_output%T(:) = 0.d0
-    allocate(val(total_LOS_points(1)), s_freq(maxval(total_LOS_points(:))), quant(maxval(total_LOS_points(:))))
-    !print*, "s_arr", s_arr(1:total_LOS_points(1))
-    do ifreq = 2, N_freq
-      if(any(rad_freq(ifreq)%svec(1:total_LOS_points(ifreq))%s /= &
-             rad_freq(ifreq)%svec(1:total_LOS_points(ifreq))%s)) then
-        print*, "Something very wrong with freq LOS for making ray BPD"
-        call abort()
-      end if
-      s_freq(1:total_LOS_points(ifreq)) = rad_freq(ifreq)%svec(1:total_LOS_points(ifreq))%s
-      quant(1:total_LOS_points(ifreq)) = rad_freq(ifreq)%svec_extra_output%em
-      call make_1d_spline(spl, int(total_LOS_points(ifreq), 4), &
-                            s_freq(1:total_LOS_points(ifreq)), &
-                            quant(1:total_LOS_points(ifreq)), k=1)
-      call spline_1d(spl, s_arr, val)
-      ray_extra_output%em(1:total_LOS_points(1)) = ray_extra_output%em(1:total_LOS_points(1)) + freq_weight(ifreq) * val
-      call deallocate_1d_spline(spl)
-      quant(1:total_LOS_points(ifreq)) = rad_freq(ifreq)%svec_extra_output%T
-      call make_1d_spline(spl, int(total_LOS_points(ifreq), 4), &
-                            s_freq(1:total_LOS_points(ifreq)), &
-                            quant(1:total_LOS_points(ifreq)), k=1)
-      call spline_1d(spl, s_arr, val)
-      ray_extra_output%T(1:total_LOS_points(1)) = ray_extra_output%T(1:total_LOS_points(1)) + freq_weight(ifreq) * val
-      call deallocate_1d_spline(spl)
-    end do ! ifreq =1, N_freq
-    deallocate(val, s_freq, quant)
-  end if ! N_freq == 1
-  ray_extra_output%BPD(1:total_LOS_points(1)) = ray_extra_output%T(1:total_LOS_points(1)) * ray_extra_output%em(1:total_LOS_points(1)) * &
-                                                c0**2 / (100.d9**2 * e0) ! brings integral closer to 1
-  quant(1:total_LOS_points(1)) = ray_extra_output%BPD(1:total_LOS_points(1))
-  call make_1d_spline(spl, int(total_LOS_points(1), 4), &
-                            s_freq(1:total_LOS_points(ifreq)), &
-                            quant(1:total_LOS_points(ifreq)))
-  call spline_1d_integrate(spl, s_arr(1), s_arr(total_LOS_points(1)), BPD_norm)
-  call deallocate_1d_spline(spl)
-  quant(1:total_LOS_points(1)) = ray_extra_output%BPD_secondary(1:total_LOS_points(1))
-  call make_1d_spline(spl, int(total_LOS_points(1), 4), &
-                            s_freq(1:total_LOS_points(ifreq)), &
-                            quant(1:total_LOS_points(ifreq)))
-  call spline_1d_integrate(spl, s_arr(1), s_arr(total_LOS_points(1)), BPD_secondary_norm)
-  if(BPD_norm > 0.d0) ray_extra_output%BPD(1:total_LOS_points(1)) = ray_extra_output%BPD(1:total_LOS_points(1)) / BPD_norm
-  if(BPD_secondary_norm > 0.d0)ray_extra_output%BPD_secondary(1:total_LOS_points(1)) = ray_extra_output%BPD_secondary(1:total_LOS_points(1)) / BPD_secondary_norm
-  deallocate(s_arr)
-end subroutine bin_freq_to_ray_light
 
 subroutine make_warm_res_mode(plasma_params, rad_mode, weights, f_ECE, make_secondary)
 use f90_kind
@@ -2019,10 +1959,10 @@ real(rkind)                                :: sTrad, Trad, sTrad_secondary, Trad
     ! the maximum can give one a false sence of  for a non-unimodal BPD
 
     if(use_maximum_for_warm_res) then
-      i_max_BDOP = maxloc(rad_mode%ray_extra_output(ir)%em(:) * &
-                          rad_mode%ray_extra_output(ir)%T(:), dim=1)
-      if(make_secondary)  i_max_BDOP_secondary = maxloc(rad_mode%ray_extra_output(ir)%em_secondary(:) * &
-                             rad_mode%ray_extra_output(ir)%T_secondary(:), dim=1)
+      i_max_BDOP = maxloc(rad_mode%ray_extra_output(ir)%em(1:rad_mode%ray(ir)%freq(1)%total_LOS_points) * &
+                          rad_mode%ray_extra_output(ir)%T(1:rad_mode%ray(ir)%freq(1)%total_LOS_points), dim=1)
+      if(make_secondary)  i_max_BDOP_secondary = maxloc(rad_mode%ray_extra_output(ir)%em_secondary(1:rad_mode%ray(ir)%freq(1)%total_LOS_points) * &
+                             rad_mode%ray_extra_output(ir)%T_secondary(1:rad_mode%ray(ir)%freq(1)%total_LOS_points), dim=1)
     else
       do i = 1, rad_mode%ray(ir)%freq(1)%total_LOS_points
         BPD_cur = rad_mode%ray_extra_output(ir)%em(i) * &
@@ -2099,7 +2039,7 @@ subroutine make_ecfm_LOS_grid(flag, sparse_step, dense_step) ! S. Denk 4. 2013
 ! This structure is memory intensive, but can replace most calls to interpol_LOS.
 ! S.Denk March 2013
 use mod_ecfm_refr_types,                    only: ant,rad,  non_maxwellian, N_ray, N_freq, modes, output_level, &
-                                                  dstf, bi_max, data_folder, &
+                                                  dstf, bi_max, data_folder, pnts_BPD, &
                                                   largest_svec
 use constants,                              only: e0, c0
 !use ecfm_non_therm_abs,                     only: abs_non_therm_init,abs_non_therm_clean_up
@@ -2178,9 +2118,9 @@ if(flag == "initialize") then
       allocate(rad%diag(idiag)%ch(ich)%mode_extra_output(imode)%N_cold(rad%diag(idiag)%ch(ich)%mode(imode)%ray(1)%freq(1)%total_LOS_points))
       allocate(rad%diag(idiag)%ch(ich)%mode_extra_output(imode)%N_cor(rad%diag(idiag)%ch(ich)%mode(imode)%ray(1)%freq(1)%total_LOS_points))
       allocate(rad%diag(idiag)%ch(ich)%mode_extra_output(imode)%N_warm(rad%diag(idiag)%ch(ich)%mode(imode)%ray(1)%freq(1)%total_LOS_points))
-      allocate(rad%diag(idiag)%ch(ich)%mode_extra_output(imode)%rhop_BPD(rad%diag(idiag)%ch(ich)%mode_extra_output(imode)%pnts_BPD))
-      allocate(rad%diag(idiag)%ch(ich)%mode_extra_output(imode)%BPD(rad%diag(idiag)%ch(ich)%mode_extra_output(imode)%pnts_BPD))
-      allocate(rad%diag(idiag)%ch(ich)%mode_extra_output(imode)%BPD_secondary(rad%diag(idiag)%ch(ich)%mode_extra_output(imode)%pnts_BPD))
+      allocate(rad%diag(idiag)%ch(ich)%mode_extra_output(imode)%rhop_BPD(pnts_BPD))
+      allocate(rad%diag(idiag)%ch(ich)%mode_extra_output(imode)%BPD(pnts_BPD))
+      allocate(rad%diag(idiag)%ch(ich)%mode_extra_output(imode)%BPD_secondary(pnts_BPD))
     end if
   enddo ! ich = 1, ant%diag(idiag)%N_ch
   rad%diag(idiag)%ch(:)%eval_ch = .true. ! stand_alone => evaluate all channels

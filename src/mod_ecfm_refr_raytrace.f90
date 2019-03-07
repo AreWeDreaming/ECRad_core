@@ -3975,7 +3975,7 @@ function func_dA_dY(X, Y)
   ! Creates the svecs for a all diags
   ! Also allocates all vectors related to output_level = .true.
   use mod_ecfm_refr_types,        only: rad, ant, rad_diag_type, plasma_params_type, ray_out_folder, &
-                                        N_ray, N_freq, modes, mode_cnt, output_level, &
+                                        N_ray, N_freq, modes, mode_cnt, output_level, pnts_BPD, &
                                         max_points_svec, Hamil, straight, largest_svec, ray_element_full_type
   use f90_kind
   use constants,                  only: pi,e0, mass_e
@@ -4294,9 +4294,9 @@ function func_dA_dY(X, Y)
             allocate(rad%diag(idiag)%ch(ich)%mode_extra_output(imode)%N_cold(max_points_svec))
             allocate(rad%diag(idiag)%ch(ich)%mode_extra_output(imode)%N_cor(max_points_svec))
             allocate(rad%diag(idiag)%ch(ich)%mode_extra_output(imode)%N_warm(max_points_svec))
-            allocate(rad%diag(idiag)%ch(ich)%mode_extra_output(imode)%rhop_BPD(rad%diag(idiag)%ch(ich)%mode_extra_output(imode)%pnts_BPD))
-            allocate(rad%diag(idiag)%ch(ich)%mode_extra_output(imode)%BPD(rad%diag(idiag)%ch(ich)%mode_extra_output(imode)%pnts_BPD))
-            allocate(rad%diag(idiag)%ch(ich)%mode_extra_output(imode)%BPD_secondary(rad%diag(idiag)%ch(ich)%mode_extra_output(imode)%pnts_BPD))
+            allocate(rad%diag(idiag)%ch(ich)%mode_extra_output(imode)%rhop_BPD(pnts_BPD))
+            allocate(rad%diag(idiag)%ch(ich)%mode_extra_output(imode)%BPD(pnts_BPD))
+            allocate(rad%diag(idiag)%ch(ich)%mode_extra_output(imode)%BPD_secondary(pnts_BPD))
           end if
         end do
       end do
@@ -4545,7 +4545,7 @@ function func_dA_dY(X, Y)
   ! Creates splines of svec for all diags
   ! Also allocates all vectors related to output_level = .true.
   use mod_ecfm_refr_types,        only: rad, ant, rad_diag_type, plasma_params_type, ray_out_folder, &
-                                        N_ray, N_freq, modes, mode_cnt, output_level, &
+                                        N_ray, N_freq, modes, mode_cnt, output_level, pnts_BPD, &
                                         max_points_svec, Hamil, straight, largest_svec, ray_element_full_type
   use f90_kind
   use constants,                  only: pi,e0, mass_e
@@ -4798,9 +4798,9 @@ function func_dA_dY(X, Y)
           allocate(rad%diag(idiag)%ch(ich)%mode_extra_output(imode)%N_cold(max_points_svec))
           allocate(rad%diag(idiag)%ch(ich)%mode_extra_output(imode)%N_cor(max_points_svec))
           allocate(rad%diag(idiag)%ch(ich)%mode_extra_output(imode)%N_warm(max_points_svec))
-          allocate(rad%diag(idiag)%ch(ich)%mode_extra_output(imode)%rhop_BPD(rad%diag(idiag)%ch(ich)%mode_extra_output(imode)%pnts_BPD))
-          allocate(rad%diag(idiag)%ch(ich)%mode_extra_output(imode)%BPD(rad%diag(idiag)%ch(ich)%mode_extra_output(imode)%pnts_BPD))
-          allocate(rad%diag(idiag)%ch(ich)%mode_extra_output(imode)%BPD_secondary(rad%diag(idiag)%ch(ich)%mode_extra_output(imode)%pnts_BPD))
+          allocate(rad%diag(idiag)%ch(ich)%mode_extra_output(imode)%rhop_BPD(pnts_BPD))
+          allocate(rad%diag(idiag)%ch(ich)%mode_extra_output(imode)%BPD(pnts_BPD))
+          allocate(rad%diag(idiag)%ch(ich)%mode_extra_output(imode)%BPD_secondary(pnts_BPD))
         end if
       end do ! imode
       if(modes == 1) then ! X-mode

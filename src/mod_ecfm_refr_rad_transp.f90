@@ -1083,6 +1083,7 @@ real(rkind), dimension(3),  intent(in)    :: x_vec_launch
 integer(ikind),             intent(in)    :: mode
 real(rkind),                intent(in)    :: Trad
 type(spl_type_1d)                         :: ab_spline
+real(rkind), dimension(rad_ray_freq%total_LOS_points) :: s, ab
 character(120)               :: cur_filename
 character(20)                :: ich_str
 real(rkind)    :: ab_dummy, em_dummy, omega, ds2
@@ -1102,8 +1103,9 @@ do i = 1, rad_ray_freq%total_LOS_points          ! integration over every second
                              rad_ray_freq%pol_coeff, &
                              rad_ray_freq%pol_coeff_secondary)
 enddo !i = 1, rad_ray_freq%total_LOS_points           ! integration over all points on LOS
-call make_1d_spline(ab_spline, rad_ray_freq%total_LOS_points, rad_ray_freq%svec(1:rad_ray_freq%total_LOS_points)%s, \
-                    rad_ray_freq%svec_extra_output(1:rad_ray_freq%total_LOS_points)%ab)
+s = rad_ray_freq%svec(1:rad_ray_freq%total_LOS_points)%s
+ab = rad_ray_freq%svec_extra_output(1:rad_ray_freq%total_LOS_points)%ab
+call make_1d_spline(ab_spline, rad_ray_freq%total_LOS_points, s, ab)
 rad_ray_freq%svec_extra_output(rad_ray_freq%total_LOS_points)%T = 0.d0
 do i = 1, rad_ray_freq%total_LOS_points - 1          ! integration over every second point on LOS
   call spline_1d_integrate(ab_spline, rad_ray_freq%svec(i)%s, rad_ray_freq%svec(rad_ray_freq%total_LOS_points)%s, rad_ray_freq%svec_extra_output(i)%T)

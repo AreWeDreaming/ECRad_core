@@ -731,7 +731,7 @@ subroutine make_BPD_w_res_ch(idiag, ich, rhop_knots_ne, n_e, n_e_dx2, rhop_knots
                                         ne_rhop_scal, reflec_X_new, & ! in
                                         reflec_O_new, rp_min, &
                                         rhop, BPD, rhop_res_warm)
-use mod_ecfm_refr_types,        only: rad, ant, mode_cnt
+use mod_ecfm_refr_types,        only: rad, ant, mode_cnt, pnts_BPD
 use mod_ecfm_refr_utils,        only: retrieve_T_e
 implicit none
 integer(ikind), intent(in)             :: idiag, ich
@@ -749,15 +749,21 @@ integer(ikind)                               :: imode
                                    reflec_O_new, ece_fm_flag_ch, rp_min, &
                                    dat_model_ece_dummy, .true.)
   call make_BPD_and_warm_res(idiag, ich)
-  allocate(rhop(rad%diag(idiag)%ch(ich)%mode_extra_output(imode)%pnts_BPD))
-  allocate(BPD(rad%diag(idiag)%ch(ich)%mode_extra_output(imode)%pnts_BPD))
-  rhop = rad%diag(idiag)%ch(ich)%mode_extra_output(imode)%rhop_BPD
-  BPD(:) = 0.d0
-  do imode = 1, mode_cnt
-    BPD(:) = BPD(:) + rad%diag(idiag)%ch(ich)%mode_extra_output(imode)%BPD(:) * rad%diag(idiag)%ch(ich)%mode(imode)%Trad_mode_frac
-  end do
-  deallocate(rad%diag(idiag)%ch(ich)%mode_extra_output(imode)%BPD, &
-              rad%diag(idiag)%ch(ich)%mode_extra_output(imode)%rhop_BPD)
+  allocate(rhop(pnts_BPD))
+  allocate(BPD(pnts_BPD))
+  rhop = rad%diag(idiag)%ch(ich)%mode_extra_output(1)%rhop_BPD
+  if(mode_cnt == 2) then
+    BPD(:) = 0.d0
+    do imode = 1, mode_cnt
+      BPD(:) = BPD(:) + rad%diag(idiag)%ch(ich)%mode_extra_output(imode)%BPD(:) * rad%diag(idiag)%ch(ich)%mode(imode)%Trad_mode_frac
+      deallocate(rad%diag(idiag)%ch(ich)%mode_extra_output(imode)%BPD, &
+                rad%diag(idiag)%ch(ich)%mode_extra_output(imode)%rhop_BPD)
+    end do
+  else
+    BPD = rad%diag(idiag)%ch(ich)%mode_extra_output(1)%BPD
+  end if
+  deallocate(rad%diag(idiag)%ch(ich)%mode_extra_output)
+  rhop_res_warm = rad%diag(idiag)%ch(ich)%rel_rhop_res
 end subroutine make_BPD_w_res_ch
 
 subroutine update_Te_ne(rhop_knots_ne, n_e, n_e_dx2, rhop_knots_Te, T_e, T_e_dx2)
@@ -1445,15 +1451,12 @@ do idiag = 1, ant%N_diag
 #endif
 end do ! N_diag
 if( stand_alone) call save_data_to_ASCII() !output_level .and.
+!if(stand_alone .and. .not. output_level) call make_BPD_and_warm_res(1, 20)
 end subroutine make_ece_rad_temp
-
-
-
-#ifdef IDA
 
 subroutine make_BPD_and_warm_res(idiag, ich) ! to be used within IDA, calculates all birthplace distribution for one diagnostic
 use mod_ecfm_refr_types,        only: dstf, reflec_X, reflec_O, mode_cnt, modes, N_ray, N_freq, plasma_params, use_maximum_for_warm_res, &
-                                      rad, ant, data_folder, output_level, Ich_name, dstf_comp, max_points_svec, mode_conv
+                                      rad, ant, data_folder, output_level, Ich_name, dstf_comp, max_points_svec, mode_conv, pnts_BPD
 use mod_ecfm_refr_rad_transp,   only: calculate_Trad, calculate_Trad_LSODE, get_em_T_fast
 use constants,                  only: e0, c0, pi
 use mod_ecfm_refr_utils,        only: binary_search, bin_ray_BPD_to_common_rhop, make_warm_res_mode, bin_freq_to_ray
@@ -1461,9 +1464,11 @@ use mod_ecfm_refr_raytrace,     only: reinterpolate_svec
 implicit none
 integer(ikind), intent(in) :: idiag, ich
 integer(ikind)  :: imode, ifreq, ir, error
+  allocate(rad%diag(idiag)%ch(ich)%mode_extra_output(mode_cnt))
   do imode = 1, mode_cnt
-    allocate(rad%diag(idiag)%ch(ich)%mode_extra_output(imode)%rhop_BPD(rad%diag(idiag)%ch(ich)%mode_extra_output(imode)%pnts_BPD))
-    allocate(rad%diag(idiag)%ch(ich)%mode_extra_output(imode)%BPD(rad%diag(idiag)%ch(ich)%mode_extra_output(imode)%pnts_BPD))
+    allocate(rad%diag(idiag)%ch(ich)%mode_extra_output(imode)%rhop_BPD(pnts_BPD))
+    allocate(rad%diag(idiag)%ch(ich)%mode_extra_output(imode)%BPD(pnts_BPD))
+    allocate(rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(N_ray))
     do ir = 1, N_ray
       do ifreq = 1, N_freq
         allocate(rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%svec_extra_output(rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%total_LOS_points))
@@ -1474,10 +1479,8 @@ integer(ikind)  :: imode, ifreq, ir, error
                            rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%Trad)
       end do
       allocate(rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%Trad(max_points_svec), &
-               rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%Trad_secondary(max_points_svec), &
                rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%em(max_points_svec), &
                rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%ab(max_points_svec), &
-               rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%ab_secondary(max_points_svec), &
                rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%T(max_points_svec), &
                rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%BPD(max_points_svec))
     end do
@@ -1510,6 +1513,7 @@ integer(ikind)  :: imode, ifreq, ir, error
                  rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%T, &
                  rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%BPD)
     end do
+    deallocate(rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output)
     if(mode_cnt == 2) then
     ! warm resonances are always unique for each mode
       rad%diag(idiag)%ch(ich)%rel_s_res = rad%diag(idiag)%ch(ich)%rel_s_res + &
@@ -1529,7 +1533,6 @@ integer(ikind)  :: imode, ifreq, ir, error
     end if
   end do !imode
 end subroutine make_BPD_and_warm_res
-#endif
 
 subroutine save_data_to_ASCII()
 use mod_ecfm_refr_types,        only: dstf, mode_cnt, N_ray, N_freq, plasma_params, data_name, output_level, &
