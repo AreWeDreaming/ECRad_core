@@ -338,62 +338,56 @@ integer(ikind), dimension(:), allocatable :: available, wg_temp, ifgroup
   ant%N_diag = 1 ! Only 1D ECE in IDA
   idiag = 1
   ant%diag(idiag)%diag_name = "IDA"
-  if(ant%diag(idiag)%diag_name == "CEC" .or. ant%diag(idiag)%diag_name == "RMD" ) then
-    cur_filename = trim(working_dir) // "ece_launch.txt"
-    open(76, file = trim(cur_filename))
-    cur_filename = trim(working_dir) // "ece_freqs.txt"
-    open(77, file = trim(cur_filename))
-    read(76, "(i5.5)")  ant%diag(idiag)%N_ch
-    allocate(ant%diag(idiag)%ch(ant%diag(idiag)%N_ch))
-    allocate(rad%diag(idiag)%ch(ant%diag(idiag)%N_ch))
-    do ich = 1, ant%diag(idiag)%N_ch
-      allocate(ant%diag(idiag)%ch(ich)%freq(N_freq))
-      allocate(ant%diag(idiag)%ch(ich)%freq_weight(N_freq))
-      allocate(rad%diag(idiag)%ch(ich)%mode(mode_cnt))
-      do imode = 1, mode_cnt
-        if((imode == 2 .and. modes == 3) .or. &
-            modes == 2) then
-          rad%diag(idiag)%ch(ich)%mode(imode)%mode = -1 ! O-mode
-        else
-          rad%diag(idiag)%ch(ich)%mode(imode)%mode = +1 ! X-mode
-        end if
-        allocate(rad%diag(idiag)%ch(ich)%mode(imode)%ray(N_ray))
-        do ir = 1, N_ray
-          allocate(rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(N_freq))
-          do ifreq = 1, N_freq
-              allocate(rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%svec(max_points_svec))
-          end do
+  cur_filename = trim(working_dir) // "ece_launch.txt"
+  open(76, file = trim(cur_filename))
+  cur_filename = trim(working_dir) // "ece_freqs.txt"
+  open(77, file = trim(cur_filename))
+  read(76, "(i5.5)")  ant%diag(idiag)%N_ch
+  allocate(ant%diag(idiag)%ch(ant%diag(idiag)%N_ch))
+  allocate(rad%diag(idiag)%ch(ant%diag(idiag)%N_ch))
+  do ich = 1, ant%diag(idiag)%N_ch
+    allocate(ant%diag(idiag)%ch(ich)%freq(N_freq))
+    allocate(ant%diag(idiag)%ch(ich)%freq_weight(N_freq))
+    allocate(rad%diag(idiag)%ch(ich)%mode(mode_cnt))
+    do imode = 1, mode_cnt
+      if((imode == 2 .and. modes == 3) .or. &
+          modes == 2) then
+        rad%diag(idiag)%ch(ich)%mode(imode)%mode = -1 ! O-mode
+      else
+        rad%diag(idiag)%ch(ich)%mode(imode)%mode = +1 ! X-mode
+      end if
+      allocate(rad%diag(idiag)%ch(ich)%mode(imode)%ray(N_ray))
+      do ir = 1, N_ray
+        allocate(rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(N_freq))
+        do ifreq = 1, N_freq
+            allocate(rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%svec(max_points_svec))
         end do
       end do
-      allocate(ant%diag(idiag)%ch(ich)%ray_launch(N_ray))
-      do ir = 1, N_ray
-        read(76,"(E13.6E2A1E13.6E2A1E13.6E2A1E13.6E2A1E13.6E2A1E13.6E2A1E13.6E2)") &
-          ant%diag(idiag)%ch(ich)%ray_launch(ir)%x_vec(1), sep, &
-          ant%diag(idiag)%ch(ich)%ray_launch(ir)%x_vec(2), sep, &
-          ant%diag(idiag)%ch(ich)%ray_launch(ir)%x_vec(3), sep, &
-          ant%diag(idiag)%ch(ich)%ray_launch(ir)%N_vec(1), sep, &
-          ant%diag(idiag)%ch(ich)%ray_launch(ir)%N_vec(2), sep, &
-          ant%diag(idiag)%ch(ich)%ray_launch(ir)%N_vec(3), sep, &
-          ant%diag(idiag)%ch(ich)%ray_launch(ir)%weight
-      end do
-      do ifreq = 1, N_freq
-        read(77,"(E13.6E2A1E13.6E2)") &
-          ant%diag(idiag)%ch(ich)%freq(ifreq), sep, &
-          ant%diag(idiag)%ch(ich)%freq_weight(ifreq)
-      end do
-      ant%diag(idiag)%ch(ich)%f_ECE = ant%diag(idiag)%ch(ich)%freq(1)
-      ant%diag(idiag)%ch(ich)%df_ECE = -1 ! information should not bee needed
-      if(ant%diag(idiag)%ch(ich)%f_ECE < 1.d9) then
-        print*,"Warning an ECE channel has a frequency below 1 GHz"
-      end if
-    end do !ich
-    close(76)
-    close(77)
-  else
-    print*, "diag name", ant%diag(idiag)%diag_name
-    print*, "Current version of IDA allows modeling of 1D-ECE only!"
-    call abort
-  end if
+    end do
+    allocate(ant%diag(idiag)%ch(ich)%ray_launch(N_ray))
+    do ir = 1, N_ray
+      read(76,"(E13.6E2A1E13.6E2A1E13.6E2A1E13.6E2A1E13.6E2A1E13.6E2A1E13.6E2)") &
+        ant%diag(idiag)%ch(ich)%ray_launch(ir)%x_vec(1), sep, &
+        ant%diag(idiag)%ch(ich)%ray_launch(ir)%x_vec(2), sep, &
+        ant%diag(idiag)%ch(ich)%ray_launch(ir)%x_vec(3), sep, &
+        ant%diag(idiag)%ch(ich)%ray_launch(ir)%N_vec(1), sep, &
+        ant%diag(idiag)%ch(ich)%ray_launch(ir)%N_vec(2), sep, &
+        ant%diag(idiag)%ch(ich)%ray_launch(ir)%N_vec(3), sep, &
+        ant%diag(idiag)%ch(ich)%ray_launch(ir)%weight
+    end do
+    do ifreq = 1, N_freq
+      read(77,"(E13.6E2A1E13.6E2)") &
+        ant%diag(idiag)%ch(ich)%freq(ifreq), sep, &
+        ant%diag(idiag)%ch(ich)%freq_weight(ifreq)
+    end do
+    ant%diag(idiag)%ch(ich)%f_ECE = ant%diag(idiag)%ch(ich)%freq(1)
+    ant%diag(idiag)%ch(ich)%df_ECE = -1 ! information should not bee needed
+    if(ant%diag(idiag)%ch(ich)%f_ECE < 1.d9) then
+      print*,"Warning an ECE channel has a frequency below 1 GHz"
+    end if
+  end do !ich
+  close(76)
+  close(77)
 end subroutine load_ECE_diag_data
 #endif
 
@@ -1533,7 +1527,7 @@ implicit none
 
 subroutine bin_ray_BPD_to_common_rhop(plasma_params, rad_mode, center_freq, weights, rhop, BPD, BPD_secondary)
 use f90_kind
-use mod_ecfm_refr_types,       only: plasma_params_type, rad_diag_ch_mode_type, N_ray, spl_type_1d, max_points_svec
+use mod_ecfm_refr_types,       only: plasma_params_type, rad_diag_ch_mode_type, N_ray, spl_type_1d, max_points_svec, max_rhop_BPD
 use mod_ecfm_refr_interpol,   only: make_1d_spline,  spline_1d, spline_1d, spline_1d_get_roots, deallocate_1d_spline, spline_1d_integrate
 use constants,                 only: pi, mass_e, e0, c0
 implicit none
@@ -1554,15 +1548,9 @@ real(rkind), dimension(10) :: s_aux_arr, rhop_aux_arr, BPD_aux_arr, BPD_second_a
 logical                                    :: make_secondary_BPD
   make_secondary_BPD = .false.
   if(present(BPD_secondary)) make_secondary_BPD = .true.
-  max_rho = 0.d0
-  do ir = 1, N_ray
-    rho_cur = maxval(rad_mode%ray(ir)%freq(1)%svec(:)%rhop)
-    if(max_rho < rho_cur) max_rho = rho_cur
-  end do
-  !print*, "Maximum rho", max_rho
   do i = 1, size(rhop)
-    rhop(i) = 2.d0 * real(i - 1, 8) * max_rho / &
-              real(size(rhop) - 1, 8) - max_rho
+    rhop(i) = 2.d0 * real(i - 1, 8) * max_rhop_BPD / &
+              real(size(rhop) - 1, 8) - max_rhop_BPD
   end do
   BPD(:) = 0.d0
   if(make_secondary_BPD) BPD_secondary(:) = 0.d0

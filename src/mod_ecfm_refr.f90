@@ -687,14 +687,14 @@ rad%diag(1)%ch(:)%eval_ch = ece_fm_flag_ch
 plasma_params%rp_min = rp_min
 plasma_params%rhop_scale_ne =  ne_rhop_scal
 if(.not. present(T_e_dx2) .and. .not. present(n_e_dx2)) then
-! Use IDA spline for both
+! Use univariate spline for both
      call update_svecs(rad, rhop_knots_ne=rhop_knots_ne, n_e=n_e, \
                        rhop_knots_Te=rhop_knots_Te, T_e=T_e)
   else if(.not. present(T_e_dx2)) then
-! Use IDA spline for ne but bispline for Te
+! Use IDA spline for ne but univariate spline for Te
     call update_svecs(rad, rhop_knots_ne, n_e, n_e_dx2, rhop_knots_Te, T_e)
   else if(.not. present(n_e_dx2)) then
-! Use IDA spline for Te but bispline for ne -> important ne in units of 1.e19 m^-3
+! Use IDA spline for Te but univariate spline  for ne -> important ne in units of 1.e19 m^-3
      call update_svecs(rad, rhop_knots_ne, n_e, rhop_knots_Te, T_e, T_e_dx2)
   else
     call update_svecs(rad, rhop_knots_ne, n_e, n_e_dx2, rhop_knots_Te, T_e, T_e_dx2)
@@ -837,7 +837,7 @@ subroutine update_svecs(rad, rhop_knots_ne, n_e, n_e_dx2, rhop_knots_Te, T_e, T_
     print*, "The routine update_svecs does not support Te/ne matrices"
     stop "Te_ne_mat = T in update_svecs"
   end if
-  ! If no second derivatives for Te and ne provided -> bispline
+  ! If no second derivatives for Te and ne provided -> univariate spline
   if(.not. present(T_e_dx2) .and. .not. present(n_e_dx2)) then
      call update_Te_ne(rhop_knots_ne=rhop_knots_ne, n_e=n_e, rhop_knots_Te=rhop_knots_Te, T_e=T_e)
   else if(.not. present(T_e_dx2)) then

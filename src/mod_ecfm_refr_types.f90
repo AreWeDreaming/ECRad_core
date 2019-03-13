@@ -520,6 +520,7 @@ end type plasma_params_type
   logical                            :: Analytical = .False., Lambda_star = .False.,&
                                         LSODE = .true., old_cutoff = .False. !*
   integer(ikind)                     :: pnts_BPD = 2000 !*
+  real(rkind)                        :: max_rhop_BPD = 1.05
   logical                            :: use_maximum_for_warm_res = .true.
                                         !* If false uses first moment of BPD
   integer(ikind)                     :: k_int = 0
