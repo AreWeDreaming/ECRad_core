@@ -653,7 +653,7 @@ end subroutine make_rays_ecfm
 subroutine make_dat_model_ece_ecfm_refr(rhop_knots_ne, n_e, n_e_dx2, rhop_knots_Te, T_e, T_e_dx2, &
                                         ne_rhop_scal, reflec_X_new, & ! in
                                         reflec_O_new, ece_fm_flag_ch, rp_min, &
-                                        dat_model_ece, set_grid_dynamic, verbose)
+                                        dat_model_ece, tau, set_grid_dynamic, verbose)
 use mod_ecfm_refr_types,        only: reflec_X, reflec_O, plasma_params, rad, ant, ray_init, static_grid
 use mod_ecfm_refr_utils,        only: retrieve_T_e
 implicit none
@@ -662,6 +662,7 @@ real(rkind),               intent(in)  :: ne_rhop_scal, reflec_X_new, reflec_O_n
 real(rkind), dimension(:), intent(in), optional  :: n_e_dx2, T_e_dx2
 logical,     dimension(:), intent(in)  :: ece_fm_flag_ch
 real(rkind), dimension(:), intent(out) :: dat_model_ece
+real(rkind), dimension(:), intent(out), optional  :: tau
 logical,      intent(in), optional     :: verbose
 logical, intent(in), optional          :: set_grid_dynamic
 integer(ikind)                         :: ich
@@ -717,8 +718,16 @@ if(any(ece_fm_flag_ch)) then
     call abort
   end if
 end if
-where (rad%diag(1)%ch(:)%Trad > 1.d-6 .and. ece_fm_flag_ch) dat_model_ece = rad%diag(1)%ch(:)%Trad
+where (ece_fm_flag_ch) dat_model_ece = rad%diag(1)%ch(:)%Trad
 where(rad%diag(1)%ch(:)%rhop_res < 0.d0) dat_model_ece = 0.d0 ! cut off
+if(oresent(tau)) then
+  if(size(tau) /= size(dat_model_ece)) then
+    print*, "If provided tau must have the same shape as dat_model_ece"
+    print*. "Input error in make_dat_model_ece_ecfm_refr"
+    call abort()
+  end if
+  where (ece_fm_flag_ch) tau = rad%diag(1)%ch(:)%tau
+end if
 if(present(verbose)) then
   if(verbose) call save_data_to_ASCII()
 end if
