@@ -245,7 +245,7 @@ subroutine initialize_stand_alone(working_dir, flag)
 use mod_ecfm_refr_types,        only: dstf, dst_data_folder, Ich_name, ray_out_folder, output_level, data_name, modes, &
                                       dstf_comp, plasma_params, N_ray, N_freq, warm_plasma, data_secondary_name, &
                                       rad, ant, data_folder, Ich_name, dstf_comp, straight, stand_alone, ffp, N_absz, &
-                                      N_absz_large, reflec_model
+                                      N_absz_large, reflec_model, new_IO
 use mod_ecfm_refr_utils,      only: read_input_file, prepare_ECE_diag, &
                                     import_all_ece_data, make_ecfm_LOS_grid, &
                                     init_non_therm, read_wall_Trad
@@ -385,7 +385,11 @@ integer(ikind)                :: idiag, ich
     if(output_level) print*,"Calculating Radiation profile for ", plasma_params%shot," at t = ",plasma_params%time," s"
     if(output_level) print*,"Chosen distribution is: ", dstf
     if(output_level) flush(6)
-    data_folder = trim(working_dir) //  "ecfm_data" // "/"
+    if(.not. new_IO) then
+      data_folder = trim(working_dir) //  "ecfm_data" // "/"
+    else
+      data_folder = trim(working_dir) //  "ECRad_data" // "/"
+    end if
     if(output_level) print*, "Data will arrive in: ", data_folder
     if(dstf == "numeric" .or. trim(dstf) == "gene" .or. trim(dstf) == "gcomp") then
       call abs_Al_init(N_absz_large) ! Initializes the weights and abszissae for the gaussian quadrature
@@ -398,7 +402,7 @@ integer(ikind)                :: idiag, ich
       print*, "Integrated ray tracing enabled"
       print*,"Rays are preinitialized"
     end if
-    ray_out_folder = trim(working_dir) // "ecfm_data/" // "ray/"
+    ray_out_folder = data_folder // "ray/"
     call init_raytrace(plasma_params)
     call init_non_therm() ! Reads input data for non-thermal distributions
     if(reflec_model == 2) call read_wall_Trad()

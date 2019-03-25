@@ -221,7 +221,7 @@ character(200)                    :: input_filename
   read(66,"(E19.12E2)") plasma_params%R_shift
   read(66,"(E19.12E2)") plasma_params%z_shift
   read(66,"(I10)") max_points_svec
-  if(.not. new_IO) then
+  if(new_IO) then
     n_e_filename = trim(working_dir) // "ECRad_data/" // "ne_file.dat"
     T_e_filename = trim(working_dir) // "ECRad_data/" // "Te_file.dat"
     Vessel_bd_filename = trim(working_dir) // "ECRad_data/" // "vessel_bd.txt"
@@ -449,6 +449,10 @@ subroutine prepare_ECE_diag(working_dir, f, df, R, phi, z, tor, pol, dist_foc, w
     open(76, file = trim(cur_filename))
     cur_filename = trim(working_dir) // "ece_freqs.txt"
     open(77, file = trim(cur_filename))
+  else if(new_IO) then
+    open(77, file=trim(ray_launch_file))
+    ! Only one diag with new IO
+    read(77, "(I5.5)") ant%diag(1)%N_ch
   end if
   mode_cnt = 1
   if(modes == 3) mode_cnt = 2
@@ -488,9 +492,6 @@ subroutine prepare_ECE_diag(working_dir, f, df, R, phi, z, tor, pol, dist_foc, w
          trim(ant%diag(idiag)%diag_name) == "EXT") then
         open(78, file = trim(working_dir) // "ecfm_data/" // trim(ant%diag(idiag)%diag_name) // "_pol_coeff.dat")
       end if
-    else
-      open(77, file=trim(ray_launch_file))
-      read(77, "(I5.5)") ant%diag(idiag)%N_ch
     end if
     allocate(ant%diag(idiag)%ch(ant%diag(idiag)%N_ch))
     allocate(rad%diag(idiag)%ch(ant%diag(idiag)%N_ch))
