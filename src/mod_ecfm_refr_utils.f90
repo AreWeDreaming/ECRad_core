@@ -86,12 +86,12 @@ use mod_ecfm_refr_types,        only : ant, rad, plasma_params, dstf, diagnostic
                                        ratio_for_third_harmonic, straight, reflec_X, reflec_O, modes, working_dir, &
                                        mode_conv, N_freq, N_ray, CEC_exp, CTC_exp, ECI_exp, IEC_exp, &
                                        CEC_ed, CTC_ed, ECI_ed, IEC_ed, time_smth, warm_plasma, max_points_svec, &
-                                       reflec_model, vessel_plasma_ratio
+                                       reflec_model, vessel_plasma_ratio, new_IO
 implicit none
 character(*), intent(in)          :: working_dir_in
 character(50)                     :: diag_str
 integer(ikind)                    :: i,len_diag_str
-character(200)                     :: input_filename
+character(200)                    :: input_filename
 ! Temporary structure of input file - something more sophisticated later...
 ! shot number
 ! time point
@@ -109,77 +109,88 @@ character(200)                     :: input_filename
 ! number of frequencies
 ! number of rays - not tested and properly not correctly implemented -> 1 highly recommended
   working_dir = trim(working_dir_in)
-  input_filename = trim(working_dir) // "ecfm_data/" // "ECFM.inp"
+  input_filename = trim(working_dir) // "ECRad_data/" // "ECRad.inp"
+  inquire(file=input_filename, EXIST=new_IO)
+  if(.not. new_IO) input_filename = trim(working_dir) // "ecfm_data/" // "ECFM.inp"
   open(66,file = trim(input_filename))
   read(66, "(A2)") dstf
-  read(66, "(A12)") diag_str
-  len_diag_str = len_trim(diag_str)
-  !print*, diag_str
-  if(mod(len_diag_str,3) /= 0) then
-    print*, "Input Error"
-    print*, "Chosen diagnostics are ", trim(diag_str)
-    print*, "But this input string must have a length that is a multiple of 3"
-    print*,"INPUT ERROR"
-    call abort
+  ! Only single diagnostics, ECRad should not distinguish between diagnostics
+  if(.not. new_IO) then
+    read(66, "(A12)") diag_str
+    len_diag_str = len_trim(diag_str)
+    !print*, diag_str
+    if(mod(len_diag_str,3) /= 0) then
+      print*, "Input Error"
+      print*, "Chosen diagnostics are ", trim(diag_str)
+      print*, "But this input string must have a length that is a multiple of 3"
+      print*,"INPUT ERROR"
+      call abort
+    else
+      allocate(diagnostics(len_diag_str / 3))
+      ant%N_diag = 0
+      if(index(trim(diag_str),"ECE") >= 1) then
+        ant%N_diag = ant%N_diag + 1
+        diagnostics(ant%N_diag) = "ECE"
+      end if
+      if(index(trim(diag_str),"CTC") >= 1) then
+        ant%N_diag = ant%N_diag + 1
+        diagnostics(ant%N_diag) = "CTC"
+      end if
+      if(index(trim(diag_str),"CTA") >= 1) then
+        ant%N_diag = ant%N_diag + 1
+        diagnostics(ant%N_diag) = "CTA"
+      end if
+      if(index(trim(diag_str),"IEC") >= 1) then
+        ant%N_diag = ant%N_diag + 1
+        diagnostics(ant%N_diag) = "IEC"
+      end if
+      if(index(trim(diag_str),"ECN") >= 1) then
+        ant%N_diag = ant%N_diag + 1
+        diagnostics(ant%N_diag) = "ECN"
+      end if
+      if(index(trim(diag_str),"ECO") >= 1) then
+        ant%N_diag = ant%N_diag + 1
+        diagnostics(ant%N_diag) = "ECO"
+      end if
+      if(index(trim(diag_str),"EXT") >= 1) then
+        ant%N_diag = ant%N_diag + 1
+        diagnostics(ant%N_diag) = "EXT"
+      end if
+      if(index(trim(diag_str),"VCE") >= 1) then
+        ant%N_diag = ant%N_diag + 1
+        diagnostics(ant%N_diag) = "VCE"
+      end if
+      if(index(trim(diag_str),"UCE") >= 1) then
+        ant%N_diag = ant%N_diag + 1
+        diagnostics(ant%N_diag) = "UCE"
+      end if
+      if(index(trim(diag_str),"LCE") >= 1) then
+        ant%N_diag = ant%N_diag + 1
+        diagnostics(ant%N_diag) = "LCE"
+      end if
+      if(index(trim(diag_str),"CCE") >= 1) then
+        ant%N_diag = ant%N_diag + 1
+        diagnostics(ant%N_diag) = "CCE"
+      end if
+      if(index(trim(diag_str),"REF") >= 1) then
+        ant%N_diag = ant%N_diag + 1
+        diagnostics(ant%N_diag) = "REF"
+      end if
+    end if
+    allocate(ant%diag(ant%N_diag), rad%diag(ant%N_diag))
   else
-    allocate(diagnostics(len_diag_str / 3))
-    ant%N_diag = 0
-    if(index(trim(diag_str),"ECE") >= 1) then
-      ant%N_diag = ant%N_diag + 1
-      diagnostics(ant%N_diag) = "ECE"
-    end if
-    if(index(trim(diag_str),"CTC") >= 1) then
-      ant%N_diag = ant%N_diag + 1
-      diagnostics(ant%N_diag) = "CTC"
-    end if
-    if(index(trim(diag_str),"CTA") >= 1) then
-      ant%N_diag = ant%N_diag + 1
-      diagnostics(ant%N_diag) = "CTA"
-    end if
-    if(index(trim(diag_str),"IEC") >= 1) then
-      ant%N_diag = ant%N_diag + 1
-      diagnostics(ant%N_diag) = "IEC"
-    end if
-    if(index(trim(diag_str),"ECN") >= 1) then
-      ant%N_diag = ant%N_diag + 1
-      diagnostics(ant%N_diag) = "ECN"
-    end if
-    if(index(trim(diag_str),"ECO") >= 1) then
-      ant%N_diag = ant%N_diag + 1
-      diagnostics(ant%N_diag) = "ECO"
-    end if
-    if(index(trim(diag_str),"EXT") >= 1) then
-      ant%N_diag = ant%N_diag + 1
-      diagnostics(ant%N_diag) = "EXT"
-    end if
-    if(index(trim(diag_str),"VCE") >= 1) then
-      ant%N_diag = ant%N_diag + 1
-      diagnostics(ant%N_diag) = "VCE"
-    end if
-    if(index(trim(diag_str),"UCE") >= 1) then
-      ant%N_diag = ant%N_diag + 1
-      diagnostics(ant%N_diag) = "UCE"
-    end if
-    if(index(trim(diag_str),"LCE") >= 1) then
-      ant%N_diag = ant%N_diag + 1
-      diagnostics(ant%N_diag) = "LCE"
-    end if
-    if(index(trim(diag_str),"CCE") >= 1) then
-      ant%N_diag = ant%N_diag + 1
-      diagnostics(ant%N_diag) = "CCE"
-    end if
-    if(index(trim(diag_str),"REF") >= 1) then
-      ant%N_diag = ant%N_diag + 1
-      diagnostics(ant%N_diag) = "REF"
-    end if
+    ant%N_diag = 1
+    allocate(ant%diag(ant%N_diag), rad%diag(ant%N_diag), diagnostics(ant%N_diag))
+    diagnostics(1) = "EXT"
   end if
-  allocate(ant%diag(ant%N_diag), rad%diag(ant%N_diag))
   read(66,"(L1)") output_level
-  read(66,"(A4)") plasma_params%eq_exp
-  plasma_params%eq_exp = trim(plasma_params%eq_exp)
-  read(66,"(A3)") plasma_params%eq_diag
-  plasma_params%eq_diag = trim(plasma_params%eq_diag)
-  read(66,"(I2)") plasma_params%eq_ed
+  if(.not. new_IO) then
+    read(66,"(A4)") plasma_params%eq_exp
+    plasma_params%eq_exp = trim(plasma_params%eq_exp)
+    read(66,"(A3)") plasma_params%eq_diag
+    plasma_params%eq_diag = trim(plasma_params%eq_diag)
+    read(66,"(I2)") plasma_params%eq_ed
+  end if
   read(66,"(L1)") straight
   read(66,"(L1)") plasma_params%w_ripple
   read(66,"(L1)") warm_plasma
@@ -187,7 +198,9 @@ character(200)                     :: input_filename
   read(66,"(I1)") reflec_model
   read(66,"(E19.12E2)") reflec_X
   read(66,"(E19.12E2)") reflec_O
-  read(66,"(E19.12E2)") vessel_plasma_ratio
+  if(.not. new_IO) then
+    read(66,"(E19.12E2)") vessel_plasma_ratio
+  end if
   read(66,"(E19.12E2)") plasma_params%btf_corr_fact_ext
   read(66,"(I1)") modes
   read(66,"(E19.12E2)") mode_conv
@@ -208,10 +221,17 @@ character(200)                     :: input_filename
   read(66,"(E19.12E2)") plasma_params%R_shift
   read(66,"(E19.12E2)") plasma_params%z_shift
   read(66,"(I10)") max_points_svec
-  n_e_filename = trim(working_dir) // "ecfm_data/" // "ne_file.dat"
-  T_e_filename = trim(working_dir) // "ecfm_data/" // "Te_file.dat"
-  Vessel_bd_filename = trim(working_dir) // "ecfm_data/" // "vessel_bd.txt"
-  ray_launch_file = trim(working_dir) // "ecfm_data/" // "ray_launch.dat"
+  if(.not. new_IO) then
+    n_e_filename = trim(working_dir) // "ECRad_data/" // "ne_file.dat"
+    T_e_filename = trim(working_dir) // "ECRad_data/" // "Te_file.dat"
+    Vessel_bd_filename = trim(working_dir) // "ECRad_data/" // "vessel_bd.txt"
+    ray_launch_file = trim(working_dir) // "ECRad_data/" // "ray_launch.dat"
+  else
+    n_e_filename = trim(working_dir) // "ecfm_data/" // "ne_file.dat"
+    T_e_filename = trim(working_dir) // "ecfm_data/" // "Te_file.dat"
+    Vessel_bd_filename = trim(working_dir) // "ecfm_data/" // "vessel_bd.txt"
+    ray_launch_file = trim(working_dir) // "ecfm_data/" // "ray_launch.dat"
+  end if
   if(output_level) then
     print*,"Chosen ECFM mode ", dstf
     print*, "Found ", ant%N_diag," diagnostics to model"
@@ -396,7 +416,7 @@ subroutine prepare_ECE_diag(working_dir, f, df, R, phi, z, tor, pol, dist_foc, w
   use mod_ecfm_refr_types,            only: plasma_params, ant, rad, &
                                          	max_points_svec, mode_cnt, modes, N_ray, N_freq, &
                                          	diagnostics, CEC_exp, CEC_ed, ray_launch_file, &
-                                         	output_level, stand_alone, one_sigma_width
+                                         	output_level, stand_alone, one_sigma_width, new_IO
   use constants,                      only: pi, c0
 #ifdef NAG
   use nag_quad_util,                  only: nag_quad_gs_wt_absc
@@ -421,7 +441,7 @@ subroutine prepare_ECE_diag(working_dir, f, df, R, phi, z, tor, pol, dist_foc, w
   type(nag_error)                            :: error
 #endif
   integer(ikind)                             :: i, j, N_x
-  if(output_level .and. stand_alone) then
+  if(stand_alone .and. .not. new_IO) then
     open(66,file = trim(ray_launch_file))
     write(66,"(A122)") "f [GHz]        df [GHz]      x [cm]        y [cm]        z [cm]        tor [deg]     pol [deg]     dist foc[cm]  width [cm]"
   else if(.not. stand_alone .and. present(f) .and. present(working_dir)) then
@@ -457,7 +477,7 @@ subroutine prepare_ECE_diag(working_dir, f, df, R, phi, z, tor, pol, dist_foc, w
     if(ant%diag(idiag)%diag_name == "IDA") then
 		  ant%diag(idiag)%N_ch = size(f)
 		  if(.not. stand_alone .and. present(f) .and. present(working_dir)) write(76, "(i5.5)")  ant%diag(idiag)%N_ch
-    else
+    else if(.not. new_IO) then
       cur_filename = trim(working_dir) // "ecfm_data/" // trim(ant%diag(idiag)%diag_name) // "_launch.dat"
       if(output_level .and. stand_alone) print*, "Reading ", ant%diag(idiag)%diag_name, " from external file: ", cur_filename
       open(77, file=trim(cur_filename))
@@ -468,6 +488,9 @@ subroutine prepare_ECE_diag(working_dir, f, df, R, phi, z, tor, pol, dist_foc, w
          trim(ant%diag(idiag)%diag_name) == "EXT") then
         open(78, file = trim(working_dir) // "ecfm_data/" // trim(ant%diag(idiag)%diag_name) // "_pol_coeff.dat")
       end if
+    else
+      open(77, file=trim(ray_launch_file))
+      read(77, "(I5.5)") ant%diag(idiag)%N_ch
     end if
     allocate(ant%diag(idiag)%ch(ant%diag(idiag)%N_ch))
     allocate(rad%diag(idiag)%ch(ant%diag(idiag)%N_ch))
@@ -510,58 +533,73 @@ subroutine prepare_ECE_diag(working_dir, f, df, R, phi, z, tor, pol, dist_foc, w
       end do
     else
       do ich = 1, ant%diag(idiag)%N_ch
+         if(.not. new_IO) then
       ! Launching is mode independent - read this only once
-        read(77, "(E17.10E2A1E17.10E2A1E17.10E2A1E17.10E2A1E17.10E2A1E17.10E2A1E17.10E2A1E17.10E2A1E17.10E2A1E17.10E2)")  &
-          ant%diag(idiag)%ch(ich)%f_ECE, sep, &
-          ant%diag(idiag)%ch(ich)%df_ECE, sep, &
-          ant%diag(idiag)%ch(ich)%ray_launch(1)%R, sep, &
-          ant%diag(idiag)%ch(ich)%ray_launch(1)%phi, sep, &
-          ant%diag(idiag)%ch(ich)%ray_launch(1)%z, sep, &
-          ant%diag(idiag)%ch(ich)%ray_launch(1)%phi_tor, sep, &
-          ant%diag(idiag)%ch(ich)%ray_launch(1)%theta_pol, sep, &
-          ant%diag(idiag)%ch(ich)%width, sep, & ! 1/e^2 of the beam
-          ant%diag(idiag)%ch(ich)%dist_focus !distance between launch and focus
-          ant%diag(idiag)%ch(ich)%ray_launch(1)%phi = ant%diag(idiag)%ch(ich)%ray_launch(1)%phi / 180.d0 * pi
-          ant%diag(idiag)%ch(ich)%ray_launch(1)%phi_tor = ant%diag(idiag)%ch(ich)%ray_launch(1)%phi_tor / 180.d0 * pi
-          ! Use TORBEAM convention for input
-          ant%diag(idiag)%ch(ich)%ray_launch(1)%theta_pol = (ant%diag(idiag)%ch(ich)%ray_launch(1)%theta_pol) / 180.d0 * pi
-          ant%diag(idiag)%ch(ich)%focus_shift = 0.d0 ! To be correctly implemented
-          ant%diag(idiag)%ch(ich)%ray_launch(1)%weight = 1.d0
-        if(trim(ant%diag(idiag)%diag_name) == "CTA" .or. &
-           trim(ant%diag(idiag)%diag_name) == "CTC" .or. &
-           trim(ant%diag(idiag)%diag_name) == "IEC" .or. &
-         trim(ant%diag(idiag)%diag_name) == "EXT") then
-          do imode = 1,mode_cnt
-            if(imode == 1 .and. modes == 3) then
-              ! A negative polarization coefficient indicates that a toroidally alinged polarizer should be assumed
-              ! In this case ECRad computes the resulting polarization
-              read(78, "(E17.10E2)") rad%diag(idiag)%ch(ich)%mode(imode)%ray(1)%freq(1)%pol_coeff
-              if(rad%diag(idiag)%ch(ich)%mode(imode)%ray(1)%freq(1)%pol_coeff < 0.d0) cycle
-              rad%diag(idiag)%ch(ich)%mode(imode)%ray(1)%freq(:)%pol_coeff = rad%diag(idiag)%ch(ich)%mode(imode)%ray(1)%freq(1)%pol_coeff
-              rad%diag(idiag)%ch(ich)%mode(imode)%ray(1)%freq(:)%pol_coeff_secondary = &
-                rad%diag(idiag)%ch(ich)%mode(imode)%ray(1)%freq(:)%pol_coeff
-            else if(imode == 2 .and. modes == 3) then
-              rad%diag(idiag)%ch(ich)%mode(imode)%ray(1)%freq(:)%pol_coeff = &
-                 1.d0 - rad%diag(idiag)%ch(ich)%mode(1)%ray(1)%freq(1)%pol_coeff
-              rad%diag(idiag)%ch(ich)%mode(imode)%ray(1)%freq(:)%pol_coeff_secondary = &
-                 1.d0 - rad%diag(idiag)%ch(ich)%mode(1)%ray(1)%freq(1)%pol_coeff_secondary
-            else if((modes == 1 .or. modes == 2)) then
-            ! For a single mode use 100% polarization
-              rad%diag(idiag)%ch(ich)%mode(imode)%ray(1)%freq(:)%pol_coeff = 1.d0
-              rad%diag(idiag)%ch(ich)%mode(imode)%ray(1)%freq(:)%pol_coeff_secondary = 1.d0
-            end if
-            rad%diag(idiag)%ch(ich)%mode(imode)%ray(1)%freq(:)%use_external_pol_coeff = .true.
-            do ir = 2, N_ray
+          read(77, "(E17.10E2A1E17.10E2A1E17.10E2A1E17.10E2A1E17.10E2A1E17.10E2A1E17.10E2A1E17.10E2A1E17.10E2A1E17.10E2)")  &
+            ant%diag(idiag)%ch(ich)%f_ECE, sep, &
+            ant%diag(idiag)%ch(ich)%df_ECE, sep, &
+            ant%diag(idiag)%ch(ich)%ray_launch(1)%R, sep, &
+            ant%diag(idiag)%ch(ich)%ray_launch(1)%phi, sep, &
+            ant%diag(idiag)%ch(ich)%ray_launch(1)%z, sep, &
+            ant%diag(idiag)%ch(ich)%ray_launch(1)%phi_tor, sep, &
+            ant%diag(idiag)%ch(ich)%ray_launch(1)%theta_pol, sep, &
+            ant%diag(idiag)%ch(ich)%width, sep, & ! 1/e^2 of the beam
+            ant%diag(idiag)%ch(ich)%dist_focus !distance between launch and focus
+            ant%diag(idiag)%ch(ich)%ray_launch(1)%phi = ant%diag(idiag)%ch(ich)%ray_launch(1)%phi / 180.d0 * pi
+            ant%diag(idiag)%ch(ich)%ray_launch(1)%phi_tor = ant%diag(idiag)%ch(ich)%ray_launch(1)%phi_tor / 180.d0 * pi
+            ! Use TORBEAM convention for input
+            ant%diag(idiag)%ch(ich)%ray_launch(1)%theta_pol = (ant%diag(idiag)%ch(ich)%ray_launch(1)%theta_pol) / 180.d0 * pi
+            rad%diag(idiag)%ch(ich)%mode(1)%ray(1)%freq(1)%pol_coeff = -1.d0 ! Non-steerable ECE
+            if(trim(ant%diag(idiag)%diag_name) == "CTA" .or. &
+             trim(ant%diag(idiag)%diag_name) == "CTC" .or. &
+             trim(ant%diag(idiag)%diag_name) == "IEC" .or. &
+           trim(ant%diag(idiag)%diag_name) == "EXT") read(78, "(E17.10E2)") rad%diag(idiag)%ch(ich)%mode(imode)%ray(1)%freq(1)%pol_coeff
+        else
+          read(77, "(E17.10E2A1E17.10E2A1E17.10E2A1E17.10E2A1E17.10E2A1E17.10E2A1E17.10E2A1E17.10E2A1E17.10E2A1E17.10E2A1E17.10E2)")  &
+            ant%diag(idiag)%ch(ich)%f_ECE, sep, &
+            ant%diag(idiag)%ch(ich)%df_ECE, sep, &
+            ant%diag(idiag)%ch(ich)%ray_launch(1)%R, sep, &
+            ant%diag(idiag)%ch(ich)%ray_launch(1)%phi, sep, &
+            ant%diag(idiag)%ch(ich)%ray_launch(1)%z, sep, &
+            ant%diag(idiag)%ch(ich)%ray_launch(1)%phi_tor, sep, &
+            ant%diag(idiag)%ch(ich)%ray_launch(1)%theta_pol, sep, &
+            ant%diag(idiag)%ch(ich)%width, sep, & ! 1/e^2 of the beam
+            ant%diag(idiag)%ch(ich)%dist_focus, & !distance between launch and focus
+            rad%diag(idiag)%ch(ich)%mode(1)%ray(1)%freq(1)%pol_coeff
+            ant%diag(idiag)%ch(ich)%ray_launch(1)%phi = ant%diag(idiag)%ch(ich)%ray_launch(1)%phi / 180.d0 * pi
+            ant%diag(idiag)%ch(ich)%ray_launch(1)%phi_tor = ant%diag(idiag)%ch(ich)%ray_launch(1)%phi_tor / 180.d0 * pi
+            ! Use TORBEAM convention for input
+            ant%diag(idiag)%ch(ich)%ray_launch(1)%theta_pol = (ant%diag(idiag)%ch(ich)%ray_launch(1)%theta_pol) / 180.d0 * pi
+        end if
+        do imode = 1,mode_cnt
+          ! Distribute external polarization info
+          rad%diag(idiag)%ch(ich)%mode(1)%ray(1)%freq(1)%use_external_pol_coeff = .false.
+          if(imode == 1 .and. modes /= 2) then
+            if(rad%diag(idiag)%ch(ich)%mode(1)%ray(1)%freq(1)%pol_coeff < 0.d0) cycle ! Calculate pol coeff internally
+            rad%diag(idiag)%ch(ich)%mode(1)%ray(1)%freq(1)%use_external_pol_coeff = .true. ! Otherwise use the externally provided one
+          else if(imode == 2 .and. modes /= 3) then
+            if(rad%diag(idiag)%ch(ich)%mode(1)%ray(1)%freq(1)%pol_coeff < 0.d0) cycle  ! Calculate pol coeff internally
+            rad%diag(idiag)%ch(ich)%mode(2)%ray(1)%freq(1)%pol_coeff = 1.d0 - &
+              rad%diag(idiag)%ch(ich)%mode(1)%ray(1)%freq(1)%pol_coeff
+            rad%diag(idiag)%ch(ich)%mode(2)%ray(1)%freq(1)%use_external_pol_coeff = .true. ! Otherwise use the externally provided one
+          else if(modes == 2) then
+            if(rad%diag(idiag)%ch(ich)%mode(1)%ray(1)%freq(1)%pol_coeff < 0.d0) cycle  ! Calculate pol coeff internally
+            rad%diag(idiag)%ch(ich)%mode(1)%ray(1)%freq(1)%pol_coeff = 1.d0 - & ! Swotch from X-mode to O-mode
+              rad%diag(idiag)%ch(ich)%mode(1)%ray(1)%freq(1)%pol_coeff
+            rad%diag(idiag)%ch(ich)%mode(2)%ray(1)%freq(1)%use_external_pol_coeff = .true. ! Otherwise use the externally provided one
+          end if
+          do ir = 1, N_ray
               rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(:)%pol_coeff = rad%diag(idiag)%ch(ich)%mode(imode)%ray(1)%freq(1)%pol_coeff
-              rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(:)%pol_coeff_secondary = rad%diag(idiag)%ch(ich)%mode(imode)%ray(1)%freq(1)%pol_coeff_secondary
-              rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(:)%use_external_pol_coeff = .true.
+              rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(:)%pol_coeff_secondary = rad%diag(idiag)%ch(ich)%mode(imode)%ray(1)%freq(1)%pol_coeff
+              rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(:)%use_external_pol_coeff = rad%diag(idiag)%ch(ich)%mode(imode)%ray(1)%freq(1)%use_external_pol_coeff
             end do
-          end do ! imode
-        end if !Inline diag
+        end do
+        ant%diag(idiag)%ch(ich)%focus_shift = 0.d0 ! To be correctly implemented
+        ant%diag(idiag)%ch(ich)%ray_launch(1)%weight = 1.d0
       end do ! ich
       if(output_level .and. stand_alone) print*, "Found", ant%diag(idiag)%N_ch, " channels for ", ant%diag(idiag)%diag_name
-      if(ant%diag(idiag)%diag_name == "CTA" .or. ant%diag(idiag)%diag_name /= "CTC" .or. &
-         ant%diag(idiag)%diag_name /= "IEC") close(78)
+      if((ant%diag(idiag)%diag_name == "CTA" .or. ant%diag(idiag)%diag_name == "CTC" .or. &
+         ant%diag(idiag)%diag_name == "IEC") .and. .not. new_IO) close(78)
     end if ! diag%name
     ! Now calculate k_vector from the launching angles, distance to focues and beam waist
     do ich = 1, ant%diag(idiag)%N_ch
@@ -760,7 +798,7 @@ subroutine prepare_ECE_diag(working_dir, f, df, R, phi, z, tor, pol, dist_foc, w
     end do ! ich
     do ich = 1, ant%diag(idiag)%N_ch
       do ir = 1, N_ray
-        if(output_level .and. stand_alone) then
+        if(stand_alone .and. .not. new_IO) then
           write(66,"(E13.6E2A1E13.6E2A1E13.6E2A1E13.6E2A1E13.6E2A1E13.6E2A1E13.6E2A1E13.6E2A1E13.6E2)") &
                 ant%diag(idiag)%ch(ich)%f_ECE, " ", &
                 ant%diag(idiag)%ch(ich)%df_ECE, " ", &
@@ -793,7 +831,7 @@ subroutine prepare_ECE_diag(working_dir, f, df, R, phi, z, tor, pol, dist_foc, w
   if(N_freq > 1) deallocate(freq_check, freq_weight_check)
   if (N_ray > 1) deallocate(x, dx, x_check, dx_check)
 #endif
-  if(output_level .and. stand_alone) then
+  if(stand_alone .and. .not. new_IO) then
     close(66)
   else if(.not. stand_alone .and. present(f) .and. present(working_dir)) then
     close(76)

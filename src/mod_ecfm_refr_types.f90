@@ -565,5 +565,6 @@ end type plasma_params_type
                                                          ! good approximation for thermal plasmas. Neccessary to model strongly radiating plasmas.
   real(rkind)                        :: min_level_log_ne = 1.d-15
   integer(ikind)                     :: N_absz = 24, N_absz_large = 128
+  logical                            :: new_IO = .false. ! Will be true if the new IO from ECRad_GUI will be used
 end module mod_ecfm_refr_types
 
