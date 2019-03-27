@@ -536,7 +536,7 @@ subroutine prepare_ECE_diag(working_dir, f, df, R, phi, z, tor, pol, dist_foc, w
       do ich = 1, ant%diag(idiag)%N_ch
          if(.not. new_IO) then
       ! Launching is mode independent - read this only once
-          read(77, "(E17.10E2A1E17.10E2A1E17.10E2A1E17.10E2A1E17.10E2A1E17.10E2A1E17.10E2A1E17.10E2A1E17.10E2A1E17.10E2)")  &
+          read(77, "(E17.10E2A1E17.10E2A1E17.10E2A1E17.10E2A1E17.10E2A1E17.10E2A1E17.10E2A1E17.10E2A1E17.10E2)")  &
             ant%diag(idiag)%ch(ich)%f_ECE, sep, &
             ant%diag(idiag)%ch(ich)%df_ECE, sep, &
             ant%diag(idiag)%ch(ich)%ray_launch(1)%R, sep, &
@@ -556,7 +556,7 @@ subroutine prepare_ECE_diag(working_dir, f, df, R, phi, z, tor, pol, dist_foc, w
              trim(ant%diag(idiag)%diag_name) == "IEC" .or. &
            trim(ant%diag(idiag)%diag_name) == "EXT") read(78, "(E17.10E2)") rad%diag(idiag)%ch(ich)%mode(imode)%ray(1)%freq(1)%pol_coeff
         else
-          read(77, "(E17.10E2A1E17.10E2A1E17.10E2A1E17.10E2A1E17.10E2A1E17.10E2A1E17.10E2A1E17.10E2A1E17.10E2A1E17.10E2A1E17.10E2)")  &
+          read(77, "(E17.10E2A1E17.10E2A1E17.10E2A1E17.10E2A1E17.10E2A1E17.10E2A1E17.10E2A1E17.10E2A1E17.10E2A1E17.10E2)")  &
             ant%diag(idiag)%ch(ich)%f_ECE, sep, &
             ant%diag(idiag)%ch(ich)%df_ECE, sep, &
             ant%diag(idiag)%ch(ich)%ray_launch(1)%R, sep, &
@@ -565,7 +565,7 @@ subroutine prepare_ECE_diag(working_dir, f, df, R, phi, z, tor, pol, dist_foc, w
             ant%diag(idiag)%ch(ich)%ray_launch(1)%phi_tor, sep, &
             ant%diag(idiag)%ch(ich)%ray_launch(1)%theta_pol, sep, &
             ant%diag(idiag)%ch(ich)%width, sep, & ! 1/e^2 of the beam
-            ant%diag(idiag)%ch(ich)%dist_focus, & !distance between launch and focus
+            ant%diag(idiag)%ch(ich)%dist_focus, sep, & !distance between launch and focus
             rad%diag(idiag)%ch(ich)%mode(1)%ray(1)%freq(1)%pol_coeff
             ant%diag(idiag)%ch(ich)%ray_launch(1)%phi = ant%diag(idiag)%ch(ich)%ray_launch(1)%phi / 180.d0 * pi
             ant%diag(idiag)%ch(ich)%ray_launch(1)%phi_tor = ant%diag(idiag)%ch(ich)%ray_launch(1)%phi_tor / 180.d0 * pi
