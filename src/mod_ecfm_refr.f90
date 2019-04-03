@@ -693,17 +693,17 @@ plasma_params%rp_min = rp_min
 plasma_params%rhop_scale_ne =  ne_rhop_scal
 if(.not. present(T_e_dx2) .and. .not. present(n_e_dx2)) then
 ! Use univariate spline for both
-     call update_svecs(rad, rhop_knots_ne=rhop_knots_ne, n_e=n_e, \
-                       rhop_knots_Te=rhop_knots_Te, T_e=T_e)
-  else if(.not. present(T_e_dx2)) then
+   call update_svecs(rad, rhop_knots_ne=rhop_knots_ne, n_e=n_e, \
+                     rhop_knots_Te=rhop_knots_Te, T_e=T_e)
+else if(.not. present(T_e_dx2)) then
 ! Use IDA spline for ne but univariate spline for Te
-    call update_svecs(rad, rhop_knots_ne, n_e, n_e_dx2, rhop_knots_Te, T_e)
-  else if(.not. present(n_e_dx2)) then
+  call update_svecs(rad, rhop_knots_ne, n_e, n_e_dx2, rhop_knots_Te, T_e)
+else if(.not. present(n_e_dx2)) then
 ! Use IDA spline for Te but univariate spline  for ne -> important ne in units of 1.e19 m^-3
-     call update_svecs(rad, rhop_knots_ne, n_e, rhop_knots_Te, T_e, T_e_dx2)
-  else
-    call update_svecs(rad, rhop_knots_ne, n_e, n_e_dx2, rhop_knots_Te, T_e, T_e_dx2)
-  end if
+   call update_svecs(rad, rhop_knots_ne, n_e, rhop_knots_Te, T_e, T_e_dx2)
+else
+  call update_svecs(rad, rhop_knots_ne, n_e, n_e_dx2, rhop_knots_Te, T_e, T_e_dx2)
+end if
 ! Perform the classical analysis using the resonance of the X-mode
 if(any(ece_fm_flag_ch == .false.)) then
   call retrieve_T_e(plasma_params, abs(rad%diag(1)%ch(:)%rhop_res), dat_model_ece)
@@ -718,18 +718,19 @@ end if
 if(any(ece_fm_flag_ch)) then
   call make_ece_rad_temp()
   if(any(rad%diag(1)%ch(:)%Trad /= rad%diag(1)%ch(:)%Trad)) then
-    print*, "Nan in ECE forward model with forward modelled Trad"
+    print*, "Nan in ECE forward model with forward modeled Trad"
     call abort
   end if
 end if
 where (ece_fm_flag_ch) dat_model_ece = rad%diag(1)%ch(:)%Trad
 where(rad%diag(1)%ch(:)%rhop_res < 0.d0) dat_model_ece = 0.d0 ! cut off
-if(oresent(tau)) then
+if(present(tau)) then
   if(size(tau) /= size(dat_model_ece)) then
     print*, "If provided tau must have the same shape as dat_model_ece"
-    print*. "Input error in make_dat_model_ece_ecfm_refr"
+    print*, "Input error in make_dat_model_ece_ecfm_refr"
     call abort()
   end if
+  tau(:) = -1.d0
   where (ece_fm_flag_ch) tau = rad%diag(1)%ch(:)%tau
 end if
 if(present(verbose)) then
@@ -760,7 +761,7 @@ integer(ikind)                               :: imode
  call make_dat_model_ece_ecfm_refr(rhop_knots_ne, n_e, n_e_dx2, rhop_knots_Te, T_e, T_e_dx2, &
                                    ne_rhop_scal, reflec_X_new, & ! in
                                    reflec_O_new, ece_fm_flag_ch, rp_min, &
-                                   dat_model_ece_dummy, .true.)
+                                   dat_model_ece_dummy, set_grid_dynamic = .true.)
   call make_BPD_and_warm_res(idiag, ich)
   allocate(rhop(pnts_BPD))
   allocate(BPD(pnts_BPD))
