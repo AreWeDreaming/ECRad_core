@@ -574,11 +574,11 @@ subroutine prepare_ECE_diag(working_dir, f, df, R, phi, z, tor, pol, dist_foc, w
         end if
         do imode = 1,mode_cnt
           ! Distribute external polarization info
-          rad%diag(idiag)%ch(ich)%mode(1)%ray(1)%freq(1)%use_external_pol_coeff = .false.
+          rad%diag(idiag)%ch(ich)%mode(imode)%ray(1)%freq(1)%use_external_pol_coeff = .false.
           if(imode == 1 .and. modes /= 2) then
             if(rad%diag(idiag)%ch(ich)%mode(1)%ray(1)%freq(1)%pol_coeff < 0.d0) cycle ! Calculate pol coeff internally
             rad%diag(idiag)%ch(ich)%mode(1)%ray(1)%freq(1)%use_external_pol_coeff = .true. ! Otherwise use the externally provided one
-          else if(imode == 2 .and. modes /= 3) then
+          else if(imode == 2 .and. modes == 3) then
             if(rad%diag(idiag)%ch(ich)%mode(1)%ray(1)%freq(1)%pol_coeff < 0.d0) cycle  ! Calculate pol coeff internally
             rad%diag(idiag)%ch(ich)%mode(2)%ray(1)%freq(1)%pol_coeff = 1.d0 - &
               rad%diag(idiag)%ch(ich)%mode(1)%ray(1)%freq(1)%pol_coeff
@@ -587,13 +587,13 @@ subroutine prepare_ECE_diag(working_dir, f, df, R, phi, z, tor, pol, dist_foc, w
             if(rad%diag(idiag)%ch(ich)%mode(1)%ray(1)%freq(1)%pol_coeff < 0.d0) cycle  ! Calculate pol coeff internally
             rad%diag(idiag)%ch(ich)%mode(1)%ray(1)%freq(1)%pol_coeff = 1.d0 - & ! Swotch from X-mode to O-mode
               rad%diag(idiag)%ch(ich)%mode(1)%ray(1)%freq(1)%pol_coeff
-            rad%diag(idiag)%ch(ich)%mode(2)%ray(1)%freq(1)%use_external_pol_coeff = .true. ! Otherwise use the externally provided one
+            rad%diag(idiag)%ch(ich)%mode(1)%ray(1)%freq(1)%use_external_pol_coeff = .true. ! Otherwise use the externally provided one
           end if
           do ir = 1, N_ray
-              rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(:)%pol_coeff = rad%diag(idiag)%ch(ich)%mode(imode)%ray(1)%freq(1)%pol_coeff
-              rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(:)%pol_coeff_secondary = rad%diag(idiag)%ch(ich)%mode(imode)%ray(1)%freq(1)%pol_coeff
-              rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(:)%use_external_pol_coeff = rad%diag(idiag)%ch(ich)%mode(imode)%ray(1)%freq(1)%use_external_pol_coeff
-            end do
+            rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(:)%pol_coeff = rad%diag(idiag)%ch(ich)%mode(imode)%ray(1)%freq(1)%pol_coeff
+            rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(:)%pol_coeff_secondary = rad%diag(idiag)%ch(ich)%mode(imode)%ray(1)%freq(1)%pol_coeff
+            rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(:)%use_external_pol_coeff = rad%diag(idiag)%ch(ich)%mode(imode)%ray(1)%freq(1)%use_external_pol_coeff
+          end do
         end do
         ant%diag(idiag)%ch(ich)%focus_shift = 0.d0 ! To be correctly implemented
         ant%diag(idiag)%ch(ich)%ray_launch(1)%weight = 1.d0
