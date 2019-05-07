@@ -250,7 +250,7 @@ use mod_ecfm_refr_utils,      only: read_input_file, prepare_ECE_diag, &
                                     import_all_ece_data, make_ecfm_LOS_grid, &
                                     init_non_therm, read_wall_Trad
 use mod_ecfm_refr_raytrace_initialize,    only: init_raytrace
-use mod_ecfm_refr_raytrace,               only: span_svecs, find_cold_resonance
+use mod_ecfm_refr_raytrace,               only: span_svecs
 use mod_ecfm_refr_em_Hu,                  only: radiation_gauss_init,radiation_gauss_clean_up
 use mod_ecfm_refr_abs_Al,         only: abs_Al_init,abs_Al_clean_up
 use constants,                    only: pi
@@ -412,34 +412,6 @@ integer(ikind)                :: idiag, ich
       print*, "Use weakly relativistic cut off correction for ray tracing: ", warm_plasma
     end if
     call span_svecs(plasma_params)
-! The following lines used to be for running ECRad from preexisting LOS, but this feature is not supported atm
-!    else
-!      if(output_level) print*, "Ray trajectories from external s-vectors"
-!      call import_all_ece_data()
-!      call make_ecfm_LOS_grid("initialize")
-!      if(N_ray /= 1 .or. N_freq /= 1 .or. modes /= 1) then
-!        print*, "If external s-vectors are used there must not be more than 1 ray and 1 frequency per ECE channel"
-!        print*, "Only X-mode is supported at this moment."
-!        stop "Incorrect amount of rays and/or frequencies for external s-vectors"
-!      end if
-!      do ich = 1, ant%diag(1)%N_ch
-!      ! Only 1 ray and 1 frequency supported
-!        call find_cold_resonance(plasma_params, ant%diag(1)%ch(ich)%freq(1) * 2.d0 * pi, rad%diag(1)%ch(ich)%mode(1)%ray(1)%freq(1), &
-!                                 1, rad%diag(1)%ch(ich)%mode(1)%ray(1)%freq(1)%total_LOS_points)
-!        rad%diag(1)%ch(ich)%mode(1)%ray(1)%s_res = rad%diag(1)%ch(ich)%mode(1)%ray(1)%freq(1)%s_res
-!        rad%diag(1)%ch(ich)%mode(1)%ray(1)%R_res = rad%diag(1)%ch(ich)%mode(1)%ray(1)%freq(1)%R_res
-!        rad%diag(1)%ch(ich)%mode(1)%ray(1)%z_res = rad%diag(1)%ch(ich)%mode(1)%ray(1)%freq(1)%z_res
-!        rad%diag(1)%ch(ich)%mode(1)%ray(1)%rhop_res = rad%diag(1)%ch(ich)%mode(1)%ray(1)%freq(1)%rhop_res
-!        rad%diag(1)%ch(ich)%mode(1)%s_res = rad%diag(1)%ch(ich)%mode(1)%ray(1)%freq(1)%s_res
-!        rad%diag(1)%ch(ich)%mode(1)%R_res = rad%diag(1)%ch(ich)%mode(1)%ray(1)%freq(1)%R_res
-!        rad%diag(1)%ch(ich)%mode(1)%z_res = rad%diag(1)%ch(ich)%mode(1)%ray(1)%freq(1)%z_res
-!        rad%diag(1)%ch(ich)%mode(1)%rhop_res = rad%diag(1)%ch(ich)%mode(1)%ray(1)%freq(1)%rhop_res
-!        rad%diag(1)%ch(ich)%s_res = rad%diag(1)%ch(ich)%mode(1)%ray(1)%freq(1)%s_res
-!        rad%diag(1)%ch(ich)%R_res = rad%diag(1)%ch(ich)%mode(1)%ray(1)%freq(1)%R_res
-!        rad%diag(1)%ch(ich)%z_res = rad%diag(1)%ch(ich)%mode(1)%ray(1)%freq(1)%z_res
-!        rad%diag(1)%ch(ich)%rhop_res = rad%diag(1)%ch(ich)%mode(1)%ray(1)%freq(1)%rhop_res
-!      end do
-!    end if
   else if(trim(flag) == "clean") then
     !TODO: Implement clean up routine
     if(dstf_comp == "Hu" .or. dstf_comp == "Al") call radiation_gauss_clean_up()

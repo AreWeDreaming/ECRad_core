@@ -463,7 +463,7 @@ type plasma_params_type
   real(rkind)                                       :: X_entry = 0.04 !*
   real(rkind)                                       :: rhop_emit = 1.03 !* Specifies upper limit for the fine grid
                                                        ! This avoids having the small grid for channels with resonances in the SOL
-  real(rkind)                                       :: down_shift = -0.01, up_shift = 0.02 ! Defines the region of the dense grid Y_res + down_shift < Y < Y_res + upshift
+  real(rkind)                                       :: down_shift = 0.005, up_shift = -0.005 ! Defines the region of the dense grid Y_res + down_shift < Y < Y_res + upshift
   real(rkind)                                       :: dist_large = 0.0025d0, dist_small = 0.00025d0
                                                        !dist_large = 0.0002d0, dist_small = 0.00002d0
                                                        ! default is 2 mm large and .2 mm small
@@ -471,7 +471,7 @@ type plasma_params_type
                                                        !* De  fine the large and the small step size for the radiation transport
                                                        ! The amoint of steps defined in the next line has no influence on this
   integer(ikind)                                    :: int_step_cnt !* rad_transp_sections * rad_transp_order
-  integer(ikind)                                    :: rad_trans_sections = 15 !* The radiation transport will be cut into three independent sections
+  integer(ikind)                                    :: rad_trans_sections = 1 !* The radiation transport will be cut into three independent sections
                                                                               ! this allows to abort the radiation tranposrt if tau_max has been reached
   integer(ikind)                                    :: rad_transp_solver_order = 4 ! Has to be four (at least) since we use Rk4
   real(rkind)                                       :: tau_max = 9 !* If tau > tau_max the radiation transport is deemed finished

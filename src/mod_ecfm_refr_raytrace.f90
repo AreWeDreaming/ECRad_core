@@ -13,7 +13,7 @@ module mod_ecfm_refr_raytrace
     !$OMP               x_loc_vec, N_loc_vec, &
     !$OMP               glob_mode, debug_level)
     public :: near_kin_res, span_svecs, &
-              dealloc_rad, find_cold_resonance, reinterpolate_svec
+              dealloc_rad, reinterpolate_svec
     private :: glob_plasma_params, glob_omega, x_loc_vec, N_loc_vec, &
                func_Delta, func_N_s_2, func_N_s_star_2, &
                func_Lambda, func_Lambda_star, &
@@ -39,7 +39,7 @@ module mod_ecfm_refr_raytrace
                sub_single_step_LSODE, sub_single_step_explicit_RK4, &
                sub_local_params, make_Snells_refraction, make_H, sub_calculate_initial_N, &
                func_within_plasma, find_first_point_in_plasma, make_ray_segment, &
-               make_s_grid
+               make_s_grid, interpolate_svec
 
     contains
 ! This module is based on the same routines as D. Farina's code GRAY
@@ -3661,63 +3661,10 @@ function func_dA_dY(X, Y)
     !if(omega_c_obs / omega > 0.49)
   end function near_kin_res
 
-  subroutine find_cold_resonance(plasma_params, omega, rad_ray_freq, i_start, i_end)
-    use mod_ecfm_refr_types,        only: rad_diag_ch_mode_ray_freq_type, plasma_params_type, &
-                                          output_level
-    USE interpolation_routines,     only: linear_interpolation
-    use constants,                  only: pi, e0, mass_e, eps0, c0
-    use f90_kind
-    implicit none
-    type(plasma_params_type), intent(in)                                       :: plasma_params
-    real(rkind), intent(in)                                                    :: omega
-    type(rad_diag_ch_mode_ray_freq_type), intent(inout)                        :: rad_ray_Freq
-    integer(ikind),   intent(in)                                               :: i_start, i_end
-    real(rkind)                                                                :: Y, Y_last
-    integer(ikind)                                                             :: i, i_min
-    logical                                                                    :: found_resonance
-    Y_last = rad_ray_freq%svec(i_end)%freq_2X * pi / omega
-!    if(rad_ray_freq%s_res == 0.d0 .or. rad_ray_freq%s_res == -1.d0 ) then
-!      found_resonance = .false.
-!    else
-!      found_resonance = .true.
-!    end if
-    ! We want the resonance closest to the antenna:
-    ! Hence, we go from the end of svec, which lies closest to the antenna, backwards to the end of svec.
-    ! Once a resonance is found return.
-    i_min = max(i_start, 2)
-    do i = i_end - 1, i_min, -1
-      !if(abs( Y_last - plasma_params%Y_res) < 0.001) print*, "Y_last Y_cur", Y_last, rad_ray_freq%svec(i)%freq_2X * pi / omega
-      if((Y_last /= 0.d0 .and. rad_ray_freq%svec(i)%freq_2X /= 0.d0) .and. &
-        (Y_last < plasma_params%Y_res .and. rad_ray_freq%svec(i)%freq_2X * pi / omega > plasma_params%Y_res .or. &
-        Y_last > plasma_params%Y_res .and. rad_ray_freq%svec(i)%freq_2X * pi / omega < plasma_params%Y_res)) then
-        call linear_interpolation(Y_last, rad_ray_freq%svec(i)%freq_2X * pi / omega, &
-                rad_ray_freq%svec(i - 1)%s, rad_ray_freq%svec(i)%s, plasma_params%Y_res, rad_ray_freq%s_res)
-        call linear_interpolation(rad_ray_freq%svec(i - 1)%s, rad_ray_freq%svec(i)%s, &
-                rad_ray_freq%svec(i - 1)%R, rad_ray_freq%svec(i)%R, rad_ray_freq%s_res, rad_ray_freq%R_res)
-        call linear_interpolation(rad_ray_freq%svec(i - 1)%s, rad_ray_freq%svec(i)%s, &
-                rad_ray_freq%svec(i - 1)%z, rad_ray_freq%svec(i)%z, rad_ray_freq%s_res, rad_ray_freq%z_res)
-        call linear_interpolation(rad_ray_freq%svec(i - 1)%s, rad_ray_freq%svec(i)%s, &
-                rad_ray_freq%svec(i - 1)%rhop, rad_ray_freq%svec(i)%rhop, rad_ray_freq%s_res, rad_ray_freq%rhop_res)
-!       if(output_level) print*, "Found cold resonance", rad_ray_freq%s_res, rad_ray_freq%rhop_res, Y_last, rad_ray_freq%svec(i)%freq_2X * pi / omega
-        ! .and. debug_level > 0
-        return
-      end if
-      Y_last = rad_ray_freq%svec(i)%freq_2X * pi / omega
-    end do
-!    if(.not. found_resonance) then
-!      rad_ray_freq%s_res = -1.d0
-!      rad_ray_freq%R_res = -1.d0
-!      rad_ray_freq%z_res = 0.d0
-!      rad_ray_freq%rhop_res = -1.d0
-!    end if
-  end subroutine find_cold_resonance
-
-
-
   subroutine make_s_grid(plasma_params, omega, Y_res, svec, ray, total_LOS_points, &
                          last_N, dist, rad_ray_freq, max_points_svec_reached)
   ! Linearly interpolates R,z on the ray which corresponds
-  ! to the s values given on an equidistant grid.
+  ! to the s values given oprintn an equidistant grid.
   ! The cold resonance is detected automatically and the step size is choosen correspondingly.
   ! Once the R,z values are obtained the other ray parameters are aqcuired using sub_local_params.
   ! Every time this routine is called the svec values from i_start to i_end will be filled.
@@ -3751,13 +3698,15 @@ function func_dA_dY(X, Y)
   flush_ray_y = ray(1:last_N)%omega_c / omega
   N_s_dense = 1
   do i = 1,size(Y_res)
-    call make_1d_spline(spl, last_N, flush_ray_s, flush_ray_y - Y_res(i) - plasma_params%down_shift)
+  ! Upshift -> resonance at magnetic field slightly lower than at cold resonance
+    call make_1d_spline(spl, last_N, flush_ray_s, flush_ray_y - (Y_res(i) + plasma_params%up_shift))
     call spline_1d_get_roots(spl, roots, N_roots)
     do i_root= 1, N_roots
       s_dense(N_s_dense) = roots(i_root)
       N_s_dense = N_s_dense + 1
     end do
-    call make_1d_spline(spl, last_N, flush_ray_s, flush_ray_y - Y_res(i) - plasma_params%up_shift)
+  ! Downshift -> resonance at magnetic field slightly higher than at cold resonance
+    call make_1d_spline(spl, last_N, flush_ray_s, flush_ray_y - (Y_res(i) + plasma_params%down_shift))
     call spline_1d_get_roots(spl, roots, N_roots)
     do i_root= 1, N_roots
       s_dense(N_s_dense) = roots(i_root)
@@ -3770,36 +3719,75 @@ function func_dA_dY(X, Y)
     if(N_roots == 0) then
       rad_ray_freq%s_res = -1.0
     else
-      rad_ray_freq%s_res = ray(last_N)%s - minval(roots(1:N_roots))! Convert from ray coordintes to svec coordinates
+      rad_ray_freq%s_res = minval(roots(1:N_roots))! Convert from ray coordintes to svec coordinates
     end if
   end if
   N_s_dense = N_s_dense - 1 ! Fortran stuff
   call deallocate_1d_spline(spl)
-  grid = 1
+  grid = 2 ! Grid size of -1 step, usually first step is large that means the previous is small
   !Check if first point already in dense
   do i = 1,size(Y_res)
     if(ray(1)%omega_c / omega < Y_res(i) + plasma_params%down_shift .and. &
-       ray(1)%omega_c / omega > Y_res(i) + plasma_params%up_shift) grid = 2 !-> small grid size
+       ray(1)%omega_c / omega > Y_res(i) + plasma_params%up_shift) grid = 1 !-> next grid size needs to be large hence intial grid size (-1) grid size is large
   end do
   ray_finished = .false.
   i_next = 1 ! -> for ray
+  i_last = 0 ! -> only for diagnostic purposes
   i_svec = 1 ! for svec
   a = 0.d0
   roots_processed = 0
+  s_next = -1.d0 ! For initialization
+  ! Span the grid
   do while(.not. ray_finished)
     i_last = i_next
-    cur_dist = dist(grid)
     if(roots_processed < N_s_dense) then
+    ! Process one interval
       i_next_root = minloc(s_dense(1:N_s_dense), dim=1)
       s_next = s_dense(i_next_root)
       s_dense(i_next_root) = 1.d99 !-> already processed -> Replacement of python pop function
       roots_processed = roots_processed + 1
-            if(s_next == 1.d99) then
+      if(s_next == 1.d99) then
         print*, "Bug in make_s_grid ran out of s_dense"
         call abort()
       end if
-      if(grid == 1) then
+      if(grid == 1) then ! Determines grid size for next step
+          grid = 2
+      else
+          grid = 1
+      end if
+      do while(s_next <= a .and. roots_processed < N_s_dense)
+        ! If the last step caused us to skip a segment we need to find another segment
+        ! This only happens in case of the small step size so it does not affect numerical stability negatively
+        i_next_root = minloc(s_dense(1:N_s_dense), dim=1)
+        s_next = s_dense(i_next_root)
+        s_dense(i_next_root) = 1.d99 !-> already processed -> Replacement of python pop function
+        roots_processed = roots_processed + 1
+        if(s_next == 1.d99) then
+          print*, "Bug in make_s_grid ran out of s_dense"
+          call abort()
+        end if
+        ! Still need to swap grids since we need to keep up the sequence of dense and sparse grids
+        if(grid == 1) then ! Swap grid size again since we skipped a step
+            grid = 2
+        else
+            grid = 1
+        end if
+      end do
+      cur_dist = dist(grid) ! No more swaps between grid sizes from here on out
+      ! If we needed to skip ahead we might have already finished all intervals by now -> check for that here
+      if(s_next <= a .and. roots_processed >= N_s_dense) then
+        i_next = last_N
+        N_interval = floor( (flush_ray_s(i_next) - a)/ cur_dist) + 1
+        ! To avoid interpolation errors svec is slightly shorter than the initial ray -> eps_svec_max_length
+        cur_dist = (flush_ray_s(i_next) - a - eps_svec_max_length)/ real(N_interval,8) ! slightly smaller than dist(grid)
+        ray_finished = .true.
+      else if(grid == 1) then
         i_next = binary_search(flush_ray_s(1:last_N), s_next, i_last, last_N)
+        if(i_next < i_last .or. i_next > last_N) then
+          print*, "Something went wrong when spanning the svec grid"
+          print*, "s_1, s, s_2", flush_ray_s(i_last), s_next, flush_ray_s(last_N)
+          call abort()
+        end if
         N_interval = floor( (flush_ray_s(i_next) - flush_ray_s(i_last))/ cur_dist)
       else ! prefer small over large grid
         i_next = binary_search(flush_ray_s(1:last_N), s_next, i_last, last_N) + 1 ! One extra cell here
@@ -3810,11 +3798,22 @@ function func_dA_dY(X, Y)
         end if
       end if
     else
+    ! Swap one last time
+      if(grid == 1) then ! Swap grid size again since we skipped a step
+          grid = 2
+      else
+          grid = 1
+      end if
+      cur_dist = dist(grid)
       i_next = last_N
       N_interval = floor( (flush_ray_s(i_next) - a)/ cur_dist) + 1
       ! To avoid interpolation errors svec is slightly shorter than the initial ray -> eps_svec_max_length
       cur_dist = (flush_ray_s(i_next) - a - eps_svec_max_length)/ real(N_interval,8) ! slightly smaller than dist(grid)
       ray_finished = .true.
+      !print*, "All roots processed moving to end of ray"
+    end if
+    do i_interval = 1, N_interval
+    ! Process the current interval
       if(i_svec + N_interval * plasma_params%int_step_cnt > max_points_svec) then
         if(present(max_points_svec_reached)) then
           max_points_svec_reached = .true.
@@ -3824,22 +3823,14 @@ function func_dA_dY(X, Y)
           call abort()
         end if
       end if
-      !print*, "All roots processed moving to end of ray"
-    end if
-    do i_interval = 1, N_interval
       b = a + cur_dist    
       svec(i_svec :i_svec + plasma_params%int_step_cnt - 1)%s = cur_dist * plasma_params%Int_absz(:) + a
       i_svec = i_svec + plasma_params%int_step_cnt
       a = b      
     end do
-    if(grid == 1) then ! Always switch grid size after processing a segment
-        grid = 2
-    else
-        grid = 1
-    end if
   end do
   total_LOS_points = i_svec - 1
-  svec(1:total_LOS_points)%s = svec(total_LOS_points)%s - svec(total_LOS_points:1:-1)%s
+  svec(1:total_LOS_points)%s = svec(1:total_LOS_points)%s - svec(1)%s ! svec(1) != due to the way that plasma_params%Int_absz is set up
   end subroutine make_s_grid
 
   subroutine interpolate_svec(svec, ray, omega, total_LOS_points, N, rad_ray_freq, svec_extra_output)
@@ -3862,21 +3853,22 @@ function func_dA_dY(X, Y)
   real(rkind), dimension(N)                                                  :: flush_ray_s, flush_ray_y
   real(rkind), dimension(total_LOS_points)                                   :: flush_svec_s, flush_svec_y
   integer(ikind)                                                             :: i, N_plasma, i1, i2
-  real(rkind), dimension(3)                                                  :: x_res, B_res
+  real(rkind), dimension(3)                                                  :: x_res!, B_res
   ! Use arrays that are continuous in the memory
-  flush_ray_s = ray(N)%s - ray(N:1:-1)%s! Reverse!
+  ! The ray is expected to already reverted from the ray tracing such that the propagation directions is TOWARDS the antenna
+  flush_ray_s = ray(1:N)%s
   flush_svec_s = svec(1:total_LOS_points)%s
 !  print*, "N", total_LOS_points, N
   ! First quantities that are present on the entire ray
   do i=1,3
-    flush_ray_y = ray(N:1:-1)%x_vec(i)
+    flush_ray_y = ray(1:N)%x_vec(i)
     call make_1d_spline(spl, N, flush_ray_s, flush_ray_y)
     call spline_1d(spl, flush_svec_s, flush_svec_y)
     svec(1:total_LOS_points)%x_vec(i) = flush_svec_y
     if(present(rad_ray_freq)) then
       if(rad_ray_freq%s_res >= 0.d0) call spline_1d(spl, rad_ray_freq%s_res, x_res(i))
     end if
-    flush_ray_y = -ray(N:1:-1)%N_vec(i)
+    flush_ray_y = -ray(1:N)%N_vec(i)
     call make_1d_spline(spl, N, flush_ray_s, flush_ray_y)
     call spline_1d(spl, flush_svec_s, flush_svec_y)
     svec(1:total_LOS_points)%N_vec(i) = flush_svec_y
@@ -3892,8 +3884,8 @@ function func_dA_dY(X, Y)
       rad_ray_freq%z_res = x_res(3)
     end if
   end if
-  N_plasma = size(pack(flush_ray_s, ray(N:1:-1)%rhop > 0))
-  flush_ray_s(1:N_plasma) = pack(flush_ray_s, ray(N:1:-1)%rhop > 0)
+  N_plasma = size(pack(flush_ray_s, ray(1:N)%rhop > 0))
+  flush_ray_s(1:N_plasma) = pack(flush_ray_s, ray(1:N)%rhop > 0)
   i1 = minloc(abs(flush_ray_s(1) - flush_svec_s), dim=1)
   if(flush_svec_s(i1) <  flush_ray_s(1)) i1 = i1 + 1
   i2 = minloc(abs(flush_ray_s(N_plasma) - flush_svec_s), dim=1)
@@ -3919,16 +3911,18 @@ function func_dA_dY(X, Y)
   end if
   flush_svec_s(1:i2 - i1 + 1) = flush_svec_s(i1:i2)
   svec(i1:i2)%plasma = .true.
+  !if(present(rad_ray_freq)) B_res(:) = 0.d0
   do i=1,3
-    flush_ray_y(1:N_plasma) = pack(ray(N:1:-1)%B_vec(i), ray(N:1:-1)%rhop > 0)
+    flush_ray_y(1:N_plasma) = pack(ray(1:N)%B_vec(i), ray(1:N)%rhop > 0)
     call make_1d_spline(spl, N_plasma, flush_ray_s(1:N_plasma), flush_ray_y(1:N_plasma))
     call spline_1d(spl, flush_svec_s(1:i2 - i1 + 1), flush_svec_y(1:i2 - i1 + 1))
     svec(i1:i2)%B_vec(i) = flush_svec_y(1:i2 - i1 + 1)
-    if(present(rad_ray_freq)) then
-      if(rad_ray_freq%s_res >= 0.d0) call spline_1d(spl, rad_ray_freq%s_res, B_res(i))
-    end if
+!    if(present(rad_ray_freq) .and. rad_ray_freq%s_res >  flush_ray_s(1) .and. &
+!                                   rad_ray_freq%s_res <  flush_ray_s(N_plasma)) then
+!      call spline_1d(spl, rad_ray_freq%s_res, B_res(i))
+!    end if
   end do
-  flush_ray_y(1:N_plasma) = pack(ray(N:1:-1)%rhop, ray(N:1:-1)%rhop > 0)
+  flush_ray_y(1:N_plasma) = pack(ray(1:N)%rhop, ray(1:N)%rhop > 0)
   call make_1d_spline(spl, N_plasma, flush_ray_s(1:N_plasma), flush_ray_y(1:N_plasma))
   call spline_1d(spl, flush_svec_s(1:i2 - i1 + 1), flush_svec_y(1:i2 - i1 + 1))
   svec(i1:i2)%rhop = flush_svec_y(1:i2 - i1 + 1)
@@ -3939,24 +3933,24 @@ function func_dA_dY(X, Y)
       call spline_1d(spl, rad_ray_freq%s_res, rad_ray_freq%rhop_res)
     end if
   end if
-  flush_ray_y(1:N_plasma) = pack(ray(N:1:-1)%n_e, ray(N:1:-1)%rhop > 0)
+  flush_ray_y(1:N_plasma) = pack(ray(1:N)%n_e, ray(1:N)%rhop > 0)
   call make_1d_spline(spl, N_plasma, flush_ray_s(1:N_plasma), flush_ray_y(1:N_plasma))
   call spline_1d(spl, flush_svec_s(1:i2 - i1 + 1), flush_svec_y(1:i2 - i1 + 1))
   svec(i1:i2)%ne = flush_svec_y(1:i2 - i1 + 1)
-  flush_ray_y(1:N_plasma) = pack(ray(N:1:-1)%T_e, ray(N:1:-1)%rhop > 0)
+  flush_ray_y(1:N_plasma) = pack(ray(1:N)%T_e, ray(1:N)%rhop > 0)
   call make_1d_spline(spl, N_plasma, flush_ray_s(1:N_plasma), flush_ray_y(1:N_plasma))
   call spline_1d(spl, flush_svec_s(1:i2 - i1 + 1), flush_svec_y(1:i2 - i1 + 1))
   svec(i1:i2)%Te = flush_svec_y(1:i2 - i1 + 1)
-  flush_ray_y(1:N_plasma) = pack(ray(N:1:-1)%N_s, ray(N:1:-1)%rhop > 0)
+  flush_ray_y(1:N_plasma) = pack(ray(1:N)%N_s, ray(1:N)%rhop > 0)
   call make_1d_spline(spl, N_plasma, flush_ray_s(1:N_plasma), flush_ray_y(1:N_plasma))
   call spline_1d(spl, flush_svec_s(1:i2 - i1 + 1), flush_svec_y(1:i2 - i1 + 1))
   svec(i1:i2)%N_cold = flush_svec_y(1:i2 - i1 + 1)
-  flush_ray_y(1:N_plasma) = pack(ray(N:1:-1)%v_g_perp, ray(N:1:-1)%rhop > 0)
+  flush_ray_y(1:N_plasma) = pack(ray(1:N)%v_g_perp, ray(1:N)%rhop > 0)
   call make_1d_spline(spl, N_plasma, flush_ray_s(1:N_plasma), flush_ray_y(1:N_plasma))
   call spline_1d(spl, flush_svec_s(1:i2 - i1 + 1), flush_svec_y(1:i2 - i1 + 1))
   svec(i1:i2)%v_g_perp = flush_svec_y(1:i2 - i1 + 1)
   if(present(svec_extra_output)) then
-    flush_ray_y(1:N_plasma) = pack(ray(N:1:-1)%hamil, ray(N:1:-1)%rhop > 0)
+    flush_ray_y(1:N_plasma) = pack(ray(1:N)%hamil, ray(1:N)%rhop > 0)
     call make_1d_spline(spl, N_plasma, flush_ray_s(1:N_plasma), flush_ray_y(1:N_plasma))
     call spline_1d(spl, flush_svec_s(1:i2 - i1 + 1), flush_svec_y(1:i2 - i1 + 1))
     svec_extra_output(i1:i2)%H = flush_svec_y(1:i2 - i1 + 1)
@@ -3985,6 +3979,7 @@ function func_dA_dY(X, Y)
   ! Do this for all points
   svec(1:total_LOS_points)%ibb = (omega / ( 2.d0 * pi))**2 * e0 * &
                 svec(1:total_LOS_points)%Te / c0**2
+  call deallocate_1d_spline(spl)
   end subroutine interpolate_svec
 
   subroutine span_svecs(plasma_params)
@@ -4151,6 +4146,7 @@ function func_dA_dY(X, Y)
 !          print*, "ray extra_output start", rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%x(1), &
 !          rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%y(1), &
 !          rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%z(1)
+          ! Reverse the entire ray such that the propagation direction is towards the antenna
           ray_segment(1:last_N) = ray_segment(last_N:1:-1)
           ray_segment(1:last_N)%s = ray_segment(1)%s - ray_segment(1:last_N)%s
           !last_N = last_N - N_init - 1 ! exclude straight line part in vacuum
@@ -4345,26 +4341,26 @@ function func_dA_dY(X, Y)
   Y_res_O(1) = 1.d0
   Y_res_X(1) = 1.d0
   Y_res_X(2) = 0.5d0
-  ray_segment%s = svec(total_LOS_points)%s - svec(total_LOS_points:1:-1)%s
+  ray_segment%s = svec(1:total_LOS_points)%s
   do k = 1, 3
-    ray_segment%x_vec(k) = svec(total_LOS_points:1:-1)%x_vec(k)
+    ray_segment%x_vec(k) = svec(1:total_LOS_points)%x_vec(k)
     ! Turn this around to make this a ray that goes from outside the plasma into the plasma
     ! Theta is computed from N and B
-    ray_segment%N_vec(k) = -svec(total_LOS_points:1:-1)%N_vec(k)
-    ray_segment%B_vec(k) = svec(total_LOS_points:1:-1)%B_vec(k)
+    ray_segment%N_vec(k) = -svec(1:total_LOS_points)%N_vec(k)
+    ray_segment%B_vec(k) = svec(1:total_LOS_points)%B_vec(k)
   end do
-  ray_segment%rhop = svec(total_LOS_points:1:-1)%rhop
-  ray_segment%omega_c = svec(total_LOS_points:1:-1)%freq_2X * pi
-  ray_segment%T_e = svec(total_LOS_points:1:-1)%Te
-  ray_segment%n_e = svec(total_LOS_points:1:-1)%ne
-  ray_segment%v_g_perp = svec(total_LOS_points:1:-1)%v_g_perp
-  ray_segment%N_s = svec(total_LOS_points:1:-1)%N_cold
+  ray_segment%rhop = svec(1:total_LOS_points)%rhop
+  ray_segment%omega_c = svec(1:total_LOS_points)%freq_2X * pi
+  ray_segment%T_e = svec(1:total_LOS_points)%Te
+  ray_segment%n_e = svec(1:total_LOS_points)%ne
+  ray_segment%v_g_perp = svec(1:total_LOS_points)%v_g_perp
+  ray_segment%N_s = svec(1:total_LOS_points)%N_cold
   if(output_level) then
     if(.not. present(svec_extra_output)) then
       print*, "Reinterplate_svec has to be called with svec_extra_output present if output_level is true"
       call abort()
     end if
-    ray_segment%Hamil= svec_extra_output(total_LOS_points:1:-1)%H
+    ray_segment%Hamil= svec_extra_output(1:total_LOS_points)%H
   end if
   max_points_in_svec_reached = .false.
   last_N = total_LOS_points
