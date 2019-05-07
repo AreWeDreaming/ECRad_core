@@ -250,7 +250,7 @@ use mod_ecfm_refr_utils,      only: read_input_file, prepare_ECE_diag, &
                                     import_all_ece_data, make_ecfm_LOS_grid, &
                                     init_non_therm, read_wall_Trad
 use mod_ecfm_refr_raytrace_initialize,    only: init_raytrace
-use mod_ecfm_refr_raytrace,               only: span_svecs, create_svec_splines, find_cold_resonance
+use mod_ecfm_refr_raytrace,               only: span_svecs, find_cold_resonance
 use mod_ecfm_refr_em_Hu,                  only: radiation_gauss_init,radiation_gauss_clean_up
 use mod_ecfm_refr_abs_Al,         only: abs_Al_init,abs_Al_clean_up
 use constants,                    only: pi
@@ -382,7 +382,6 @@ integer(ikind)                :: idiag, ich
       print*, "Invalid flag for dstf: ", dstf
       stop "Input Error"
     end if
-    if(output_level) print*,"Calculating Radiation profile for ", plasma_params%shot," at t = ",plasma_params%time," s"
     if(output_level) print*,"Chosen distribution is: ", dstf
     if(output_level) flush(6)
     if(.not. new_IO) then
@@ -693,7 +692,7 @@ plasma_params%rp_min = rp_min
 plasma_params%rhop_scale_ne =  ne_rhop_scal
 if(.not. present(T_e_dx2) .and. .not. present(n_e_dx2)) then
 ! Use univariate spline for both
-   call update_svecs(rad, rhop_knots_ne=rhop_knots_ne, n_e=n_e, \
+   call update_svecs(rad, rhop_knots_ne=rhop_knots_ne, n_e=n_e, &
                      rhop_knots_Te=rhop_knots_Te, T_e=T_e)
 else if(.not. present(T_e_dx2)) then
 ! Use IDA spline for ne but univariate spline for Te
@@ -893,7 +892,7 @@ subroutine make_ece_rad_temp()
 use mod_ecfm_refr_types,        only: dstf, reflec_X, reflec_O, mode_cnt, modes, N_ray, N_freq, plasma_params, use_maximum_for_warm_res, &
                                       rad, ant, data_folder, output_level, Ich_name, dstf_comp, max_points_svec, mode_conv, reflec_equ, reflec_model, &
                                       vessel_plasma_ratio, stand_alone
-use mod_ecfm_refr_rad_transp,   only: calculate_Trad, calculate_Trad_LSODE
+use mod_ecfm_refr_rad_transp,   only: calculate_Trad
 use constants,                  only: e0, c0, pi
 use mod_ecfm_refr_utils,        only: binary_search, bin_ray_BPD_to_common_rhop, make_warm_res_mode, bin_freq_to_ray
 use mod_ecfm_refr_raytrace,     only: reinterpolate_svec
@@ -1471,7 +1470,7 @@ end subroutine make_ece_rad_temp
 subroutine make_BPD_and_warm_res(idiag, ich) ! to be used within IDA, calculates all birthplace distribution for one diagnostic
 use mod_ecfm_refr_types,        only: dstf, reflec_X, reflec_O, mode_cnt, modes, N_ray, N_freq, plasma_params, use_maximum_for_warm_res, &
                                       rad, ant, data_folder, output_level, Ich_name, dstf_comp, max_points_svec, mode_conv, pnts_BPD
-use mod_ecfm_refr_rad_transp,   only: calculate_Trad, calculate_Trad_LSODE, get_em_T_fast
+use mod_ecfm_refr_rad_transp,   only: calculate_Trad, get_em_T_fast
 use constants,                  only: e0, c0, pi
 use mod_ecfm_refr_utils,        only: binary_search, bin_ray_BPD_to_common_rhop, make_warm_res_mode, bin_freq_to_ray
 use mod_ecfm_refr_raytrace,     only: reinterpolate_svec

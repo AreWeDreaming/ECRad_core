@@ -943,6 +943,7 @@ implicit none
   function binary_search(array, element, N1, N2, debug)
   ! Simple binary search
   ! returns the integer so that array(i) < element
+  ! array must be already sorted!
   ! N1, N2 limits the array search
   ! they are not estimates, but must be accurate
   use f90_kind
@@ -1598,10 +1599,10 @@ logical                                    :: make_secondary_BPD
   do ir = 1, N_ray
     if(rad_mode%ray(ir)%Trad == 0.d0) then
       if(.not. make_secondary_BPD) then
-        print*, "Skipped creating BPD for a channel with zero Trad"
+        !print*, "Skipped creating BPD for a channel with zero Trad"
         cycle
       else if(rad_mode%ray(ir)%Trad_secondary == 0.d0) then
-        print*, "Skipped creating BPD for a channel with zero Trad"
+        !print*, "Skipped creating BPD for a channel with zero Trad"
         cycle
       end if
     end if
@@ -2032,7 +2033,7 @@ real(rkind)                                :: sTrad, Trad, sTrad_secondary, Trad
       i_max_BDOP  = minloc(abs(sTrad / Trad - rad_mode%ray(ir)%freq(1)%svec(1:rad_mode%ray(ir)%freq(1)%total_LOS_points)%s), dim = 1)
       if(make_secondary)  i_max_BDOP_secondary  = minloc(abs(sTrad_secondary / Trad_secondary - rad_mode%ray(ir)%freq(1)%svec(1:rad_mode%ray(ir)%freq(1)%total_LOS_points)%s), dim = 1)
     end if
-    print*, "rhop warm res ir", rad_mode%ray(ir)%freq(1)%svec(i_max_BDOP)%rhop, ir
+    !print*, "rhop warm res ir", rad_mode%ray(ir)%freq(1)%svec(i_max_BDOP)%rhop, ir
     rad_mode%ray(ir)%rel_s_res = rad_mode%ray(ir)%freq(1)%svec(i_max_BDOP)%s
     rad_mode%ray(ir)%rel_R_res = rad_mode%ray(ir)%freq(1)%svec(i_max_BDOP)%R
     rad_mode%ray(ir)%rel_z_res = rad_mode%ray(ir)%freq(1)%svec(i_max_BDOP)%z

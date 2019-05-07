@@ -1,6 +1,4 @@
 #!/bin/bash -l
-#SBATCH -e ECRad.err # standard error file
-#SBATCH -o ECRad.out # standard output file
 #SBATCH --export=ALL
 #SBATCH --ntasks=1
 #SBATCH --nodes=1

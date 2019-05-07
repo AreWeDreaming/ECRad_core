@@ -65,8 +65,8 @@ type ant_diag_ch_type
   real(rkind)                      :: df_ECE     ! bandwidth of ECE frequencies  [Hz]
   real(rkind)                      :: dist_focus, width ! distance between launch and focus and FWHM of the antenna
   real(rkind)                      :: focus_shift
-  !integer(ikind)                   :: N_freq     ! number of frequencies per ECE channels
-  !integer(ikind)                   :: N_ray      ! number of rays
+  !integer(ikind)                  :: N_freq     ! number of frequencies per ECE channels
+  !integer(ikind)                  :: N_ray      ! number of rays
   real(rkind),  dimension(:), allocatable :: freq, freq_weight ! analyzed frequencies and weights for the integration
   type(ant_diag_ch_launch_type),  dimension(:), allocatable :: ray_launch  ! launching angles for multiple rays
 end type ant_diag_ch_type
@@ -463,6 +463,7 @@ type plasma_params_type
   real(rkind)                                       :: X_entry = 0.04 !*
   real(rkind)                                       :: rhop_emit = 1.03 !* Specifies upper limit for the fine grid
                                                        ! This avoids having the small grid for channels with resonances in the SOL
+  real(rkind)                                       :: down_shift = -0.01, up_shift = 0.02 ! Defines the region of the dense grid Y_res + down_shift < Y < Y_res + upshift
   real(rkind)                                       :: dist_large = 0.0025d0, dist_small = 0.00025d0
                                                        !dist_large = 0.0002d0, dist_small = 0.00002d0
                                                        ! default is 2 mm large and .2 mm small
@@ -542,7 +543,8 @@ end type plasma_params_type
   real(rkind)                        :: ECE_fcous_shift = 0.2d0 ! Shifts ECE focus point towards HFS -> better agreement with TORBEAM rays at magnetic axis
   real(rkind)                        :: h_check
   real(rkind)                        :: h_glob = 1.d-4 !*
-  real(rkind)                        :: eps = 1.d-4!* for minimal substitution in S
+  real(rkind)                        :: eps_svec_max_length = 1.d-6 !* svec is shorter than the ray by eps_svec_max_length to avoid interpolation errors
+  real(rkind)                        :: eps = 1.d-4!* for minimal substitution in S for Hamil=Stix
   real(rkind)                        :: time_smth = 1.d-3 !* smoothing time for Bt_vac at R0 = 1.65
   character(200)                     :: n_e_filename, T_e_filename
   character(200)                     :: Vessel_bd_filename
