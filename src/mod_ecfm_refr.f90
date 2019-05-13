@@ -246,7 +246,7 @@ use mod_ecfm_refr_types,        only: dstf, dst_data_folder, Ich_name, ray_out_f
                                       dstf_comp, plasma_params, N_ray, N_freq, warm_plasma, data_secondary_name, &
                                       rad, ant, data_folder, Ich_name, dstf_comp, straight, stand_alone, ffp, N_absz, &
                                       N_absz_large, reflec_model, new_IO
-use mod_ecfm_refr_utils,      only: read_input_file, prepare_ECE_diag, &
+use mod_ecfm_refr_utils,      only: read_input_file, prepare_ECE_diag_new_IO, prepare_ECE_diag_old_IO, &
                                     import_all_ece_data, make_ecfm_LOS_grid, &
                                     init_non_therm, read_wall_Trad
 use mod_ecfm_refr_raytrace_initialize,    only: init_raytrace
@@ -261,7 +261,11 @@ integer(ikind)                :: idiag, ich
   if(.not. stand_alone) stop "This function may only be called in stand alone"
   if(trim(flag) == "init") then
     call read_input_file(working_dir)
-    call prepare_ECE_diag(working_dir=working_dir)
+    if(.not. new_IO) then
+      call prepare_ECE_diag_old_IO()
+    else
+      call prepare_ECE_diag_new_IO()
+    end if
     dstf_comp = "Th"
     if(trim(dstf) == "Th") then
       dstf = "relamax"
@@ -440,14 +444,9 @@ subroutine pre_initialize_ecfm(working_dir_in, flag, ecrad_verbose, ray_tracing,
 use mod_ecfm_refr_types,      only: dstf, dst_data_folder, Ich_name, ray_out_folder, output_level, &
                                       dstf_comp, plasma_params, N_ray, N_freq, ray_init, working_dir, &
                                       rad, ant, data_folder, Ich_name, dstf_comp, straight, stand_alone
-#ifdef IDA
-use mod_ecfm_refr_utils,      only: parse_ecfm_settings_from_ida, load_ECE_diag_data, &
-                                    prepare_ECE_diag, dealloc_ant, &
+use mod_ecfm_refr_utils,      only: parse_ecfm_settings_from_ida, &
+                                    prepare_ECE_diag_IDA, dealloc_ant, &
                                     import_all_ece_data, make_ecfm_LOS_grid
-#else
-use mod_ecfm_refr_utils,      only: prepare_ECE_diag, dealloc_ant, &
-                                    import_all_ece_data, make_ecfm_LOS_grid
-#endif
 use mod_ecfm_refr_em_Hu,      only: radiation_gauss_init,radiation_gauss_clean_up
 use mod_ecfm_refr_abs_Al,     only: abs_Al_init,abs_Al_clean_up
 use mod_ecfm_refr_raytrace,   only: dealloc_rad
@@ -509,12 +508,12 @@ if(trim(flag) == "init" .or. trim(flag) == "load") then
       print*, "pre_initialize_ecfm must be called with ece_strut present if flag == init"
       call abort()
     end if
-    call prepare_ECE_diag(working_dir=working_dir, f=f, df=df, R=R, &	
+    call prepare_ECE_diag_IDA(working_dir=working_dir, f=f, df=df, R=R, &
     					  phi=phi, z=z, tor=tor, pol=pol, dist_foc=dist_foc, &
     					  width=width)
     ! parses diag info then creates two input files
   else
-    call load_ECE_diag_data(ant, rad)
+    call prepare_ECE_diag_IDA(working_dir=working_dir)
     ! load the files the routine 4 lines above creates
   end if
 else if(trim(flag) == "clean") then

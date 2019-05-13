@@ -12,8 +12,10 @@ implicit none
 public :: make_ecfm_LOS_grid,      &
           export_all_ece_data, &        ! Writes all the data needed for the forward modelling into files
           read_input_file, &
-          prepare_ECE_diag, &         ! angle between LOS and toroidal direction (phi)
+          prepare_ECE_diag_old_IO, &
+          prepare_ECE_diag_new_IO, &
 #ifdef IDA
+          prepare_ECE_diag_IDA, &
           parse_ecfm_settings_from_ida, &
 #endif
           retrieve_T_e_mat_single, &
@@ -83,7 +85,7 @@ subroutine read_input_file( working_dir_in)
 ! Reads the input file for stand-alone ECFM model
 use mod_ecfm_refr_types,        only : ant, rad, plasma_params, dstf, diagnostics, output_level, &
                                        n_e_filename, T_e_filename, vessel_bd_filename, ray_launch_file, &
-                                       ratio_for_third_harmonic, straight, reflec_X, reflec_O, modes, working_dir, &
+                                       ratio_for_third_harmonic, straight, reflec_X, reflec_O, modes, mode_cnt, working_dir, &
                                        mode_conv, N_freq, N_ray, CEC_exp, CTC_exp, ECI_exp, IEC_exp, &
                                        CEC_ed, CTC_ed, ECI_ed, IEC_ed, time_smth, warm_plasma, max_points_svec, &
                                        reflec_model, vessel_plasma_ratio, new_IO
@@ -203,6 +205,8 @@ character(200)                    :: input_filename
   end if
   read(66,"(E19.12E2)") plasma_params%btf_corr_fact_ext
   read(66,"(I1)") modes
+  mode_cnt = 1
+  if(modes == 3) mode_cnt = 2
   read(66,"(E19.12E2)") mode_conv
   read(66,"(E19.12E2)") plasma_params%rhop_scale_Te
   read(66,"(E19.12E2)") plasma_params%rhop_scale_ne
@@ -264,7 +268,7 @@ subroutine parse_ecfm_settings_from_ida(plasma_params, &
 use mod_ecfm_refr_types,        only : plasma_params_type, ant, rad, output_level, &
                                        N_freq, N_ray, diagnostics, dstf, flag_1O,&
                                        straight, ratio_for_third_harmonic, reflec_X, reflec_O, warm_plasma, &
-                                       modes, mode_conv, CEC_exp, CEC_ed, vessel_bd_filename, &
+                                       modes, mode_cnt, mode_conv, CEC_exp, CEC_ed, vessel_bd_filename, &
                                        stand_alone, dstf_comp, use_ida_spline_Te, use_ida_spline_ne, &
                                        max_points_svec, reflec_model, data_name, data_secondary_name
 implicit none
@@ -277,7 +281,9 @@ integer(ikind), intent(in)                 :: ecrad_modes, ecrad_max_points_svec
                                               ecrad_N_freq,ece_1O_flag
 logical, intent(in)                        :: ecrad_verbose, ecrad_Bt_ripple, ray_tracing, ecrad_weak_rel, log_flag
 integer(ikind), intent(in), optional       :: parallelization_mode
+integer(ikind)                             :: istat
   allocate(diagnostics(1))
+  diagnostics(1)= "IDA"
   ant%N_diag = 1
   allocate(ant%diag(ant%N_diag), rad%diag(ant%N_diag))
   output_level = ecrad_verbose
@@ -311,6 +317,8 @@ integer(ikind), intent(in), optional       :: parallelization_mode
   flag_1O = ece_1O_flag ! ida%ece%ece_1O_flag
   max_points_svec = ecrad_max_points_svec ! ida%ece%ecrad_max_points_svec
   modes =  ecrad_modes ! ida%ece%ecrad_modes ! (modes = 1 -> pure X-mode, 2 -> pure O-mode, 3 both modes and filter
+  mode_cnt = 1
+  if(modes == 3) mode_cnt = 2
   mode_conv = ecrad_O2X_mode_conversion ! ida%ece%ecrad_O2X_mode_conversion ! mode conversion ratio from O-X due to wall reflections
   ! Scaling of rhop axis for shifting on ne or Te
   ! Every rhop value obtained in ray tracing will be multiplied by the corresponding scaling value when evaluating Te/ne
@@ -336,162 +344,32 @@ integer(ikind), intent(in), optional       :: parallelization_mode
   ! Files used to intersect LOS with vessel wall
   vessel_bd_filename = "vessel_bd.txt"
 end subroutine parse_ecfm_settings_from_ida
-
-
-subroutine load_ECE_diag_data(ant, rad)
-! ece_strut is not available in the optimization loop
-! Therefore, the antenna pattern is here loaded from a launch file
-use mod_ecfm_refr_types,        only : plasma_params_type, ant_type, rad_type, output_level, working_dir, &
-                                       modes, mode_cnt, N_ray, N_freq, max_points_svec, stand_alone
-use aug_db_routines,            only : read_ece, read_rmd
-use constants,                  only : pi
-implicit none
-type(ant_type), intent(inout)        :: ant
-type(rad_type), intent(inout)        :: rad
-character(200)                       :: cur_filename
-character(1)                         :: sep
-integer(ikind)                       :: idiag, ich, imode, ir, ifreq, N_ch, useful_ch, useless_cnt, cur_ifgroup, wg_index
-real(rkind)                          :: z_lens, N_abs, temp, temp1, temp2, phi_radial
-integer(ikind), dimension(:), allocatable :: available, wg_temp, ifgroup
-  mode_cnt = 1
-  if(modes == 3) mode_cnt = 2
-  ant%N_diag = 1 ! Only 1D ECE in IDA
-  idiag = 1
-  ant%diag(idiag)%diag_name = "IDA"
-  cur_filename = trim(working_dir) // "ece_launch.txt"
-  open(76, file = trim(cur_filename))
-  cur_filename = trim(working_dir) // "ece_freqs.txt"
-  open(77, file = trim(cur_filename))
-  read(76, "(i5.5)")  ant%diag(idiag)%N_ch
-  allocate(ant%diag(idiag)%ch(ant%diag(idiag)%N_ch))
-  allocate(rad%diag(idiag)%ch(ant%diag(idiag)%N_ch))
-  do ich = 1, ant%diag(idiag)%N_ch
-    allocate(ant%diag(idiag)%ch(ich)%freq(N_freq))
-    allocate(ant%diag(idiag)%ch(ich)%freq_weight(N_freq))
-    allocate(rad%diag(idiag)%ch(ich)%mode(mode_cnt))
-    do imode = 1, mode_cnt
-      if((imode == 2 .and. modes == 3) .or. &
-          modes == 2) then
-        rad%diag(idiag)%ch(ich)%mode(imode)%mode = -1 ! O-mode
-      else
-        rad%diag(idiag)%ch(ich)%mode(imode)%mode = +1 ! X-mode
-      end if
-      allocate(rad%diag(idiag)%ch(ich)%mode(imode)%ray(N_ray))
-      do ir = 1, N_ray
-        allocate(rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(N_freq))
-        do ifreq = 1, N_freq
-            allocate(rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%svec(max_points_svec))
-        end do
-      end do
-    end do
-    allocate(ant%diag(idiag)%ch(ich)%ray_launch(N_ray))
-    do ir = 1, N_ray
-      read(76,"(E13.6E2A1E13.6E2A1E13.6E2A1E13.6E2A1E13.6E2A1E13.6E2A1E13.6E2)") &
-        ant%diag(idiag)%ch(ich)%ray_launch(ir)%x_vec(1), sep, &
-        ant%diag(idiag)%ch(ich)%ray_launch(ir)%x_vec(2), sep, &
-        ant%diag(idiag)%ch(ich)%ray_launch(ir)%x_vec(3), sep, &
-        ant%diag(idiag)%ch(ich)%ray_launch(ir)%N_vec(1), sep, &
-        ant%diag(idiag)%ch(ich)%ray_launch(ir)%N_vec(2), sep, &
-        ant%diag(idiag)%ch(ich)%ray_launch(ir)%N_vec(3), sep, &
-        ant%diag(idiag)%ch(ich)%ray_launch(ir)%weight
-    end do
-    do ifreq = 1, N_freq
-      read(77,"(E13.6E2A1E13.6E2)") &
-        ant%diag(idiag)%ch(ich)%freq(ifreq), sep, &
-        ant%diag(idiag)%ch(ich)%freq_weight(ifreq)
-    end do
-    ant%diag(idiag)%ch(ich)%f_ECE = ant%diag(idiag)%ch(ich)%freq(1)
-    ant%diag(idiag)%ch(ich)%df_ECE = -1 ! information should not bee needed
-    if(ant%diag(idiag)%ch(ich)%f_ECE < 1.d9) then
-      print*,"Warning an ECE channel has a frequency below 1 GHz"
-    end if
-  end do !ich
-  close(76)
-  close(77)
-end subroutine load_ECE_diag_data
 #endif
 
-subroutine prepare_ECE_diag(working_dir, f, df, R, phi, z, tor, pol, dist_foc, width)
-! Reads f, df from shot files and also prepares the launching positions and angles
+subroutine prepare_ECE_diag_old_IO()
+! Reads launch information for several diagnostics (old file format) and allocates everything
   use mod_ecfm_refr_types,            only: plasma_params, ant, rad, &
-                                         	max_points_svec, mode_cnt, modes, N_ray, N_freq, &
-                                         	diagnostics, CEC_exp, CEC_ed, ray_launch_file, &
-                                         	output_level, stand_alone, one_sigma_width, new_IO
-  use constants,                      only: pi, c0
-#ifdef NAG
-  use nag_quad_util,                  only: nag_quad_gs_wt_absc
-  USE nag_error_handling
-#endif
-  use quadrature,                     only: cgqf, cdgqf
-  character(*), intent(in), optional         :: working_dir
-  real(rkind), dimension(:), optional        :: f, df, R, phi, z, tor, pol, dist_foc, width ! angles in deg.
-  integer(ikind)                             :: idiag, ich, imode, ir, ifreq, N_ch
-  real(rkind)                                :: N_abs, temp, temp1, temp2, phi_radial, temp_freq, temp_freq_2
-  real(rkind), dimension(3)                  :: x_0, N_0, x1_orth, x2_orth, x_temp, R_temp, R_focus, x_focus
-#ifdef NAG
-  real(rkind), dimension(:), allocatable     :: x, dx, x_check, dx_check, freq_check, freq_weight_check
-#else
-  real(rkind), dimension(:), allocatable     :: x, dx
-#endif
-  real(rkind)                                :: w,norm, sum_of_weights, w0, w_focus, dist_waist
-  real(rkind)                                :: phi_tor_add
-  character(200)                             :: cur_filename
-  character(1)                               :: sep
-#ifdef NAG
-  type(nag_error)                            :: error
-#endif
-  integer(ikind)                             :: i, j, N_x
-  if(stand_alone .and. .not. new_IO) then
-    open(66,file = trim(ray_launch_file))
-    write(66,"(A122)") "f [GHz]        df [GHz]      x [cm]        y [cm]        z [cm]        tor [deg]     pol [deg]     dist foc[cm]  width [cm]"
-  else if(.not. stand_alone .and. present(f) .and. present(working_dir)) then
-    cur_filename = trim(working_dir) // "ece_launch.txt"
-    open(76, file = trim(cur_filename))
-    cur_filename = trim(working_dir) // "ece_freqs.txt"
-    open(77, file = trim(cur_filename))
-  else if(new_IO) then
-    open(77, file=trim(ray_launch_file))
-    ! Only one diag with new IO
-    read(77, "(I5.5)") ant%diag(1)%N_ch
-  end if
-  mode_cnt = 1
-  if(modes == 3) mode_cnt = 2
-  if (N_ray > 1) then
-    if(abs(int(sqrt(real(N_ray,8) - 1.d0)) -  sqrt(real(N_ray,8) - 1.d0)) > 1.d-8) then
-      print*, "The number of rays must be N**2 + 1, where N is a positive integer"
-      call abort
-    end if
-    N_x = int(sqrt(real(N_ray,8) - 1.d0))
-#ifdef NAG
-    allocate(x(N_x), dx(N_x), x_check(N_x), dx_check(N_x))
-#else
-    allocate(x(N_x), dx(N_x))
-#endif
-  end if
-#ifdef NAG
-  if(N_freq > 1) allocate(freq_check(N_freq - 1), freq_weight_check(N_freq - 1))
-#endif
-  if(.not. stand_alone .and. present(f)) then
-    diagnostics(1)= "IDA"
-  end if
-  do idiag = 1, ant%N_diag
+                                          max_points_svec, mode_cnt, modes, N_ray, N_freq, &
+                                          diagnostics, CEC_exp, CEC_ed, ray_launch_file, &
+                                          output_level, stand_alone, one_sigma_width, new_IO, &
+                                          working_dir
+  use constants,                      only: pi
+  integer(ikind)                      :: idiag, ich, imode, ir, ifreq, N_ch
+  character(200)                      :: cur_filename
+  character(1)                        :: sep
+  open(66,file = trim(ray_launch_file))
+  write(66,"(A122)") "f [GHz]        df [GHz]      x [cm]        y [cm]        z [cm]        tor [deg]     pol [deg]     dist foc[cm]  width [cm]"
+  do idiag = 1, ant%N_diag ! N_diag should always be one ECRad does not distinguish between different ECE diagnostics
     ant%diag(idiag)%diag_name = diagnostics(idiag)
-    !print*,"next diag", ant%diag(idiag)%diag_name
-    if(output_level .and. stand_alone) print*, "Initializing: ", ant%diag(idiag)%diag_name
-    if(ant%diag(idiag)%diag_name == "IDA") then
-		  ant%diag(idiag)%N_ch = size(f)
-		  if(.not. stand_alone .and. present(f) .and. present(working_dir)) write(76, "(i5.5)")  ant%diag(idiag)%N_ch
-    else if(.not. new_IO) then
-      cur_filename = trim(working_dir) // "ecfm_data/" // trim(ant%diag(idiag)%diag_name) // "_launch.dat"
-      if(output_level .and. stand_alone) print*, "Reading ", ant%diag(idiag)%diag_name, " from external file: ", cur_filename
-      open(77, file=trim(cur_filename))
-      read(77, "(I5.5)") ant%diag(idiag)%N_ch
-      if(trim(ant%diag(idiag)%diag_name) == "CTA" .or. &
-         trim(ant%diag(idiag)%diag_name) == "CTC" .or. &
-         trim(ant%diag(idiag)%diag_name) == "IEC" .or. &
-         trim(ant%diag(idiag)%diag_name) == "EXT") then
-        open(78, file = trim(working_dir) // "ecfm_data/" // trim(ant%diag(idiag)%diag_name) // "_pol_coeff.dat")
-      end if
+    cur_filename = trim(working_dir) // "ecfm_data/" // trim(ant%diag(idiag)%diag_name) // "_launch.dat"
+    if(output_level .and. stand_alone) print*, "Reading ", ant%diag(idiag)%diag_name, " from external file: ", cur_filename
+    open(77, file=trim(cur_filename))
+    read(77, "(I5.5)") ant%diag(idiag)%N_ch
+    if(trim(ant%diag(idiag)%diag_name) == "CTA" .or. &
+       trim(ant%diag(idiag)%diag_name) == "CTC" .or. &
+       trim(ant%diag(idiag)%diag_name) == "IEC" .or. &
+       trim(ant%diag(idiag)%diag_name) == "EXT") then
+      open(78, file = trim(working_dir) // "ecfm_data/" // trim(ant%diag(idiag)%diag_name) // "_pol_coeff.dat")
     end if
     allocate(ant%diag(idiag)%ch(ant%diag(idiag)%N_ch))
     allocate(rad%diag(idiag)%ch(ant%diag(idiag)%N_ch))
@@ -517,309 +395,43 @@ subroutine prepare_ECE_diag(working_dir, f, df, R, phi, z, tor, pol, dist_foc, w
           end do
         end do
       end do
-      allocate(ant%diag(idiag)%ch(ich)%ray_launch(N_ray))
-    end do
-    if(ant%diag(idiag)%diag_name == "IDA") then
-      do ich = 1, ant%diag(idiag)%N_ch
-        ant%diag(idiag)%ch(ich)%f_ECE = f(ich)
-        ant%diag(idiag)%ch(ich)%df_ECE = df(ich)
-        ant%diag(idiag)%ch(ich)%ray_launch(1)%R = R(ich)
-        ant%diag(idiag)%ch(ich)%ray_launch(1)%phi = phi(ich) ! angles in IDA already in rad
-        ant%diag(idiag)%ch(ich)%ray_launch(1)%z = z(ich)
-        ant%diag(idiag)%ch(ich)%ray_launch(1)%phi_tor = tor(ich) ! angles in IDA already in rad
-        ant%diag(idiag)%ch(ich)%ray_launch(1)%theta_pol = pol(ich) ! angles in IDA already in rad
-        ant%diag(idiag)%ch(ich)%width = width(ich)
-        ant%diag(idiag)%ch(ich)%dist_focus = dist_foc(ich)
-        ant%diag(idiag)%ch(ich)%focus_shift = 0.d0 ! To be correctly implemented
-      end do
-    else
-      do ich = 1, ant%diag(idiag)%N_ch
-         if(.not. new_IO) then
-      ! Launching is mode independent - read this only once
-          read(77, "(E17.10E2A1E17.10E2A1E17.10E2A1E17.10E2A1E17.10E2A1E17.10E2A1E17.10E2A1E17.10E2A1E17.10E2)")  &
-            ant%diag(idiag)%ch(ich)%f_ECE, sep, &
-            ant%diag(idiag)%ch(ich)%df_ECE, sep, &
-            ant%diag(idiag)%ch(ich)%ray_launch(1)%R, sep, &
-            ant%diag(idiag)%ch(ich)%ray_launch(1)%phi, sep, &
-            ant%diag(idiag)%ch(ich)%ray_launch(1)%z, sep, &
-            ant%diag(idiag)%ch(ich)%ray_launch(1)%phi_tor, sep, &
-            ant%diag(idiag)%ch(ich)%ray_launch(1)%theta_pol, sep, &
-            ant%diag(idiag)%ch(ich)%width, sep, & ! 1/e^2 of the beam
-            ant%diag(idiag)%ch(ich)%dist_focus !distance between launch and focus
-            ant%diag(idiag)%ch(ich)%ray_launch(1)%phi = ant%diag(idiag)%ch(ich)%ray_launch(1)%phi / 180.d0 * pi
-            ant%diag(idiag)%ch(ich)%ray_launch(1)%phi_tor = ant%diag(idiag)%ch(ich)%ray_launch(1)%phi_tor / 180.d0 * pi
-            ! Use TORBEAM convention for input
-            ant%diag(idiag)%ch(ich)%ray_launch(1)%theta_pol = (ant%diag(idiag)%ch(ich)%ray_launch(1)%theta_pol) / 180.d0 * pi
-            rad%diag(idiag)%ch(ich)%mode(1)%ray(1)%freq(1)%pol_coeff = -1.d0 ! Non-steerable ECE
-            if(trim(ant%diag(idiag)%diag_name) == "CTA" .or. &
-             trim(ant%diag(idiag)%diag_name) == "CTC" .or. &
-             trim(ant%diag(idiag)%diag_name) == "IEC" .or. &
-           trim(ant%diag(idiag)%diag_name) == "EXT") read(78, "(E17.10E2)") rad%diag(idiag)%ch(ich)%mode(imode)%ray(1)%freq(1)%pol_coeff
-        else
-          read(77, "(E17.10E2A1E17.10E2A1E17.10E2A1E17.10E2A1E17.10E2A1E17.10E2A1E17.10E2A1E17.10E2A1E17.10E2A1E17.10E2)")  &
-            ant%diag(idiag)%ch(ich)%f_ECE, sep, &
-            ant%diag(idiag)%ch(ich)%df_ECE, sep, &
-            ant%diag(idiag)%ch(ich)%ray_launch(1)%R, sep, &
-            ant%diag(idiag)%ch(ich)%ray_launch(1)%phi, sep, &
-            ant%diag(idiag)%ch(ich)%ray_launch(1)%z, sep, &
-            ant%diag(idiag)%ch(ich)%ray_launch(1)%phi_tor, sep, &
-            ant%diag(idiag)%ch(ich)%ray_launch(1)%theta_pol, sep, &
-            ant%diag(idiag)%ch(ich)%width, sep, & ! 1/e^2 of the beam
-            ant%diag(idiag)%ch(ich)%dist_focus, sep, & !distance between launch and focus
-            rad%diag(idiag)%ch(ich)%mode(1)%ray(1)%freq(1)%pol_coeff
-            ant%diag(idiag)%ch(ich)%ray_launch(1)%phi = ant%diag(idiag)%ch(ich)%ray_launch(1)%phi / 180.d0 * pi
-            ant%diag(idiag)%ch(ich)%ray_launch(1)%phi_tor = ant%diag(idiag)%ch(ich)%ray_launch(1)%phi_tor / 180.d0 * pi
-            ! Use TORBEAM convention for input
-            ant%diag(idiag)%ch(ich)%ray_launch(1)%theta_pol = (ant%diag(idiag)%ch(ich)%ray_launch(1)%theta_pol) / 180.d0 * pi
-        end if
-        do imode = 1,mode_cnt
-          ! Distribute external polarization info
-          rad%diag(idiag)%ch(ich)%mode(imode)%ray(1)%freq(1)%use_external_pol_coeff = .false.
-          if(imode == 1 .and. modes /= 2) then
-            if(rad%diag(idiag)%ch(ich)%mode(1)%ray(1)%freq(1)%pol_coeff < 0.d0) cycle ! Calculate pol coeff internally
-            rad%diag(idiag)%ch(ich)%mode(1)%ray(1)%freq(1)%use_external_pol_coeff = .true. ! Otherwise use the externally provided one
-          else if(imode == 2 .and. modes == 3) then
-            if(rad%diag(idiag)%ch(ich)%mode(1)%ray(1)%freq(1)%pol_coeff < 0.d0) cycle  ! Calculate pol coeff internally
-            rad%diag(idiag)%ch(ich)%mode(2)%ray(1)%freq(1)%pol_coeff = 1.d0 - &
-              rad%diag(idiag)%ch(ich)%mode(1)%ray(1)%freq(1)%pol_coeff
-            rad%diag(idiag)%ch(ich)%mode(2)%ray(1)%freq(1)%use_external_pol_coeff = .true. ! Otherwise use the externally provided one
-          else if(modes == 2) then
-            if(rad%diag(idiag)%ch(ich)%mode(1)%ray(1)%freq(1)%pol_coeff < 0.d0) cycle  ! Calculate pol coeff internally
-            rad%diag(idiag)%ch(ich)%mode(1)%ray(1)%freq(1)%pol_coeff = 1.d0 - & ! Swotch from X-mode to O-mode
-              rad%diag(idiag)%ch(ich)%mode(1)%ray(1)%freq(1)%pol_coeff
-            rad%diag(idiag)%ch(ich)%mode(1)%ray(1)%freq(1)%use_external_pol_coeff = .true. ! Otherwise use the externally provided one
-          end if
-          do ir = 1, N_ray
-            rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(:)%pol_coeff = rad%diag(idiag)%ch(ich)%mode(imode)%ray(1)%freq(1)%pol_coeff
-            rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(:)%pol_coeff_secondary = rad%diag(idiag)%ch(ich)%mode(imode)%ray(1)%freq(1)%pol_coeff
-            rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(:)%use_external_pol_coeff = rad%diag(idiag)%ch(ich)%mode(imode)%ray(1)%freq(1)%use_external_pol_coeff
-          end do
-        end do
-        ant%diag(idiag)%ch(ich)%focus_shift = 0.d0 ! To be correctly implemented
-        ant%diag(idiag)%ch(ich)%ray_launch(1)%weight = 1.d0
-      end do ! ich
-      if(output_level .and. stand_alone) print*, "Found", ant%diag(idiag)%N_ch, " channels for ", ant%diag(idiag)%diag_name
-      if((ant%diag(idiag)%diag_name == "CTA" .or. ant%diag(idiag)%diag_name == "CTC" .or. &
-         ant%diag(idiag)%diag_name == "IEC") .and. .not. new_IO) close(78)
-    end if ! diag%name
-    ! Now calculate k_vector from the launching angles, distance to focues and beam waist
+    end do !Ich
+    allocate(ant%diag(idiag)%ch(ich)%ray_launch(N_ray))
     do ich = 1, ant%diag(idiag)%N_ch
-      ! Do the coordinate transformation for the central ray
-      ! Convert position from cylindrical to spherical coordinates
-      ant%diag(idiag)%ch(ich)%ray_launch(1)%x_vec(1) = ant%diag(idiag)%ch(ich)%ray_launch(1)%R * cos(ant%diag(idiag)%ch(ich)%ray_launch(1)%phi)
-      ant%diag(idiag)%ch(ich)%ray_launch(1)%x_vec(2) = ant%diag(idiag)%ch(ich)%ray_launch(1)%R * sin(ant%diag(idiag)%ch(ich)%ray_launch(1)%phi)
-      ant%diag(idiag)%ch(ich)%ray_launch(1)%x_vec(3) = ant%diag(idiag)%ch(ich)%ray_launch(1)%z
-      ! Launching angle depends on position - also set N_vector to position vector
-      ! Also normalize it and revert its sign so it points inwards
-      ant%diag(idiag)%ch(ich)%ray_launch(1)%N_vec(:) = -ant%diag(idiag)%ch(ich)%ray_launch(1)%x_vec(:) / &
-          sqrt(ant%diag(idiag)%ch(ich)%ray_launch(1)%x_vec(1)**2 + ant%diag(idiag)%ch(ich)%ray_launch(1)%x_vec(2)**2 + &
-               ant%diag(idiag)%ch(ich)%ray_launch(1)%x_vec(3)**2)
-      ! Now convert to spherical polar coordinates for the rotations
-      temp1 = atan2(ant%diag(idiag)%ch(ich)%ray_launch(1)%N_vec(2), ant%diag(idiag)%ch(ich)%ray_launch(1)%N_vec(1))
-      ant%diag(idiag)%ch(ich)%ray_launch(1)%N_vec(1) = 1.d0
-      ant%diag(idiag)%ch(ich)%ray_launch(1)%N_vec(2) = temp1
-      ! Poloidal angle is aligned with R direction
-      ant%diag(idiag)%ch(ich)%ray_launch(1)%N_vec(3) = pi/2.d0
-      ant%diag(idiag)%ch(ich)%ray_launch(1)%N_vec(2) = ant%diag(idiag)%ch(ich)%ray_launch(1)%N_vec(2) + &
-                                                        ant%diag(idiag)%ch(ich)%ray_launch(1)%phi_tor
-      ant%diag(idiag)%ch(ich)%ray_launch(1)%N_vec(3) = ant%diag(idiag)%ch(ich)%ray_launch(1)%N_vec(3) + &
-                                                        ant%diag(idiag)%ch(ich)%ray_launch(1)%theta_pol
-      ! Back to carthesian coordinates
-      temp =  cos(ant%diag(idiag)%ch(ich)%ray_launch(1)%N_vec(2)) * sin(ant%diag(idiag)%ch(ich)%ray_launch(1)%N_vec(3))
-      temp1 =  sin(ant%diag(idiag)%ch(ich)%ray_launch(1)%N_vec(2)) * sin(ant%diag(idiag)%ch(ich)%ray_launch(1)%N_vec(3))
-      temp2 =  cos(ant%diag(idiag)%ch(ich)%ray_launch(1)%N_vec(3))
-      ant%diag(idiag)%ch(ich)%ray_launch(1)%N_vec(1) = temp
-      ant%diag(idiag)%ch(ich)%ray_launch(1)%N_vec(2) = temp1
-      ant%diag(idiag)%ch(ich)%ray_launch(1)%N_vec(3) = temp2
-      N_abs = sqrt(ant%diag(idiag)%ch(ich)%ray_launch(1)%N_vec(1)**2 + &
-             ant%diag(idiag)%ch(ich)%ray_launch(1)%N_vec(2)**2 + &
-             ant%diag(idiag)%ch(ich)%ray_launch(1)%N_vec(3)**2)
-      ant%diag(idiag)%ch(ich)%ray_launch(1)%N_vec = ant%diag(idiag)%ch(ich)%ray_launch(1)%N_vec / N_abs
-      if(N_freq > 1) then
-        if(ant%diag(idiag)%ch(ich)%df_ECE < 1.d-10) then
-          print*, "Zero or negative bandwidth in calculation with finite bandwidth -- N_freq =", N_freq
-          print*, "Problematic channel", ich
-          print*, "Check input and rerun the program!"
-          call abort()
-        end if
-#ifdef NAG
-        CALL nag_set_error(error, halt_level=4)
-        call nag_quad_gs_wt_absc( 0, ant%diag(idiag)%ch(ich)%f_ECE - ant%diag(idiag)%ch(ich)%df_ECE / 2.d0, &
-                             ant%diag(idiag)%ch(ich)%f_ECE + ant%diag(idiag)%ch(ich)%df_ECE / 2.d0, &
-                             freq_weight_check, &
-                             freq_check, error=error)
-        if (error%level >= 1) print*, error%msg
-        if (error%level >= 1) then
-          print*, "Nag Screwed up when setting weights for frequency discretization"
-          call abort
-        end if
-#endif
-        call cgqf(int(N_freq - 1,kind=4), int(1,kind=4), 0.d0, 0.d0, &
-                  ant%diag(idiag)%ch(ich)%f_ECE - ant%diag(idiag)%ch(ich)%df_ECE / 2.d0, &
-                  ant%diag(idiag)%ch(ich)%f_ECE + ant%diag(idiag)%ch(ich)%df_ECE / 2.d0, &
-                  ant%diag(idiag)%ch(ich)%freq(2:N_freq), ant%diag(idiag)%ch(ich)%freq_weight(2:N_freq))
-        ant%diag(idiag)%ch(ich)%freq(1) = ant%diag(idiag)%ch(ich)%f_ECE
-        ant%diag(idiag)%ch(ich)%freq_weight(1) = 0.d0 ! central frequency not considered in the averaging
-        ant%diag(idiag)%ch(ich)%freq_weight(2:N_freq) = ant%diag(idiag)%ch(ich)%freq_weight(2:N_freq) / &
-                                                        sum(ant%diag(idiag)%ch(ich)%freq_weight(2:N_freq)) ! normalization to one
-#ifdef NAG
-        freq_weight_check(:) = freq_weight_check(:) / sum(freq_weight_check(:)) ! normalization to one
-        if(sum((ant%diag(idiag)%ch(ich)%freq_weight(2:N_freq) - freq_weight_check(1:N_freq - 1))**2) > 1.d-2) then
-          print*, "Weights deviate by more than 1.d-4"
-          do i = 2, N_freq
-            print*, ant%diag(idiag)%ch(ich)%freq_weight(i), freq_weight_check(i - 1)
-          end do
-          call abort()
-        end if
-        if(sum((ant%diag(idiag)%ch(ich)%freq(2:N_freq) - freq_check(1:N_freq - 1))**2) > 1.d-2) then
-          print*, "Abszissae deviate by more than 1.d-4"
-          do i = 2, N_freq
-            print*, ant%diag(idiag)%ch(ich)%freq(i), freq_check(i - 1)
-          end do
-          call abort()
-        end if
-!        print*, "freq", ant%diag(idiag)%ch(ich)%freq(2:N_freq)
-!        print*, "freq weight",  ant%diag(idiag)%ch(ich)%freq_weight(2:N_freq)
-!        print*, "sum",  sum(ant%diag(idiag)%ch(ich)%freq_weight(2:N_freq))
-!        stop "check weights"
-        !print*, Int_absz(1)
-#endif
-      else
-        ant%diag(idiag)%ch(ich)%freq(1) = ant%diag(idiag)%ch(ich)%f_ECE
-        ant%diag(idiag)%ch(ich)%freq_weight(1) = 1.d0 ! only central frequency
-      end if
-      if (N_ray > 1) then
-        w = ant%diag(idiag)%ch(ich)%width! beam FWHM -> w
-        x_0 =  ant%diag(idiag)%ch(ich)%ray_launch(1)%x_vec
-        N_0 =  ant%diag(idiag)%ch(ich)%ray_launch(1)%N_vec
-        ! Works only if the diagnostic can be assumed as perfectly focused
-        ! The 1D heterodyne radiometer is not, hence this will be overwritten later
-        ! Diagnsotics
-        ! call sub_remap_coords(x_focus, R_focus)
-        ! print*, "Focus point in cyl. coordinates [m] u. [rad]", R_focus
-        !     print*, "R central at launch",ant%diag(idiag)%ch(ich)%ray_launch(1)%R, &
-        !       ant%diag(idiag)%ch(ich)%ray_launch(1)%phi * 180.d0 / pi, &
-        !       ant%diag(idiag)%ch(ich)%ray_launch(1)%z
-        ! The beam needs to be spanned perpendicular to the central ray
-        ! First perpendicular vector
-        x1_orth(1) = 1.0
-        x1_orth(2) = 0.0
-        x1_orth(3) = -N_0(1)/N_0(3)
-        ! Second perpendicular vector
-        x2_orth(1) = - N_0(1) * N_0(2) / N_0(3)
-        x2_orth(2) = N_0(3) - N_0(1)
-        x2_orth(3) = - N_0(2)
-        x1_orth = x1_orth/ sqrt(x1_orth(1)**2 + x1_orth(3)**2) ! need unit vectors here
-        x2_orth = x2_orth/ sqrt(x2_orth(1)**2 + x2_orth(2)**2 + x2_orth(3)**2) ! need unit vectors here
-        if(one_sigma_width) then
-          call cgqf(int(N_x,kind=4), int(1,kind=4), 0.d0, 0.d0, -w, w, x, dx)
-          norm = 1.408163862361065 / (pi * w ** 2) ! norm of the beam gaussian
-        else
-          call cgqf ( int(N_x,kind=4), int(1,kind=4), 0.d0, 0.d0, 0.d0, 2.d0 / (w**2), x, dx )
-          norm = 2.d0 / (pi * w ** 2) ! norm of the beam gaussian
-        end if
-        w0 = (c0*ant%diag(idiag)%ch(ich)%dist_focus*w) / &
-             Sqrt(c0**2*ant%diag(idiag)%ch(ich)%dist_focus**2 + ant%diag(idiag)%ch(ich)%f_ECE**2*Pi**2*w**4)
-        dist_waist = (ant%diag(idiag)%ch(ich)%f_ECE**2*Pi**2*ant%diag(idiag)%ch(ich)%dist_focus*w**4) / &
-                     (c0**2*ant%diag(idiag)%ch(ich)%dist_focus**2 + ant%diag(idiag)%ch(ich)%f_ECE**2*Pi**2*w**4)
-        ! Compute gaussian beam width at focus point
-        w_focus = w0*Sqrt(1.d0 + (c0**2*((ant%diag(idiag)%ch(ich)%dist_focus + ant%diag(idiag)%ch(ich)%focus_shift) - dist_waist)**2) / &
-                              (ant%diag(idiag)%ch(ich)%f_ECE**2*Pi**2*w0**4))
-#ifdef NAG
-        call nag_quad_gs_wt_absc( 4, 0.d0, 2.d0 /( w**2), dx_check, x_check, c= 0.d0)
-        if(sum((dx - dx_check)**2) > 1.d-5) then
-          print*, "Weights deviate by more than 1.d-10"
-          print*, "Norm of the integral over the weights"
-          print*, "GPL lib", sum(dx)
-          print*, "NAG lib", sum(dx_check)
-          print*, " x GPL lib", x
-          print*, " x NAG lib", x_check
-          do i = 1, N_x
-            print*, dx(i), dx_check(i)
-          end do
-          call abort()
-        end if
-        if(sum((x - x_check)**2) > 1.d-5) then
-          print*, "Abszissae deviate by more than 1.d-10"
-          do i = 1, N_x
-            print*, x(i), x_check(i)
-          end do
-          call abort()
-        end if
-#endif
-        do i = 1, N_x
-          do j = 1, N_x
-            x_temp(:) = (x1_orth(:) * x(i) + x2_orth(:) * x(j)) + x_0(:)
-            ! Mimic the finite beam width due to diffraction by accounting for vacuum diffraction
-            x_focus(:) = ant%diag(idiag)%ch(ich)%ray_launch(1)%x_vec + &
-                         (ant%diag(idiag)%ch(ich)%dist_focus + ant%diag(idiag)%ch(ich)%focus_shift) * N_0
-            x_focus(:) = x_focus(:) + (x1_orth(:) * x(i) + x2_orth(:) * x(j)) * w_focus/w
-            call sub_remap_coords(x_temp, R_temp)
-            ant%diag(idiag)%ch(ich)%ray_launch(1 + (i - 1) * N_x + j )%R = R_temp(1)
-            ant%diag(idiag)%ch(ich)%ray_launch(1 + (i - 1) * N_x + j )%phi = R_temp(2)
-            ant%diag(idiag)%ch(ich)%ray_launch(1 + (i - 1) * N_x + j )%z = R_temp(3)
-            ant%diag(idiag)%ch(ich)%ray_launch(1 + (i - 1) * N_x + j )%weight = dx(i) * dx(j)
-            if(one_sigma_width) ant%diag(idiag)%ch(ich)%ray_launch(1 + (i - 1) * N_x + j )%weight =  &
-                                   ant%diag(idiag)%ch(ich)%ray_launch(1 + (i - 1) * N_x + j )%weight * exp(-(x(i)**2 + x(j)**2)/w**2)
-            ant%diag(idiag)%ch(ich)%ray_launch(1 + (i - 1) * N_x + j )%x_vec = x_temp
-            ant%diag(idiag)%ch(ich)%ray_launch(1 + (i - 1) * N_x + j )%N_vec = x_focus - &
-              ant%diag(idiag)%ch(ich)%ray_launch(1 + (i - 1) * N_x + j )%x_vec
-            ant%diag(idiag)%ch(ich)%ray_launch(1 + (i - 1) * N_x + j )%N_vec =  &
-              ant%diag(idiag)%ch(ich)%ray_launch(1 + (i - 1) * N_x + j )%N_vec / &
-              sqrt(ant%diag(idiag)%ch(ich)%ray_launch(1 + (i - 1) * N_x + j )%N_vec(1)**2 + &
-                   ant%diag(idiag)%ch(ich)%ray_launch(1 + (i - 1) * N_x + j )%N_vec(2)**2 + &
-                   ant%diag(idiag)%ch(ich)%ray_launch(1 + (i - 1) * N_x + j )%N_vec(3)**2)
-            if(ant%diag(idiag)%ch(ich)%dist_focus < 0) ant%diag(idiag)%ch(ich)%ray_launch(1 + (i - 1) * N_x + j )%N_vec = -1.0 * &
-                                                       ant%diag(idiag)%ch(ich)%ray_launch(1 + (i - 1) * N_x + j )%N_vec
-            ant%diag(idiag)%ch(ich)%ray_launch(1 + (i - 1) * N_x + j )%phi_tor = &
-              atan(ant%diag(idiag)%ch(ich)%ray_launch(1 + (i - 1) * N_x + j )%N_vec(2) / &
-                   ant%diag(idiag)%ch(ich)%ray_launch(1 + (i - 1) * N_x + j )%N_vec(1))
-            ant%diag(idiag)%ch(ich)%ray_launch(1 + (i - 1) * N_x + j )%theta_pol = ant%diag(idiag)%ch(ich)%ray_launch(1)%theta_pol - &
-              acos(ant%diag(idiag)%ch(ich)%ray_launch(1 + (i - 1) * N_x + j )%N_vec(3))
-            !print*, "Weight of ray", 1 + (i - 1) * N_x + j ," at launch", ant%diag(idiag)%ch(ich)%ray_launch(1 + (i - 1) * N_x + j )%weight * &
-            !        norm
-            !sum_of_weights = sum_of_weights + ant%diag(idiag)%ch(ich)%ray_launch(1 + (i - 1) * N_x + j )%weight
-          end do
-        end do
-        ant%diag(idiag)%ch(ich)%ray_launch(:)%weight = ant%diag(idiag)%ch(ich)%ray_launch(:)%weight * &
-                                                       norm ! normalization
-        !sum_of_weights = sum_of_weights * norm
-        ! Central ray not part of the integration - only for mapping
-        ant%diag(idiag)%ch(ich)%ray_launch(1)%weight = 0.d0
-        ! Renormalization
-        ! Necessary, because the ray weights do not sum up to one in case of low ray count (truncation error)
-        ant%diag(idiag)%ch(ich)%ray_launch(:)%weight = ant%diag(idiag)%ch(ich)%ray_launch(:)%weight / sum(ant%diag(idiag)%ch(ich)%ray_launch(:)%weight)
-        !print*, "Sum of weights from ray discretisation:", sum_of_weights
-        !print*, "Adjusting weights so that sum of weights gives 1"
-        !ant%diag(idiag)%ch(ich)%ray_launch(:)%weight = ant%diag(idiag)%ch(ich)%ray_launch(:)%weight /  sum_of_weights
-        !print*, "weights", ant%diag(idiag)%ch(ich)%ray_launch(:)%weight
-      else
-        ant%diag(idiag)%ch(ich)%ray_launch(1)%weight = 1.d0
-      end if ! N_ray > 1
-    end do ! ich
+    ! Launching is mode independent - read this only once
+      read(77, "(E17.10E2A1E17.10E2A1E17.10E2A1E17.10E2A1E17.10E2A1E17.10E2A1E17.10E2A1E17.10E2A1E17.10E2)")  &
+        ant%diag(idiag)%ch(ich)%f_ECE, sep, &
+        ant%diag(idiag)%ch(ich)%df_ECE, sep, &
+        ant%diag(idiag)%ch(ich)%ray_launch(1)%R, sep, &
+        ant%diag(idiag)%ch(ich)%ray_launch(1)%phi, sep, &
+        ant%diag(idiag)%ch(ich)%ray_launch(1)%z, sep, &
+        ant%diag(idiag)%ch(ich)%ray_launch(1)%phi_tor, sep, &
+        ant%diag(idiag)%ch(ich)%ray_launch(1)%theta_pol, sep, &
+        ant%diag(idiag)%ch(ich)%width, sep, & ! 1/e^2 of the beam
+        ant%diag(idiag)%ch(ich)%dist_focus !distance between launch and focus
+        ant%diag(idiag)%ch(ich)%ray_launch(1)%phi = ant%diag(idiag)%ch(ich)%ray_launch(1)%phi / 180.d0 * pi
+        ant%diag(idiag)%ch(ich)%ray_launch(1)%phi_tor = ant%diag(idiag)%ch(ich)%ray_launch(1)%phi_tor / 180.d0 * pi
+        ! Use TORBEAM convention for input
+        ant%diag(idiag)%ch(ich)%ray_launch(1)%theta_pol = (ant%diag(idiag)%ch(ich)%ray_launch(1)%theta_pol) / 180.d0 * pi
+        rad%diag(idiag)%ch(ich)%mode(1)%ray(1)%freq(1)%pol_coeff = -1.d0 ! Non-steerable ECE
+        if(trim(ant%diag(idiag)%diag_name) == "CTA" .or. &
+         trim(ant%diag(idiag)%diag_name) == "CTC" .or. &
+         trim(ant%diag(idiag)%diag_name) == "IEC" .or. &
+       trim(ant%diag(idiag)%diag_name) == "EXT") read(78, "(E17.10E2)") rad%diag(idiag)%ch(ich)%mode(imode)%ray(1)%freq(1)%pol_coeff
+    end do
+    call make_launch(idiag)
     do ich = 1, ant%diag(idiag)%N_ch
       do ir = 1, N_ray
-        if(stand_alone .and. .not. new_IO) then
-          write(66,"(E13.6E2A1E13.6E2A1E13.6E2A1E13.6E2A1E13.6E2A1E13.6E2A1E13.6E2A1E13.6E2A1E13.6E2)") &
-                ant%diag(idiag)%ch(ich)%f_ECE, " ", &
-                ant%diag(idiag)%ch(ich)%df_ECE, " ", &
-                1.d2 * ant%diag(idiag)%ch(ich)%ray_launch(ir)%x_vec(1), " ", &
-                1.d2 * ant%diag(idiag)%ch(ich)%ray_launch(ir)%x_vec(2)," ", &
-                1.d2 * ant%diag(idiag)%ch(ich)%ray_launch(ir)%x_vec(3), " ", &
-                ant%diag(idiag)%ch(ich)%ray_launch(ir)%phi_tor / pi * 1.8d2, " ", &
-                ant%diag(idiag)%ch(ich)%ray_launch(ir)%theta_pol / pi * 1.8d2, " ", &
-                1.d2 * ant%diag(idiag)%ch(ich)%dist_focus, " ", &
-                1.d2 * ant%diag(idiag)%ch(ich)%width
-        else if(.not. stand_alone .and. present(f) .and. present(working_dir)) then
-          write(76,"(E13.6E2A1E13.6E2A1E13.6E2A1E13.6E2A1E13.6E2A1E13.6E2A1E13.6E2)") &
-             ant%diag(idiag)%ch(ich)%ray_launch(ir)%x_vec(1), " ", &
-             ant%diag(idiag)%ch(ich)%ray_launch(ir)%x_vec(2)," ", &
-             ant%diag(idiag)%ch(ich)%ray_launch(ir)%x_vec(3), " ", &
-             ant%diag(idiag)%ch(ich)%ray_launch(ir)%N_vec(1), " ", &
-             ant%diag(idiag)%ch(ich)%ray_launch(ir)%N_vec(2)," ", &
-             ant%diag(idiag)%ch(ich)%ray_launch(ir)%N_vec(3), " ", &
-             ant%diag(idiag)%ch(ich)%ray_launch(ir)%weight
-        end if
+        write(66,"(E13.6E2A1E13.6E2A1E13.6E2A1E13.6E2A1E13.6E2A1E13.6E2A1E13.6E2A1E13.6E2A1E13.6E2)") &
+              ant%diag(idiag)%ch(ich)%f_ECE, " ", &
+              ant%diag(idiag)%ch(ich)%df_ECE, " ", &
+              1.d2 * ant%diag(idiag)%ch(ich)%ray_launch(ir)%x_vec(1), " ", &
+              1.d2 * ant%diag(idiag)%ch(ich)%ray_launch(ir)%x_vec(2)," ", &
+              1.d2 * ant%diag(idiag)%ch(ich)%ray_launch(ir)%x_vec(3), " ", &
+              ant%diag(idiag)%ch(ich)%ray_launch(ir)%phi_tor / pi * 1.8d2, " ", &
+              ant%diag(idiag)%ch(ich)%ray_launch(ir)%theta_pol / pi * 1.8d2, " ", &
+              1.d2 * ant%diag(idiag)%ch(ich)%dist_focus, " ", &
+              1.d2 * ant%diag(idiag)%ch(ich)%width
       end do !N_ray
 !      do ifreq = 1, N_freq
 !        write(77,"(E13.6E2A1E13.6E2)") &
@@ -828,18 +440,441 @@ subroutine prepare_ECE_diag(working_dir, f, df, R, phi, z, tor, pol, dist_foc, w
 !      end do
     end do !N_ch
   end do !diag
+  close(66)
+end subroutine prepare_ECE_diag_old_IO
+
+subroutine prepare_ECE_diag_new_IO()
+! Reads f, df from shot files and also prepares the launching positions and angles
+  use mod_ecfm_refr_types,            only: plasma_params, ant, rad, &
+                                         	  max_points_svec, mode_cnt, modes, N_ray, N_freq, &
+                                         	  diagnostics, CEC_exp, CEC_ed, ray_launch_file, &
+                                         	  output_level, stand_alone, one_sigma_width
+  use constants,                      only: pi
+  integer(ikind)                             :: idiag, ich, imode, ir, ifreq, N_ch
+  real(rkind)                                :: N_abs, temp, temp1, temp2, phi_radial, temp_freq, temp_freq_2
+  character(1)                               :: sep
+  idiag = 1 ! Only one diag -> currently still diag array for historical reasons, should be removed eventually
+  open(77, file=trim(ray_launch_file))
+  ! Only one diag with new IO
+  read(77, "(I5.5)") ant%diag(1)%N_ch
+  allocate(rad%diag(idiag)%ch(ant%diag(idiag)%N_ch))
+  allocate(ant%diag(idiag)%ch(ant%diag(1)%N_ch))
+  do ich = 1, ant%diag(idiag)%N_ch
+    allocate(ant%diag(idiag)%ch(ich)%freq(N_freq))
+    allocate(ant%diag(idiag)%ch(ich)%freq_weight(N_freq))
+    allocate(rad%diag(idiag)%ch(ich)%mode(mode_cnt))
+    if(output_level) allocate(rad%diag(idiag)%ch(ich)%mode_extra_output(mode_cnt))
+    do imode = 1, mode_cnt
+      if((imode == 2 .and. modes == 3) .or. &
+          modes == 2) then
+        rad%diag(idiag)%ch(ich)%mode(imode)%mode = -1 ! O-mode
+      else
+        rad%diag(idiag)%ch(ich)%mode(imode)%mode = +1 ! X-mode
+      end if
+      allocate(rad%diag(idiag)%ch(ich)%mode(imode)%ray(N_ray))
+      if(output_level) allocate(rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(N_ray))
+      do ir = 1, N_ray
+        allocate(rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(N_freq))
+        do ifreq = 1, N_freq
+            allocate(rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%svec(max_points_svec))
+            if(output_level) allocate(rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%svec_extra_output(max_points_svec))
+        end do
+      end do
+    end do
+    allocate(ant%diag(idiag)%ch(ich)%ray_launch(N_ray))
+  end do
+  do ich = 1, ant%diag(idiag)%N_ch
+    read(77, "(E17.10E2A1E17.10E2A1E17.10E2A1E17.10E2A1E17.10E2A1E17.10E2A1E17.10E2A1E17.10E2A1E17.10E2A1E17.10E2)")  &
+              ant%diag(idiag)%ch(ich)%f_ECE, sep, &
+              ant%diag(idiag)%ch(ich)%df_ECE, sep, &
+              ant%diag(idiag)%ch(ich)%ray_launch(1)%R, sep, &
+              ant%diag(idiag)%ch(ich)%ray_launch(1)%phi, sep, &
+              ant%diag(idiag)%ch(ich)%ray_launch(1)%z, sep, &
+              ant%diag(idiag)%ch(ich)%ray_launch(1)%phi_tor, sep, &
+              ant%diag(idiag)%ch(ich)%ray_launch(1)%theta_pol, sep, &
+              ant%diag(idiag)%ch(ich)%width, sep, & ! 1/e^2 of the beam
+              ant%diag(idiag)%ch(ich)%dist_focus, sep, & !distance between launch and focus
+              rad%diag(idiag)%ch(ich)%mode(1)%ray(1)%freq(1)%pol_coeff
+      ant%diag(idiag)%ch(ich)%ray_launch(1)%phi = ant%diag(idiag)%ch(ich)%ray_launch(1)%phi / 180.d0 * pi
+      ant%diag(idiag)%ch(ich)%ray_launch(1)%phi_tor = ant%diag(idiag)%ch(ich)%ray_launch(1)%phi_tor / 180.d0 * pi
+      ! Use TORBEAM convention for input
+      ant%diag(idiag)%ch(ich)%ray_launch(1)%theta_pol = (ant%diag(idiag)%ch(ich)%ray_launch(1)%theta_pol) / 180.d0 * pi
+  end do ! ich
+  close(77)
+  call make_launch()
+end subroutine prepare_ECE_diag_new_IO
+
+!*******************************************************************************
+
+#ifdef IDA
+subroutine prepare_ECE_diag_IDA(working_dir, f, df, R, phi, z, tor, pol, dist_foc, width)
+! Reads f, df from shot files and also prepares the launching positions and angles
+  use mod_ecfm_refr_types,            only: plasma_params, ant, rad, &
+                                            max_points_svec, mode_cnt, modes, N_ray, N_freq, &
+                                            diagnostics, CEC_exp, CEC_ed, &
+                                            output_level, stand_alone, one_sigma_width
+  use constants,                      only: pi
+  character(*), intent(in)                   :: working_dir
+  real(rkind), dimension(:), optional        :: f, df, R, phi, z, tor, pol, dist_foc, width ! angles in deg.
+  integer(ikind)                             :: idiag, ich, imode, ir, ifreq
+  character(1)                               :: sep
+  character(200)                             :: ray_launch_file
+  idiag = 1 ! Only one diag -> currently still diag array for historical reasons, should be removed eventually
+  ray_launch_file = trim(working_dir) // "ecfm_data/" // "ray_launch.dat"
+  open(77,file = trim(ray_launch_file))
+  if(present(f)) then
+    ant%diag(idiag)%N_ch = size(f)
+    write(77, "(i5.5)")  ant%diag(idiag)%N_ch
+  else
+    read(77, "(I5.5)") ant%diag(1)%N_ch
+  end if
+  mode_cnt = 1
+  if(modes == 3) mode_cnt = 2
+  ! Allocate everything
+  allocate(rad%diag(idiag)%ch(ant%diag(idiag)%N_ch))
+  allocate(ant%diag(idiag)%ch(ant%diag(1)%N_ch))
+  do ich = 1, ant%diag(idiag)%N_ch
+    allocate(ant%diag(idiag)%ch(ich)%freq(N_freq))
+    allocate(ant%diag(idiag)%ch(ich)%freq_weight(N_freq))
+    allocate(rad%diag(idiag)%ch(ich)%mode(mode_cnt))
+    if(output_level) allocate(rad%diag(idiag)%ch(ich)%mode_extra_output(mode_cnt))
+    do imode = 1, mode_cnt
+      if((imode == 2 .and. modes == 3) .or. &
+          modes == 2) then
+        rad%diag(idiag)%ch(ich)%mode(imode)%mode = -1 ! O-mode
+      else
+        rad%diag(idiag)%ch(ich)%mode(imode)%mode = +1 ! X-mode
+      end if
+      allocate(rad%diag(idiag)%ch(ich)%mode(imode)%ray(N_ray))
+      if(output_level) allocate(rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(N_ray))
+      do ir = 1, N_ray
+        allocate(rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(N_freq))
+        do ifreq = 1, N_freq
+            allocate(rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%svec(max_points_svec))
+            if(output_level) allocate(rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%svec_extra_output(max_points_svec))
+        end do
+      end do
+    end do
+    allocate(ant%diag(idiag)%ch(ich)%ray_launch(N_ray))
+  end do
+  ant%diag(idiag)%diag_name = diagnostics(idiag)
+  if(present(f)) then
+    do ich = 1, ant%diag(idiag)%N_ch
+      ant%diag(idiag)%ch(ich)%f_ECE = f(ich)
+      ant%diag(idiag)%ch(ich)%df_ECE = df(ich)
+      ant%diag(idiag)%ch(ich)%ray_launch(1)%R = R(ich)
+      ant%diag(idiag)%ch(ich)%ray_launch(1)%phi = phi(ich) ! angles in IDA already in rad
+      ant%diag(idiag)%ch(ich)%ray_launch(1)%z = z(ich)
+      ant%diag(idiag)%ch(ich)%ray_launch(1)%phi_tor = tor(ich) ! angles in IDA already in rad
+      ant%diag(idiag)%ch(ich)%ray_launch(1)%theta_pol = pol(ich) ! angles in IDA already in rad
+      ant%diag(idiag)%ch(ich)%width = width(ich)
+      ant%diag(idiag)%ch(ich)%dist_focus = dist_foc(ich)
+      rad%diag(idiag)%ch(ich)%mode(1)%ray(1)%freq(1)%pol_coeff = -1.d0 ! For now hardcoded to include polarizer
+      write(77, "(E17.10E2A1E17.10E2A1E17.10E2A1E17.10E2A1E17.10E2A1E17.10E2A1E17.10E2A1E17.10E2A1E17.10E2A1E17.10E2)")  &
+                ant%diag(idiag)%ch(ich)%f_ECE, " ", &
+                ant%diag(idiag)%ch(ich)%df_ECE, " ", &
+                ant%diag(idiag)%ch(ich)%ray_launch(1)%R, " ", &
+                ant%diag(idiag)%ch(ich)%ray_launch(1)%phi * 180.d0 / pi, " ", &! deg.
+                ant%diag(idiag)%ch(ich)%ray_launch(1)%z, " ", &
+                ant%diag(idiag)%ch(ich)%ray_launch(1)%phi_tor * 180.d0 / pi, " ", &! deg.
+                ant%diag(idiag)%ch(ich)%ray_launch(1)%theta_pol * 180.d0 / pi, " ", &! deg.
+                ant%diag(idiag)%ch(ich)%width, " ", & ! 1/e^2 of the beam
+                ant%diag(idiag)%ch(ich)%dist_focus, " ", & !distance between launch and focus
+                rad%diag(idiag)%ch(ich)%mode(1)%ray(1)%freq(1)%pol_coeff
+    end do
+  else
+    do ich = 1, ant%diag(idiag)%N_ch
+      read(77, "(E17.10E2A1E17.10E2A1E17.10E2A1E17.10E2A1E17.10E2A1E17.10E2A1E17.10E2A1E17.10E2A1E17.10E2A1E17.10E2)")  &
+                ant%diag(idiag)%ch(ich)%f_ECE, sep, &
+                ant%diag(idiag)%ch(ich)%df_ECE, sep, &
+                ant%diag(idiag)%ch(ich)%ray_launch(1)%R, sep, &
+                ant%diag(idiag)%ch(ich)%ray_launch(1)%phi, sep, &
+                ant%diag(idiag)%ch(ich)%ray_launch(1)%z, sep, &
+                ant%diag(idiag)%ch(ich)%ray_launch(1)%phi_tor, sep, &
+                ant%diag(idiag)%ch(ich)%ray_launch(1)%theta_pol, sep, &
+                ant%diag(idiag)%ch(ich)%width, sep, & ! 1/e^2 of the beam
+                ant%diag(idiag)%ch(ich)%dist_focus, sep, & !distance between launch and focus
+                rad%diag(idiag)%ch(ich)%mode(1)%ray(1)%freq(1)%pol_coeff
+        ant%diag(idiag)%ch(ich)%ray_launch(1)%phi = ant%diag(idiag)%ch(ich)%ray_launch(1)%phi / 180.d0 * pi
+        ant%diag(idiag)%ch(ich)%ray_launch(1)%phi_tor = ant%diag(idiag)%ch(ich)%ray_launch(1)%phi_tor / 180.d0 * pi
+        ! Use TORBEAM convention for input
+        ant%diag(idiag)%ch(ich)%ray_launch(1)%theta_pol = (ant%diag(idiag)%ch(ich)%ray_launch(1)%theta_pol) / 180.d0 * pi
+    end do ! ich
+  end if
+  close(77)
+  call make_launch()
+end subroutine prepare_ECE_diag_IDA
+#endif
+
+!*******************************************************************************
+subroutine make_launch(idiag_in)
+! Reads f, df from shot files and also prepares the launching positions and angles
+  use mod_ecfm_refr_types,            only: plasma_params, ant, rad, &
+                                            max_points_svec, mode_cnt, modes, N_ray, N_freq, &
+                                            diagnostics, CEC_exp, CEC_ed, ray_launch_file, &
+                                            output_level, stand_alone, one_sigma_width
+  use constants,                      only: pi, c0
+#ifdef NAG
+  use nag_quad_util,                  only: nag_quad_gs_wt_absc
+  USE nag_error_handling
+#endif
+  use quadrature,                     only: cgqf, cdgqf
+  integer(ikind), optional                   :: idiag_in
+  integer(ikind)                             :: idiag, ich, imode, ir, ifreq
+  integer(ikind)                             :: i, j, N_x
+  real(rkind)                                :: N_abs, temp, temp1, temp2, phi_radial, temp_freq, temp_freq_2
+  real(rkind), dimension(3)                  :: x_0, N_0, x1_orth, x2_orth, x_temp, R_temp, R_focus, x_focus
+#ifdef NAG
+  real(rkind), dimension(:), allocatable     :: x, dx, x_check, dx_check, freq_check, freq_weight_check
+#else
+  real(rkind), dimension(:), allocatable     :: x, dx
+#endif
+  real(rkind)                                :: w,norm, sum_of_weights, w0, w_focus, dist_waist
+  real(rkind)                                :: phi_tor_add
+#ifdef NAG
+  type(nag_error)                            :: error
+#endif
+  if(present(idiag_in)) then
+    idiag = idiag_in
+  else
+    idiag = 1
+  end if
+  if (N_ray > 1) then
+    N_x = int(sqrt(real(N_ray,8) - 1.d0))
+#ifdef NAG
+    allocate(x(N_x), dx(N_x), x_check(N_x), dx_check(N_x))
+#else
+    allocate(x(N_x), dx(N_x))
+#endif
+  end if
+#ifdef NAG
+  if(N_freq > 1) allocate(freq_check(N_freq - 1), freq_weight_check(N_freq - 1))
+#endif
+  ! Calculate k_vector from the launching angles, distance to focues and beam waist and distribute information accross all rays
+  do ich = 1, ant%diag(idiag)%N_ch
+    do imode = 1,mode_cnt
+      ! Distribute external polarization info
+      rad%diag(idiag)%ch(ich)%mode(imode)%ray(1)%freq(1)%use_external_pol_coeff = .false.
+      if(imode == 1 .and. modes /= 2) then
+        if(rad%diag(idiag)%ch(ich)%mode(1)%ray(1)%freq(1)%pol_coeff < 0.d0) cycle ! Calculate pol coeff internally
+        rad%diag(idiag)%ch(ich)%mode(1)%ray(1)%freq(1)%use_external_pol_coeff = .true. ! Otherwise use the externally provided one
+      else if(imode == 2 .and. modes == 3) then
+        if(rad%diag(idiag)%ch(ich)%mode(1)%ray(1)%freq(1)%pol_coeff < 0.d0) cycle  ! Calculate pol coeff internally
+        rad%diag(idiag)%ch(ich)%mode(2)%ray(1)%freq(1)%pol_coeff = 1.d0 - &
+          rad%diag(idiag)%ch(ich)%mode(1)%ray(1)%freq(1)%pol_coeff
+        rad%diag(idiag)%ch(ich)%mode(2)%ray(1)%freq(1)%use_external_pol_coeff = .true. ! Otherwise use the externally provided one
+      else if(modes == 2) then
+        if(rad%diag(idiag)%ch(ich)%mode(1)%ray(1)%freq(1)%pol_coeff < 0.d0) cycle  ! Calculate pol coeff internally
+        rad%diag(idiag)%ch(ich)%mode(1)%ray(1)%freq(1)%pol_coeff = 1.d0 - & ! Swotch from X-mode to O-mode
+          rad%diag(idiag)%ch(ich)%mode(1)%ray(1)%freq(1)%pol_coeff
+        rad%diag(idiag)%ch(ich)%mode(1)%ray(1)%freq(1)%use_external_pol_coeff = .true. ! Otherwise use the externally provided one
+      end if
+      do ir = 1, N_ray
+        rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(:)%pol_coeff = rad%diag(idiag)%ch(ich)%mode(imode)%ray(1)%freq(1)%pol_coeff
+        rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(:)%pol_coeff_secondary = rad%diag(idiag)%ch(ich)%mode(imode)%ray(1)%freq(1)%pol_coeff
+        rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(:)%use_external_pol_coeff = rad%diag(idiag)%ch(ich)%mode(imode)%ray(1)%freq(1)%use_external_pol_coeff
+      end do
+    end do
+    ant%diag(idiag)%ch(ich)%ray_launch(1)%weight = 1.d0
+    ! Do the coordinate transformation for the central ray
+    ! Convert position from cylindrical to spherical coordinates
+    ant%diag(idiag)%ch(ich)%ray_launch(1)%x_vec(1) = ant%diag(idiag)%ch(ich)%ray_launch(1)%R * cos(ant%diag(idiag)%ch(ich)%ray_launch(1)%phi)
+    ant%diag(idiag)%ch(ich)%ray_launch(1)%x_vec(2) = ant%diag(idiag)%ch(ich)%ray_launch(1)%R * sin(ant%diag(idiag)%ch(ich)%ray_launch(1)%phi)
+    ant%diag(idiag)%ch(ich)%ray_launch(1)%x_vec(3) = ant%diag(idiag)%ch(ich)%ray_launch(1)%z
+    ! Launching angle depends on position - also set N_vector to position vector
+    ! Also normalize it and revert its sign so it points inwards
+    ant%diag(idiag)%ch(ich)%ray_launch(1)%N_vec(:) = -ant%diag(idiag)%ch(ich)%ray_launch(1)%x_vec(:) / &
+        sqrt(ant%diag(idiag)%ch(ich)%ray_launch(1)%x_vec(1)**2 + ant%diag(idiag)%ch(ich)%ray_launch(1)%x_vec(2)**2 + &
+             ant%diag(idiag)%ch(ich)%ray_launch(1)%x_vec(3)**2)
+    ! Now convert to spherical polar coordinates for the rotations
+    temp1 = atan2(ant%diag(idiag)%ch(ich)%ray_launch(1)%N_vec(2), ant%diag(idiag)%ch(ich)%ray_launch(1)%N_vec(1))
+    ant%diag(idiag)%ch(ich)%ray_launch(1)%N_vec(1) = 1.d0
+    ant%diag(idiag)%ch(ich)%ray_launch(1)%N_vec(2) = temp1
+    ! Poloidal angle is aligned with R direction
+    ant%diag(idiag)%ch(ich)%ray_launch(1)%N_vec(3) = pi/2.d0
+    ant%diag(idiag)%ch(ich)%ray_launch(1)%N_vec(2) = ant%diag(idiag)%ch(ich)%ray_launch(1)%N_vec(2) + &
+                                                      ant%diag(idiag)%ch(ich)%ray_launch(1)%phi_tor
+    ant%diag(idiag)%ch(ich)%ray_launch(1)%N_vec(3) = ant%diag(idiag)%ch(ich)%ray_launch(1)%N_vec(3) + &
+                                                      ant%diag(idiag)%ch(ich)%ray_launch(1)%theta_pol
+    ! Back to carthesian coordinates
+    temp =  cos(ant%diag(idiag)%ch(ich)%ray_launch(1)%N_vec(2)) * sin(ant%diag(idiag)%ch(ich)%ray_launch(1)%N_vec(3))
+    temp1 =  sin(ant%diag(idiag)%ch(ich)%ray_launch(1)%N_vec(2)) * sin(ant%diag(idiag)%ch(ich)%ray_launch(1)%N_vec(3))
+    temp2 =  cos(ant%diag(idiag)%ch(ich)%ray_launch(1)%N_vec(3))
+    ant%diag(idiag)%ch(ich)%ray_launch(1)%N_vec(1) = temp
+    ant%diag(idiag)%ch(ich)%ray_launch(1)%N_vec(2) = temp1
+    ant%diag(idiag)%ch(ich)%ray_launch(1)%N_vec(3) = temp2
+    N_abs = sqrt(ant%diag(idiag)%ch(ich)%ray_launch(1)%N_vec(1)**2 + &
+           ant%diag(idiag)%ch(ich)%ray_launch(1)%N_vec(2)**2 + &
+           ant%diag(idiag)%ch(ich)%ray_launch(1)%N_vec(3)**2)
+    ant%diag(idiag)%ch(ich)%ray_launch(1)%N_vec = ant%diag(idiag)%ch(ich)%ray_launch(1)%N_vec / N_abs
+    if(N_freq > 1) then
+      if(ant%diag(idiag)%ch(ich)%df_ECE < 1.d-10) then
+        print*, "Zero or negative bandwidth in calculation with finite bandwidth -- N_freq =", N_freq
+        print*, "Problematic channel", ich
+        print*, "Check input and rerun the program!"
+        call abort()
+      end if
+#ifdef NAG
+      CALL nag_set_error(error, halt_level=4)
+      call nag_quad_gs_wt_absc( 0, ant%diag(idiag)%ch(ich)%f_ECE - ant%diag(idiag)%ch(ich)%df_ECE / 2.d0, &
+                           ant%diag(idiag)%ch(ich)%f_ECE + ant%diag(idiag)%ch(ich)%df_ECE / 2.d0, &
+                           freq_weight_check, &
+                           freq_check, error=error)
+      if (error%level >= 1) print*, error%msg
+      if (error%level >= 1) then
+        print*, "Nag Screwed up when setting weights for frequency discretization"
+        call abort
+      end if
+#endif
+      call cgqf(int(N_freq - 1,kind=4), int(1,kind=4), 0.d0, 0.d0, &
+                ant%diag(idiag)%ch(ich)%f_ECE - ant%diag(idiag)%ch(ich)%df_ECE / 2.d0, &
+                ant%diag(idiag)%ch(ich)%f_ECE + ant%diag(idiag)%ch(ich)%df_ECE / 2.d0, &
+                ant%diag(idiag)%ch(ich)%freq(2:N_freq), ant%diag(idiag)%ch(ich)%freq_weight(2:N_freq))
+      ant%diag(idiag)%ch(ich)%freq(1) = ant%diag(idiag)%ch(ich)%f_ECE
+      ant%diag(idiag)%ch(ich)%freq_weight(1) = 0.d0 ! central frequency not considered in the averaging
+      ant%diag(idiag)%ch(ich)%freq_weight(2:N_freq) = ant%diag(idiag)%ch(ich)%freq_weight(2:N_freq) / &
+                                                      sum(ant%diag(idiag)%ch(ich)%freq_weight(2:N_freq)) ! normalization to one
+#ifdef NAG
+      freq_weight_check(:) = freq_weight_check(:) / sum(freq_weight_check(:)) ! normalization to one
+      if(sum((ant%diag(idiag)%ch(ich)%freq_weight(2:N_freq) - freq_weight_check(1:N_freq - 1))**2) > 1.d-2) then
+        print*, "Weights deviate by more than 1.d-4"
+        do i = 2, N_freq
+          print*, ant%diag(idiag)%ch(ich)%freq_weight(i), freq_weight_check(i - 1)
+        end do
+        call abort()
+      end if
+      if(sum((ant%diag(idiag)%ch(ich)%freq(2:N_freq) - freq_check(1:N_freq - 1))**2) > 1.d-2) then
+        print*, "Abszissae deviate by more than 1.d-4"
+        do i = 2, N_freq
+          print*, ant%diag(idiag)%ch(ich)%freq(i), freq_check(i - 1)
+        end do
+        call abort()
+      end if
+!        print*, "freq", ant%diag(idiag)%ch(ich)%freq(2:N_freq)
+!        print*, "freq weight",  ant%diag(idiag)%ch(ich)%freq_weight(2:N_freq)
+!        print*, "sum",  sum(ant%diag(idiag)%ch(ich)%freq_weight(2:N_freq))
+!        stop "check weights"
+      !print*, Int_absz(1)
+#endif
+    else
+      ant%diag(idiag)%ch(ich)%freq(1) = ant%diag(idiag)%ch(ich)%f_ECE
+      ant%diag(idiag)%ch(ich)%freq_weight(1) = 1.d0 ! only central frequency
+    end if
+    if (N_ray > 1) then
+      w = ant%diag(idiag)%ch(ich)%width! beam FWHM -> w
+      x_0 =  ant%diag(idiag)%ch(ich)%ray_launch(1)%x_vec
+      N_0 =  ant%diag(idiag)%ch(ich)%ray_launch(1)%N_vec
+      ! Works only if the diagnostic can be assumed as perfectly focused
+      ! The 1D heterodyne radiometer is not, hence this will be overwritten later
+      ! Diagnsotics
+      ! call sub_remap_coords(x_focus, R_focus)
+      ! print*, "Focus point in cyl. coordinates [m] u. [rad]", R_focus
+      !     print*, "R central at launch",ant%diag(idiag)%ch(ich)%ray_launch(1)%R, &
+      !       ant%diag(idiag)%ch(ich)%ray_launch(1)%phi * 180.d0 / pi, &
+      !       ant%diag(idiag)%ch(ich)%ray_launch(1)%z
+      ! The beam needs to be spanned perpendicular to the central ray
+      ! First perpendicular vector
+      x1_orth(1) = 1.0
+      x1_orth(2) = 0.0
+      x1_orth(3) = -N_0(1)/N_0(3)
+      ! Second perpendicular vector
+      x2_orth(1) = - N_0(1) * N_0(2) / N_0(3)
+      x2_orth(2) = N_0(3) - N_0(1)
+      x2_orth(3) = - N_0(2)
+      x1_orth = x1_orth/ sqrt(x1_orth(1)**2 + x1_orth(3)**2) ! need unit vectors here
+      x2_orth = x2_orth/ sqrt(x2_orth(1)**2 + x2_orth(2)**2 + x2_orth(3)**2) ! need unit vectors here
+      if(one_sigma_width) then
+        call cgqf(int(N_x,kind=4), int(1,kind=4), 0.d0, 0.d0, -w, w, x, dx)
+        norm = 1.408163862361065 / (pi * w ** 2) ! norm of the beam gaussian
+      else
+        call cgqf ( int(N_x,kind=4), int(1,kind=4), 0.d0, 0.d0, 0.d0, 2.d0 / (w**2), x, dx )
+        norm = 2.d0 / (pi * w ** 2) ! norm of the beam gaussian
+      end if
+      w0 = (c0*ant%diag(idiag)%ch(ich)%dist_focus*w) / &
+           Sqrt(c0**2*ant%diag(idiag)%ch(ich)%dist_focus**2 + ant%diag(idiag)%ch(ich)%f_ECE**2*Pi**2*w**4)
+      dist_waist = (ant%diag(idiag)%ch(ich)%f_ECE**2*Pi**2*ant%diag(idiag)%ch(ich)%dist_focus*w**4) / &
+                   (c0**2*ant%diag(idiag)%ch(ich)%dist_focus**2 + ant%diag(idiag)%ch(ich)%f_ECE**2*Pi**2*w**4)
+      ! Compute gaussian beam width at focus point
+      w_focus = w0*Sqrt(1.d0 + (c0**2*((ant%diag(idiag)%ch(ich)%dist_focus + ant%diag(idiag)%ch(ich)%focus_shift) - dist_waist)**2) / &
+                            (ant%diag(idiag)%ch(ich)%f_ECE**2*Pi**2*w0**4))
+#ifdef NAG
+      call nag_quad_gs_wt_absc( 4, 0.d0, 2.d0 /( w**2), dx_check, x_check, c= 0.d0)
+      if(sum((dx - dx_check)**2) > 1.d-5) then
+        print*, "Weights deviate by more than 1.d-10"
+        print*, "Norm of the integral over the weights"
+        print*, "GPL lib", sum(dx)
+        print*, "NAG lib", sum(dx_check)
+        print*, " x GPL lib", x
+        print*, " x NAG lib", x_check
+        do i = 1, N_x
+          print*, dx(i), dx_check(i)
+        end do
+        call abort()
+      end if
+      if(sum((x - x_check)**2) > 1.d-5) then
+        print*, "Abszissae deviate by more than 1.d-10"
+        do i = 1, N_x
+          print*, x(i), x_check(i)
+        end do
+        call abort()
+      end if
+#endif
+      do i = 1, N_x
+        do j = 1, N_x
+          x_temp(:) = (x1_orth(:) * x(i) + x2_orth(:) * x(j)) + x_0(:)
+          ! Mimic the finite beam width due to diffraction by accounting for vacuum diffraction
+          x_focus(:) = ant%diag(idiag)%ch(ich)%ray_launch(1)%x_vec + &
+                       (ant%diag(idiag)%ch(ich)%dist_focus + ant%diag(idiag)%ch(ich)%focus_shift) * N_0
+          x_focus(:) = x_focus(:) + (x1_orth(:) * x(i) + x2_orth(:) * x(j)) * w_focus/w
+          call sub_remap_coords(x_temp, R_temp)
+          ant%diag(idiag)%ch(ich)%ray_launch(1 + (i - 1) * N_x + j )%R = R_temp(1)
+          ant%diag(idiag)%ch(ich)%ray_launch(1 + (i - 1) * N_x + j )%phi = R_temp(2)
+          ant%diag(idiag)%ch(ich)%ray_launch(1 + (i - 1) * N_x + j )%z = R_temp(3)
+          ant%diag(idiag)%ch(ich)%ray_launch(1 + (i - 1) * N_x + j )%weight = dx(i) * dx(j)
+          if(one_sigma_width) ant%diag(idiag)%ch(ich)%ray_launch(1 + (i - 1) * N_x + j )%weight =  &
+                                 ant%diag(idiag)%ch(ich)%ray_launch(1 + (i - 1) * N_x + j )%weight * exp(-(x(i)**2 + x(j)**2)/w**2)
+          ant%diag(idiag)%ch(ich)%ray_launch(1 + (i - 1) * N_x + j )%x_vec = x_temp
+          ant%diag(idiag)%ch(ich)%ray_launch(1 + (i - 1) * N_x + j )%N_vec = x_focus - &
+            ant%diag(idiag)%ch(ich)%ray_launch(1 + (i - 1) * N_x + j )%x_vec
+          ant%diag(idiag)%ch(ich)%ray_launch(1 + (i - 1) * N_x + j )%N_vec =  &
+            ant%diag(idiag)%ch(ich)%ray_launch(1 + (i - 1) * N_x + j )%N_vec / &
+            sqrt(ant%diag(idiag)%ch(ich)%ray_launch(1 + (i - 1) * N_x + j )%N_vec(1)**2 + &
+                 ant%diag(idiag)%ch(ich)%ray_launch(1 + (i - 1) * N_x + j )%N_vec(2)**2 + &
+                 ant%diag(idiag)%ch(ich)%ray_launch(1 + (i - 1) * N_x + j )%N_vec(3)**2)
+          if(ant%diag(idiag)%ch(ich)%dist_focus < 0) ant%diag(idiag)%ch(ich)%ray_launch(1 + (i - 1) * N_x + j )%N_vec = -1.0 * &
+                                                     ant%diag(idiag)%ch(ich)%ray_launch(1 + (i - 1) * N_x + j )%N_vec
+          ant%diag(idiag)%ch(ich)%ray_launch(1 + (i - 1) * N_x + j )%phi_tor = &
+            atan(ant%diag(idiag)%ch(ich)%ray_launch(1 + (i - 1) * N_x + j )%N_vec(2) / &
+                 ant%diag(idiag)%ch(ich)%ray_launch(1 + (i - 1) * N_x + j )%N_vec(1))
+          ant%diag(idiag)%ch(ich)%ray_launch(1 + (i - 1) * N_x + j )%theta_pol = ant%diag(idiag)%ch(ich)%ray_launch(1)%theta_pol - &
+            acos(ant%diag(idiag)%ch(ich)%ray_launch(1 + (i - 1) * N_x + j )%N_vec(3))
+          !print*, "Weight of ray", 1 + (i - 1) * N_x + j ," at launch", ant%diag(idiag)%ch(ich)%ray_launch(1 + (i - 1) * N_x + j )%weight * &
+          !        norm
+          !sum_of_weights = sum_of_weights + ant%diag(idiag)%ch(ich)%ray_launch(1 + (i - 1) * N_x + j )%weight
+        end do
+      end do
+      ant%diag(idiag)%ch(ich)%ray_launch(:)%weight = ant%diag(idiag)%ch(ich)%ray_launch(:)%weight * &
+                                                     norm ! normalization
+      !sum_of_weights = sum_of_weights * norm
+      ! Central ray not part of the integration - only for mapping
+      ant%diag(idiag)%ch(ich)%ray_launch(1)%weight = 0.d0
+      ! Renormalization
+      ! Necessary, because the ray weights do not sum up to one in case of low ray count (truncation error)
+      ant%diag(idiag)%ch(ich)%ray_launch(:)%weight = ant%diag(idiag)%ch(ich)%ray_launch(:)%weight / sum(ant%diag(idiag)%ch(ich)%ray_launch(:)%weight)
+      !print*, "Sum of weights from ray discretisation:", sum_of_weights
+      !print*, "Adjusting weights so that sum of weights gives 1"
+      !ant%diag(idiag)%ch(ich)%ray_launch(:)%weight = ant%diag(idiag)%ch(ich)%ray_launch(:)%weight /  sum_of_weights
+      !print*, "weights", ant%diag(idiag)%ch(ich)%ray_launch(:)%weight
+    else
+      ant%diag(idiag)%ch(ich)%ray_launch(1)%weight = 1.d0
+    end if ! N_ray > 1
+  end do ! ich
 #ifdef NAG
   if(N_freq > 1) deallocate(freq_check, freq_weight_check)
   if (N_ray > 1) deallocate(x, dx, x_check, dx_check)
 #endif
-  if(stand_alone .and. .not. new_IO) then
-    close(66)
-  else if(.not. stand_alone .and. present(f) .and. present(working_dir)) then
-    close(76)
-    close(77)
-  end if
-end subroutine prepare_ECE_diag
 
+end subroutine make_launch
 !*******************************************************************************
 
 subroutine dealloc_ant(ant)

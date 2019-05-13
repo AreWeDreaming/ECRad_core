@@ -7,37 +7,32 @@ module mod_ecfm_refr_raytrace_initialize
     type(spl_type_2d)                       :: Psi_spline
     contains
 
-  subroutine get_psi_ax(R, z, i_ax, j_ax, psi_sep, psi_ax, R_ax, z_ax)
+  subroutine get_psi_ax(R, z, i_ax, j_ax, R_ax, z_ax)
   ! Interpolates
     use f90_kind
     use mod_ecfm_refr_types,       only: output_level
-    use nr_mod, only                        : powell ! Minimizer -> Psi_ax has to be a minimum
+    use nr_mod,                    only: powell ! Minimizer -> Psi_ax has to be a minimum
+    use mod_ecfm_refr_interpol,    only: rect_spline
     implicit none
     real(rkind), dimension(:), intent(in)  :: R, z
     integer(ikind)           , intent(in)  :: i_ax, j_ax
-    real(rkind),               intent(in)  :: psi_sep
-    real(rkind),               intent(out) :: psi_ax
     real(rkind),               intent(out) :: R_ax
     real(rkind),               intent(out) :: z_ax
-    real(rkind), dimension(2)              :: p, p_h
+    real(rkind), dimension(2)              :: p
     real(rkind), dimension(2,2)            :: xi
-    real(rkind)                            :: h, ftol
+    real(rkind)                            :: ftol, psi_out, dx, dy
     integer(ikind)                         :: iter
     p(1) = R(i_ax)
     p(2) = z(j_ax)
-    h = 1.d-5
-    p_h  = p
-    p_h(1) = p_h(1) + h
-    xi(:,1) = (eval_Psi(p_h) - eval_Psi(p)) / h
-    p_h  = p
-    p_h(2) = p_h(2) + h
-    xi(:,2) = (eval_Psi(p_h) - eval_Psi(p)) / h
+    call rect_spline(Psi_spline, p(1), p(2), psi_out, dfdx=dx, dfdy=dy)
+    xi(:,1) = dx
+    xi(:,2) = dy
     ftol = 1.d-6
-    !print*, "Before opt",  p(1), p(2)
-    call powell(p,xi,ftol,iter, psi_ax, eval_Psi)
+    call powell(p,xi,ftol,iter, psi_out, eval_Psi)
     R_ax = p(1)
     z_ax = p(2)
-    if(output_level) print*, "Magnetic axis position and rhop on axis",  p(1), p(2), sqrt((eval_Psi(p) - psi_ax)/(psi_sep - psi_ax))
+    !if(output_level) print*, "Magnetic axis position and rhop on axis",  p(1), p(2), sqrt((eval_Psi(p) - psi_ax)/(psi_sep - psi_ax))
+    if(output_level) print*, "Magnetic axis position and rhop on axis",  p(1), p(2), sqrt(eval_Psi(p))
   end subroutine get_psi_ax
 
   function eval_Psi(R)
@@ -78,6 +73,12 @@ module mod_ecfm_refr_raytrace_initialize
                rhop(plasma_params%m, plasma_params%n))
       read(70,'(A)') line
       read(70,*) radin,radout, pf_sxp
+      if(abs(pf_sxp -1.e0) > 1.e-6) then
+        print*, "The Psi provided to ECRad MUST be normalized such that rhop = Sqrt(PSI)"
+        print*, "Hence, psi at the separatrix must be 1"
+        print*, "Psi at the separatrix provided is", pf_sxp
+        call abort()
+      end if
 ! ... Grid: X-coordinates
       read(70,'(A)') line  ;  read(70,fmt=*)(R(i),i=1,plasma_params%m)
 
@@ -93,16 +94,15 @@ module mod_ecfm_refr_raytrace_initialize
       read(70,'(A)') line  ;  read(70,fmt=*)((rhop(i,j),i=1,plasma_params%m),j=1,plasma_params%n)
 
       close(70)
-      if(pf_sxp < rhop(plasma_params%m/2, plasma_params%n/2)) then
-         sgn = -1.e0_rkind
-         pf_sxp = pf_sxp * sgn
-      else
-         sgn = 1.e0_rkind
-      endif
+!      if(pf_sxp < rhop(plasma_params%m/2, plasma_params%n/2)) then
+!         sgn = -1.e0_rkind
+!         pf_sxp = pf_sxp * sgn
+!      else
+!         sgn = 1.e0_rkind
+!      endif
       pf_mag = 1.d99
       i_ax = -1
       do j = 1, plasma_params%n
-        rhop(:,j) = rhop(:,j) * sgn
         if(pf_mag > minval(rhop(:,j))) then
           pf_mag = minval(rhop(:,j))
           i_ax = minloc(rhop(:,j), dim = 1)
@@ -114,12 +114,13 @@ module mod_ecfm_refr_raytrace_initialize
         print*, "Check if psi matrix dimensions correct: R, z", plasma_params%m, plasma_params%n
         stop "Input error - check topfile"
       end if
-      !print*, "Retrieving magn axis"
+      print*, "Retrieving magn axis"
+     ! ECRad wants normalized psi for which rhop = sqrt(Psi)!!!
       call make_rect_spline(Psi_spline, int(plasma_params%m, 4), int(plasma_params%n, 4), R, z, rhop)
-      call get_psi_ax(R, z, i_ax, j_ax, pf_sxp, pf_mag, plasma_params%R_ax, plasma_params%z_ax)
-      rhop = sqrt((rhop - pf_mag)/(pf_sxp - pf_mag))
+      call get_psi_ax(R, z, i_ax, j_ax, plasma_params%R_ax, plasma_params%z_ax)
+      rhop = sqrt(rhop) ! - pf_mag)/(pf_sxp - pf_mag)
       if(any(rhop /= rhop) .or. minval(rhop) < 0.d0) then
-        print*, "critical error when reading topfile, NAN or negative value in rho_pol found"
+        print*, "critical error when reading topfile, NAN or negative value in normalized Psi found"
         print*, rhop
         stop "sub read topfile in mod_raytrace_intialize"
       end if
@@ -255,7 +256,7 @@ module mod_ecfm_refr_raytrace_initialize
     real(rkind), dimension(:), allocatable      :: rhop_Te, rhop_ne, ne_ext, Te_ext
     real(rkind)                                 :: R_mag, z_mag, pf_mag, R_sxp, z_sxp, pf_sxp, rhop_dx_dummy, &
                                                    rhop_dy_dummy, rhop_dxx_dummy, rhop_dxy_dummy, rhop_dyy_dummy, &
-                                                   rhop_X, B_last
+                                                   rhop_X, B_vac_R, B_last, B_vac_R0
     integer(ikind)                              :: i, j
     character(20) :: format_str
     character(1)  :: sep
@@ -346,7 +347,9 @@ module mod_ecfm_refr_raytrace_initialize
     call rect_spline(plasma_params%B_z_spline,plasma_params%R_ax,plasma_params%z_ax,B_last)
     plasma_params%B_ax = plasma_params%B_ax + B_last**2
     plasma_params%B_ax = Sqrt(plasma_params%B_ax)
-    call init_ripple(plasma_params%R_ax, plasma_params%B_ax)
+    B_vac_R0 = B_t(plasma_params%m, int(plasma_params%n/2)) ! Outer most point of Bt -> pure vacuum
+    B_vac_R0 = B_vac_R0 * plasma_params%R(plasma_params%m) / plasma_params%R_ax
+    call init_ripple(plasma_params%R_ax, B_vac_R0) ! This should only be vacuum Bt -> Fix!
     allocate(R_index_lower(plasma_params%n), z_index_lower(plasma_params%m), R_index_upper(plasma_params%n), z_index_upper(plasma_params%m))
     R_index_lower(:) = 1
     z_index_lower(:) = 1
@@ -358,7 +361,7 @@ module mod_ecfm_refr_raytrace_initialize
       call cdgqf( int(plasma_params%int_step_cnt,kind=4), int(1,kind=4), 0.d0, 0.d0, plasma_params%Int_weights, plasma_params%Int_absz)
     else
       do i = 1, plasma_params%int_step_cnt
-        plasma_params%Int_absz(i) = real(i ,8) / real(plasma_params%int_step_cnt ,8) ! spans the points in a way so that there is no overlap
+        plasma_params%Int_absz(i) = real(i ,8) / real(plasma_params%int_step_cnt, 8) ! spans the points in a way so that there is no overlap
                                                                                      ! Int_absz(1) > 0.d0
       end do
     end if

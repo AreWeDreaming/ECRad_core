@@ -41,6 +41,7 @@ module mod_ecfm_refr_interpol
   subroutine make_rect_spline(spl, m, n, x, y, mat, iopt, m_max)
     use f90_kind
     use mod_ecfm_refr_types,        only: spl_type_2d
+    use ifcore,                     only: tracebackqq
     implicit none
     type(spl_type_2d), intent(inout)   :: spl
     integer*4, intent(in)            :: m, n
@@ -57,12 +58,12 @@ module mod_ecfm_refr_interpol
     if(.not. all(x(1:m - 1) < x(2:m))) then
       print*, "y has to be monotonically increasing for spline interpolation (2D)"
       print*, "Check input!"
-      call abort()
+      call tracebackqq()
     end if
     if(.not. all(y(1:n - 1) < y(2:n))) then
       print*, "y has to be monotonically increasing for spline interpolation (2D)"
       print*, "Check input!"
-      call abort()
+      call tracebackqq()
     end if
     if(present(iopt)) then
       spl%iopt_int = int(iopt,4)
@@ -116,6 +117,7 @@ module mod_ecfm_refr_interpol
   subroutine make_1d_spline(spl, m, x, y, iopt, k)
     use f90_kind
     use mod_ecfm_refr_types,        only: spl_type_1d
+    use ifcore,                     only: tracebackqq
     implicit none
     type(spl_type_1d), intent(inout)   :: spl
     integer*4, intent(in)            :: m
@@ -130,7 +132,7 @@ module mod_ecfm_refr_interpol
         spl%k = k
       else
         print*, "The order of the splines must be either linear or cubic"
-        call abort()
+        call tracebackqq()
       end if
     else
       spl%k = 3
@@ -138,13 +140,13 @@ module mod_ecfm_refr_interpol
     if(m <= 1) then
       print*, "Cannot interpolate a single point"
       print*, "1D Interpolation called with singular point"
-      call abort()
+      call tracebackqq()
     end if
     if(.not. all(x(1:m - 1) < x(2:m))) then
       print*, "x has to be monotonically increasing for spline interpolation 1D"
       print*, "Check input!"
       print*, "x", x
-      call abort()
+      call tracebackqq()
     end if
     if(m <= spl%k) spl%k = 1
     if(present(iopt)) then
@@ -204,6 +206,7 @@ module mod_ecfm_refr_interpol
                                           nag_spline_2d_comm_wp => nag_spline_2d_comm_dp
     USE nag_error_handling
 #endif
+    use ifcore,                     only: tracebackqq
     implicit none
     type(spl_type_2d), intent(in)                :: spl
     real(rkind),                      intent(in)  :: x, y
@@ -282,7 +285,7 @@ module mod_ecfm_refr_interpol
     if(present(nag_spline) .and. double_check_splines .and. output_level) then
       CALL nag_set_error(error, halt_level=4)
       call nag_spline_2d_eval(nag_spline, x, y, nag_val, error=error)
-      if(error%level > 1) call abort()
+      if(error%level > 1) call tracebackqq()
       if(abs(nag_val - f) > 1.e-4 .and. abs(nag_val - f)/ abs(nag_val + f) > 1.e-4) then
         print*, "Large deviation between the two splines"
         print*, "nag", nag_val
@@ -401,7 +404,7 @@ module mod_ecfm_refr_interpol
     if(present(nag_spline) .and. double_check_splines .and. output_level) then
       CALL nag_set_error(error, halt_level=4)
       call nag_spline_2d_eval(nag_spline, x_vec, y_vec, nag_vals, error=error)
-      if(error%level > 1) call abort()
+      if(error%level > 1) call tracebackqq()
       if(any(abs(nag_vals - f) > 1.e-3) .and. any(abs(nag_vals - f)/ abs(nag_vals + f) > 1.e-3)) then
         print*, "Large deviation between the two splines"
         print*, "nag", nag_vals
@@ -464,6 +467,7 @@ module mod_ecfm_refr_interpol
                                       nag_spline_1d_comm_wp => nag_spline_1d_comm_dp
     USE nag_error_handling
 #endif
+    use ifcore,                     only: tracebackqq
     implicit none
     type(spl_type_1d), intent(in)         :: spl
     real(rkind),                      intent(in)  :: x
@@ -512,7 +516,7 @@ module mod_ecfm_refr_interpol
     if(present(nag_spline) .and. double_check_splines .and. output_level) then
       CALL nag_set_error(error, halt_level=4)
       call nag_spline_1d_eval(nag_spline, x, nag_val, error=error)
-      if(error%level > 1) call abort()
+      if(error%level > 1) call tracebackqq()
       if(abs(nag_val - f) > 1.e-3 .and. abs(nag_val - f)/ abs(nag_val + f) > 1.e-3) then
         print*, "Large deviation between the two splines"
         print*, "nag", nag_val
@@ -542,6 +546,7 @@ module mod_ecfm_refr_interpol
                                       nag_spline_1d_comm_wp => nag_spline_1d_comm_dp
     USE nag_error_handling
 #endif
+    use ifcore,                     only: tracebackqq
     implicit none
     type(spl_type_1d), intent(in)         :: spl
     real(rkind), dimension(:),        intent(in)     :: x
@@ -588,7 +593,7 @@ module mod_ecfm_refr_interpol
     if(present(nag_spline) .and. double_check_splines .and. output_level) then
       CALL nag_set_error(error, halt_level=4)
       call nag_spline_1d_eval(nag_spline, x, nag_val, error=error)
-      if(error%level > 1) call abort()
+      if(error%level > 1) call tracebackqq()
       if(any(abs(nag_val - f) > 1.e-3 .and. abs(nag_val - f)/ abs(nag_val + f) > 1.e-3)) then
         print*, "Large deviation between the two splines"
         print*, "nag", nag_val
@@ -603,6 +608,7 @@ module mod_ecfm_refr_interpol
   ! Finds the root of a 1D spline
     use f90_kind
     USE mod_ecfm_refr_types , only  : spl_type_1d
+    use ifcore,                     only: tracebackqq
     implicit none
     type(spl_type_1d)                     :: spl
     real(rkind), dimension(:),        intent(out)    :: roots
@@ -611,7 +617,7 @@ module mod_ecfm_refr_interpol
     if(spl%k /= 3) then
       print*, "The root search only works for cubic splines"
       print*, "Order of the given spline", spl%k
-      call abort()
+      call tracebackqq()
     end if
     call sproot(spl%t,spl%n,spl%c, roots, int(size(roots), 4), m_root, ier)
     !print*, "roots", roots(1:3)
