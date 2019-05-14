@@ -3833,7 +3833,7 @@ function func_dA_dY(X, Y)
   svec(1:total_LOS_points)%s = svec(1:total_LOS_points)%s - svec(1)%s ! svec(1) != due to the way that plasma_params%Int_absz is set up
   end subroutine make_s_grid
 
-  subroutine interpolate_svec(svec, ray, omega, total_LOS_points, N, rad_ray_freq, svec_extra_output)
+  subroutine interpolate_svec(plasma_params, svec, ray, omega, total_LOS_points, N, rad_ray_freq, svec_extra_output)
   use mod_ecfm_refr_types,        only: rad_diag_ch_mode_ray_freq_svec_type, plasma_params_type, &
                                         ray_element_full_type, output_level, max_points_svec, &
                                         SOL_ne, SOL_Te, spl_type_1d, rad_diag_ch_mode_ray_freq_type, &
@@ -3843,6 +3843,7 @@ function func_dA_dY(X, Y)
   use mod_ecfm_refr_utils,        only: sub_remap_coords, binary_search
   use f90_kind
   implicit none
+  type(plasma_params_type), intent(in)                                       :: plasma_params
   type(rad_diag_ch_mode_ray_freq_svec_type), dimension(:), intent(inout)     :: svec
   type(ray_element_full_type), dimension(max_points_svec), intent(in)        :: ray !temporary ray
   real(rkind), intent(in)                                                    :: omega
@@ -3934,13 +3935,25 @@ function func_dA_dY(X, Y)
     end if
   end if
   flush_ray_y(1:N_plasma) = pack(ray(1:N)%n_e, ray(1:N)%rhop > 0)
+  if(plasma_params%prof_log_flag) then
+    flush_ray_y(1:N_plasma) = log(flush_ray_y(1:N_plasma) * 1.e-19)
+  end if
   call make_1d_spline(spl, N_plasma, flush_ray_s(1:N_plasma), flush_ray_y(1:N_plasma))
   call spline_1d(spl, flush_svec_s(1:i2 - i1 + 1), flush_svec_y(1:i2 - i1 + 1))
   svec(i1:i2)%ne = flush_svec_y(1:i2 - i1 + 1)
+  if(plasma_params%prof_log_flag) then
+    svec(i1:i2)%ne = exp(svec(i1:i2)%ne) * 1.e19
+  end if
   flush_ray_y(1:N_plasma) = pack(ray(1:N)%T_e, ray(1:N)%rhop > 0)
+  if(plasma_params%prof_log_flag) then
+    flush_ray_y(1:N_plasma) = log(flush_ray_y(1:N_plasma))
+  end if
   call make_1d_spline(spl, N_plasma, flush_ray_s(1:N_plasma), flush_ray_y(1:N_plasma))
   call spline_1d(spl, flush_svec_s(1:i2 - i1 + 1), flush_svec_y(1:i2 - i1 + 1))
   svec(i1:i2)%Te = flush_svec_y(1:i2 - i1 + 1)
+  if(plasma_params%prof_log_flag) then
+    svec(i1:i2)%Te = exp(svec(i1:i2)%Te)
+  end if
   flush_ray_y(1:N_plasma) = pack(ray(1:N)%N_s, ray(1:N)%rhop > 0)
   call make_1d_spline(spl, N_plasma, flush_ray_s(1:N_plasma), flush_ray_y(1:N_plasma))
   call spline_1d(spl, flush_svec_s(1:i2 - i1 + 1), flush_svec_y(1:i2 - i1 + 1))
@@ -4162,12 +4175,12 @@ function func_dA_dY(X, Y)
                              last_N, dist, rad_ray_freq=rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq))
           end if
           if(output_level) then
-            call interpolate_svec(rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%svec, ray_segment, omega, &
+            call interpolate_svec(plasma_params, rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%svec, ray_segment, omega, &
                                   rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%total_LOS_points, last_N, &
                                   rad_ray_freq=rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq), &
                                   svec_extra_output=rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%svec_extra_output)
           else
-            call interpolate_svec(rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%svec, ray_segment, omega, &
+            call interpolate_svec(plasma_params, rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%svec, ray_segment, omega, &
                                   rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%total_LOS_points, last_N, &
                                   rad_ray_freq=rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq))
           end if
@@ -4322,7 +4335,7 @@ function func_dA_dY(X, Y)
   type(plasma_params_type), intent(in)                                    :: plasma_params
   real(rkind), intent(in)                                                 :: ds1, ds2
   type(rad_diag_ch_mode_ray_freq_svec_extra_output_type), dimension(:), intent(inout), optional  :: svec_extra_output
-  type(ray_element_full_type), dimension(max_points_svec)                 :: ray_segment
+  type(ray_element_full_type), dimension(total_LOS_points)                :: ray_segment
   integer(ikind)                                                          :: last_N, k, grid_size
   real(rkind), dimension(2)                                               :: dist, Y_res_X
   real(rkind), dimension(1)                                               :: Y_res_O
@@ -4365,10 +4378,10 @@ function func_dA_dY(X, Y)
   max_points_in_svec_reached = .false.
   last_N = total_LOS_points
   if(mode > 0) then
-    call make_s_grid(plasma_params, omega, Y_res_X, new_svec, ray_segment, total_LOS_points, last_N, &
+    call make_s_grid(plasma_params, omega, Y_res_X, svec, ray_segment, total_LOS_points, last_N, &
                      dist, max_points_svec_reached=max_points_in_svec_reached)
   else
-    call make_s_grid(plasma_params, omega, Y_res_O, new_svec, ray_segment, total_LOS_points, last_N, &
+    call make_s_grid(plasma_params, omega, Y_res_O, svec, ray_segment, total_LOS_points, last_N, &
                      dist, max_points_svec_reached=max_points_in_svec_reached)
   end if
   if(max_points_in_svec_reached) then
@@ -4380,6 +4393,8 @@ function func_dA_dY(X, Y)
       print*, "If Te/ne is reasonable increase max_points_svec and rerun program"
       call abort()
     else
+        total_LOS_points = last_N
+        svec(1:total_LOS_points)%s = ray_segment%s
       print*, "Flagging this channel as at maximum amount of steps and continuing"
       print*, "------------------------------------------------------------------------------------------"
       print*, "|  Warning: ECFM encountered irresolvable numerical difficulties in radiation transport!  |"
@@ -4390,15 +4405,13 @@ function func_dA_dY(X, Y)
     return
   else
     if(present(svec_extra_output)) then
-      call interpolate_svec(new_svec, ray_segment, omega, &
+      call interpolate_svec(plasma_params, svec, ray_segment, omega, &
                             total_LOS_points, last_N, &
-                            svec_extra_output=new_svec_extra_output)
-      svec_extra_output(1:total_LOS_points) = new_svec_extra_output(1:total_LOS_points)
+                            svec_extra_output=svec_extra_output)      
     else
-      call interpolate_svec(new_svec, ray_segment, omega, &
+      call interpolate_svec(plasma_params, svec, ray_segment, omega, &
                             total_LOS_points, last_N)
     end if
-    svec(1:total_LOS_points) = new_svec(1:total_LOS_points)
   end if
   !print*, "s_max after", svec(total_LOS_points)%s
   !print*, "total los points", total_LOS_points

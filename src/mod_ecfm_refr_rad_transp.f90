@@ -496,6 +496,8 @@ do i = 1, rad_ray_freq%total_LOS_points-2, 2           ! integration over every 
                                       rad_ray_freq%svec(i + 2)%Te
           print*, "ne of last steps", rad_ray_freq%svec(i)%ne, rad_ray_freq%svec(i + 1)%ne, &
                                       rad_ray_freq%svec(i + 2)%ne
+          print*, "ds of last steps", rad_ray_freq%svec(i + 1)%s - rad_ray_freq%svec(i)%s, &
+                                      rad_ray_freq%svec(i + 2)%s - rad_ray_freq%svec(i + 1)%s
         end if
         error = 1
         return
