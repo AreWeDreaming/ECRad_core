@@ -477,7 +477,7 @@ type plasma_params_type
   real(rkind)                                       :: tau_max = 9 !* If tau > tau_max the radiation transport is deemed finished
                                                        ! tau = 5 corresponds to a reabsorption of more than 99% of all radiation
                                                        ! => good enough for thermal plasmas
-  real(rkind)                                       :: angle_threshold = 90.d0 / 180.d0 * pi !2.d0 * pi !90.d0 / 180.d0 * pi !* maximum allowed change in
+  real(rkind)                                       :: angle_threshold = 90.d0 / 180.d0 * pi !2.d0 * pi !90.d0 / 180.d0 * pi !* maximum allowed rotation of wave vector k with respect to the launch
                                                        ! 2.d0 * pi ! no threshhold
                                                        ! propagation with respect to launch (avoids internal reflections)
   real(rkind)                                       :: btf_corr_fact_ext = -1.d0 ! Scaling factor for B_t

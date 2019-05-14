@@ -3688,11 +3688,11 @@ function func_dA_dY(X, Y)
   type(rad_diag_ch_mode_ray_freq_type), intent(inout), optional              :: rad_ray_freq
   logical, intent(out), optional                                             :: max_points_svec_reached
   type(spl_type_1d)                                                          :: spl
-  real(rkind), dimension(last_N)                                             :: flush_ray_s, flush_ray_y, roots, s_dense
+  real(rkind), dimension(last_N)                                             :: flush_ray_s, flush_ray_y, roots, s_dense, s_dense_debug
   integer(ikind)                                                             :: i, N_roots, N_s_dense, i_root, roots_processed, grid, &
-                                                                                i_next, i_next_root, i_svec, i_last
+                                                                                i_next, i_next_root, i_svec, i_last, N_interval
   real(rkind)                                                                :: s_next, a, b, dense_interval, sparse_interval, &
-                                                                                N_interval, i_interval, cur_dist, s_res
+                                                                                i_interval, cur_dist, s_res
   logical                                                                    :: ray_finished
   flush_ray_s = ray(1:last_N)%s
   flush_ray_y = ray(1:last_N)%omega_c / omega
@@ -3702,15 +3702,19 @@ function func_dA_dY(X, Y)
     call make_1d_spline(spl, last_N, flush_ray_s, flush_ray_y - (Y_res(i) + plasma_params%up_shift))
     call spline_1d_get_roots(spl, roots, N_roots)
     do i_root= 1, N_roots
-      s_dense(N_s_dense) = roots(i_root)
-      N_s_dense = N_s_dense + 1
+      if(roots(i_root) > 0.d0) then
+        s_dense(N_s_dense) = roots(i_root)
+        N_s_dense = N_s_dense + 1
+      end if
     end do
   ! Downshift -> resonance at magnetic field slightly higher than at cold resonance
     call make_1d_spline(spl, last_N, flush_ray_s, flush_ray_y - (Y_res(i) + plasma_params%down_shift))
     call spline_1d_get_roots(spl, roots, N_roots)
     do i_root= 1, N_roots
-      s_dense(N_s_dense) = roots(i_root)
-      N_s_dense = N_s_dense + 1
+      if(roots(i_root) > 0.d0) then
+        s_dense(N_s_dense) = roots(i_root)
+        N_s_dense = N_s_dense + 1
+      end if
     end do
   end do
   if(present(rad_ray_freq)) then
@@ -3723,6 +3727,7 @@ function func_dA_dY(X, Y)
     end if
   end if
   N_s_dense = N_s_dense - 1 ! Fortran stuff
+  s_dense_debug(1:N_s_dense) = s_dense(1:N_s_dense)
   call deallocate_1d_spline(spl)
   grid = 2 ! Grid size of -1 step, usually first step is large that means the previous is small
   !Check if first point already in dense
@@ -3814,12 +3819,25 @@ function func_dA_dY(X, Y)
     end if
     do i_interval = 1, N_interval
     ! Process the current interval
-      if(i_svec + N_interval * plasma_params%int_step_cnt > max_points_svec) then
+      if(i_svec + plasma_params%int_step_cnt > max_points_svec) then
         if(present(max_points_svec_reached)) then
           max_points_svec_reached = .true.
           return
         else
           print*, "max_points_svec has been reached, increase max_point_svec in the input file"
+          print*,"===================== DEBUG INFO ========================================"
+          print*, "First and last point of the ray in [m]", flush_ray_s(1), flush_ray_s(last_N)
+          print*, "First and last point of svec", svec(1)%s, svec(i_svec - 1)%s
+          print*, "Current position in the ray and end of current segment: ", a, cur_dist + a
+          print*, "Current step size and dist", cur_dist, dist
+          print*, "i_svec and N_interval", i_svec
+          print*, "Dense points", s_dense_debug(1:N_s_dense)
+          open(69, file="s_grid.dat")
+          do i = 1, i_svec
+            write(69, "(E18.10E3)") svec(i)%s
+          end do
+          close(69)
+          print*, "Created s_grid.dat containing the current s grid"
           call abort()
         end if
       end if
