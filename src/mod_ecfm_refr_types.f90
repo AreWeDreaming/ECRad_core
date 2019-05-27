@@ -429,7 +429,7 @@ type plasma_params_type
   type(point_type), dimension(:), allocatable       :: vessel_poly ! polynome describing the vessel (2D)
   integer(ikind)                                    :: shot, eq_ed
   integer(ikind)                                    :: ida_time_indx
-  real(rkind)                                       :: time, time_beg, time_end ! center lower and upper end of the time interval
+  real(rkind)                                       :: time
   real(rkind), dimension(:), allocatable            :: rhop_vec_ne, n_e_prof, rhop_vec_Te, T_e_prof, R, z, B_t
   real(rkind), dimension(:), allocatable            :: Int_absz, Int_weights ! for radiation transport w. ray tracing
   real(rkind)                                       :: R_min, R_max, z_min, z_max,R_step, z_step, rhop_max = 1.2
@@ -480,7 +480,7 @@ type plasma_params_type
   real(rkind)                                       :: angle_threshold = 90.d0 / 180.d0 * pi !2.d0 * pi !90.d0 / 180.d0 * pi !* maximum allowed rotation of wave vector k with respect to the launch
                                                        ! 2.d0 * pi ! no threshhold
                                                        ! propagation with respect to launch (avoids internal reflections)
-  real(rkind)                                       :: btf_corr_fact_ext = -1.d0 ! Scaling factor for B_t
+  real(rkind)                                       :: btf_corr_fact_ext = -1.d0 ! Scaling factor for B_t -> Deprecated, does nothing
   real(rkind)                                       :: rp_min
   logical                                           :: No_ne_te = .false. ! True for initialization with straight rays
   logical                                           :: prof_log_flag = .true. ! If True Te and ne interpolated by Exp(Spl) instead of Spl directly

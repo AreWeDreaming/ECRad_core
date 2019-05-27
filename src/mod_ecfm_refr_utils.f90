@@ -197,19 +197,28 @@ character(200)                    :: input_filename
   read(66,"(L1)") plasma_params%w_ripple
   read(66,"(L1)") warm_plasma
   read(66,"(E19.12E2)") ratio_for_third_harmonic
-  read(66,"(I1)") reflec_model
+  read(66,"(I1)") reflec_model! Obsolete has to be removed
   read(66,"(E19.12E2)") reflec_X
   read(66,"(E19.12E2)") reflec_O
   if(.not. new_IO) then
     read(66,"(E19.12E2)") vessel_plasma_ratio
   end if
-  read(66,"(E19.12E2)") plasma_params%btf_corr_fact_ext
+  if(.not. new_IO) then
+    read(66,"(E19.12E2)") plasma_params%btf_corr_fact_ext
+  else
+    plasma_params%btf_corr_fact_ext = 1.d0 ! Not used anyways
+  end if
   read(66,"(I1)") modes
   mode_cnt = 1
   if(modes == 3) mode_cnt = 2
   read(66,"(E19.12E2)") mode_conv
-  read(66,"(E19.12E2)") plasma_params%rhop_scale_Te
-  read(66,"(E19.12E2)") plasma_params%rhop_scale_ne
+  if(.not. new_IO) then
+    read(66,"(E19.12E2)") plasma_params%rhop_scale_Te ! Deprecated -> remove
+    read(66,"(E19.12E2)") plasma_params%rhop_scale_ne ! Deprecated -> remove
+  else
+    plasma_params%rhop_scale_Te = 1.0
+    plasma_params%rhop_scale_ne = 1.0
+  end if
   read(66,"(I4)"), N_freq ! N_freq > 1 -> consider bandwith
   if( int(real(N_freq + 1,8)/ 2.d0) /= real(N_freq + 1,8)/ 2.d0) then
     print*, "Please chose an odd N_freq in the input file"
@@ -222,8 +231,8 @@ character(200)                    :: input_filename
   end if
   read(66,"(E19.12E2)") plasma_params%dist_large
   read(66,"(E19.12E2)") plasma_params%dist_small
-  read(66,"(E19.12E2)") plasma_params%R_shift
-  read(66,"(E19.12E2)") plasma_params%z_shift
+  read(66,"(E19.12E2)") plasma_params%R_shift ! Obsolete
+  read(66,"(E19.12E2)") plasma_params%z_shift ! Obsolete
   read(66,"(I10)") max_points_svec
   if(new_IO) then
     n_e_filename = trim(working_dir) // "ECRad_data/" // "ne_file.dat"
@@ -237,8 +246,8 @@ character(200)                    :: input_filename
     ray_launch_file = trim(working_dir) // "ecfm_data/" // "ray_launch.dat"
   end if
   if(output_level) then
-    print*,"Chosen ECFM mode ", dstf
-    print*, "Found ", ant%N_diag," diagnostics to model"
+    print*,"Chosen ECRad mode ", dstf
+    if (.not. new_IO) print*, "Found ", ant%N_diag," diagnostics to model"
     if(straight) then
       print*, "NO RAYTRACING"
     else
@@ -246,9 +255,6 @@ character(200)                    :: input_filename
     end if
   end if
   close(66)
-  plasma_params%time_beg = plasma_params%time - 0.5d0 * time_smth
-  if( plasma_params%time_beg < 0.d0) plasma_params%time_beg = 0.d0
-  plasma_params%time_end = plasma_params%time + 0.5d0 * time_smth
 end subroutine read_input_file
 
 #ifdef IDA
