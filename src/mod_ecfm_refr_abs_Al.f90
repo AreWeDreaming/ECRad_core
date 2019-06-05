@@ -322,10 +322,10 @@ contains
     func_rel_N = sqrt(func_rel_N)
   end function func_rel_N
 
-  subroutine abs_Al_N_with_pol_vec( omega, X, Y, sin_theta, cos_theta, mode, N, e) ! Following [2]
+  subroutine abs_Al_N_with_pol_vec( omega, X, Y, cos_theta, sin_theta, mode, N, e) ! Following [2]
     use constants,                  only: pi, e0, mass_e, eps0, c0
     implicit none
-    real(rkind), intent(in)                :: omega, X, Y, sin_theta, cos_theta
+    real(rkind), intent(in)                :: omega, X, Y, cos_theta, sin_theta
     integer(ikind), intent(in)             :: mode
     real(rkind), intent(out)               :: N
     complex(r8), dimension(3), intent(out) :: e
@@ -504,7 +504,7 @@ contains
         end if
         scal_prod = 0.d0
         if(present(pol_coeff_secondary)) pol_coeff_secondary = get_filter_transmittance(omega, &
-                                         alpha, sqrt(beta), svec%sin_theta, svec%cos_theta, &
+                                         alpha, sqrt(beta), svec%cos_theta, svec%sin_theta, &
                                          mode, svec%x_vec, svec%N_vec, svec%B_vec, x_launch, &
                                          pol_vec_ext = pol_vec_dummy)
       else
@@ -703,7 +703,7 @@ contains
     X = omega_p**2 / omega**2
     omega_bar = omega / omega_c
     !print*, "plasma_params", X, Y, svec%Te, svec%theta * 180.d0 / pi, svec%N_cold
-    call abs_Al_N_with_pol_vec( omega, X, Y,svec%sin_theta, svec%cos_theta, mode, N_abs, e) ! mode = X -> + 1
+    call abs_Al_N_with_pol_vec( omega, X, Y, svec%cos_theta, svec%sin_theta, mode, N_abs, e) ! mode = X -> + 1
     if(N_abs /= N_abs .or. N_abs <= 0.0 .or. N_abs > 1.0) return
     if(dstf /= "relamax" .or. output_level) then
       call prepare_dist(svec, Int_absz, Int_weights, f_spl, dist_params)
@@ -723,7 +723,7 @@ contains
       end if
     end if
     if(present(pol_coeff)) then
-      pol_coeff = get_filter_transmittance(omega, X, Y, svec%sin_theta, svec%cos_theta, mode, &
+      pol_coeff = get_filter_transmittance(omega, X, Y, svec%cos_theta, svec%sin_theta, mode, &
         svec%x_vec, svec%N_vec, svec%B_vec, x_launch)
     end if
     if(present(pol_coeff) .and. svec%Te < SOL_Te) then
@@ -733,7 +733,7 @@ contains
       return
     end if
     N_par = svec%cos_theta * N_abs
-    N_perp = svec%sin_theta * N_abs
+    N_perp = abs(svec%sin_theta * N_abs)
 !    if((N_abs - svec%N_cold) * 2.d0 / (N_abs + svec%N_cold) > 1.d-4) then
 !      print*, N_abs, svec%N_cold
 !      stop "Inconsistent N_abs"
@@ -743,16 +743,16 @@ contains
       if(real(m_sum,8) < m_0 ) cycle
       !print*, "N_abs ext:", svec%N_cold
       if(present(c_abs_secondary) .and. present(j_secondary) ) then
-        call abs_Al_integral_nume(svec, f_spl, dist_params, X, Y, omega_bar, m_0, N_abs, N_par, N_perp, e, mode, m_sum, c_abs_m, j_m, &
+        call abs_Al_integral_nume(svec, f_spl, dist_params, X, Y, omega_bar, m_0, N_abs, svec%cos_theta, svec%sin_theta, e, mode, m_sum, c_abs_m, j_m, &
                                   c_abs_secondary=c_abs_m_secondary, j_secondary=j_m_secondary)
       else if(present(c_abs_secondary)) then
-        call abs_Al_integral_nume(svec, f_spl, dist_params, X, Y, omega_bar, m_0, N_abs, N_par, N_perp, e, mode, m_sum, c_abs_m, j_m, &
+        call abs_Al_integral_nume(svec, f_spl, dist_params, X, Y, omega_bar, m_0, N_abs, svec%cos_theta, svec%sin_theta, e, mode, m_sum, c_abs_m, j_m, &
                                   c_abs_secondary= c_abs_m_secondary)
       else if(present(j_secondary)) then
-        call abs_Al_integral_nume(svec, f_spl, dist_params, X, Y, omega_bar, m_0, N_abs, N_par, N_perp, e, mode, m_sum, c_abs_m, j_m, &
+        call abs_Al_integral_nume(svec, f_spl, dist_params, X, Y, omega_bar, m_0, N_abs, svec%cos_theta, svec%sin_theta, e, mode, m_sum, c_abs_m, j_m, &
                                   j_secondary=j_m_secondary)
       else
-        call abs_Al_integral_nume(svec, f_spl, dist_params, X, Y, omega_bar, m_0, N_abs, N_par, N_perp, e, mode, m_sum, c_abs_m, j_m)
+        call abs_Al_integral_nume(svec, f_spl, dist_params, X, Y, omega_bar, m_0, N_abs, svec%cos_theta, svec%sin_theta, e, mode, m_sum, c_abs_m, j_m)
       end if
       c_abs_m = -(c_abs_m * 2.d0 * pi**2 / m_0) ! Splitting this is just for overview
       c_abs_m = c_abs_m * omega_p_cold**2 / (omega_c  * c0 ) ! revert the norminalization (w /wp^2)
@@ -779,7 +779,7 @@ contains
 !        if( sqrt((real(m_sum,8) / m_0)**2 - 1.d0) * c_abs_m  > 1.e4) then
 !          print*, "Very large absorption coefficient encountered: ", c_abs
 !          if(dstf == "gene") then
-!          call abs_Al_integral_nume(svec, X, Y, omega_bar, m_0, N_abs, N_par, N_perp, f, a_sq, b_sq, mode, m_sum, c_abs_m, j_m, &
+!          call abs_Al_integral_nume(svec, X, Y, omega_bar, m_0, N_abs, svec%sin_theta, svec%cos_theta, f, a_sq, b_sq, mode, m_sum, c_abs_m, j_m, &
 !                                    c_abs_secondary= c_abs_m_secondary, debug= .true.)
 !          else
 !            call abs_Al_integral_nume(svec, X, Y, omega_bar, m_0, N_abs, N_par, N_perp, f, a_sq, b_sq, mode, m_sum, c_abs_m, j_m, debug= .true.)
@@ -860,7 +860,7 @@ contains
     omega_bar = omega / omega_c
     c_abs = 0.d0
     !print*, "plasma_params", X, Y, svec%Te, svec%theta * 180.d0 / pi, svec%N_cold
-    call abs_Al_N_with_pol_vec( omega, X, Y,svec%sin_theta, svec%cos_theta, mode, N_abs, e) ! mode = X -> + 1
+    call abs_Al_N_with_pol_vec( omega, X, Y, svec%cos_theta, svec%sin_theta, mode, N_abs, e) ! mode = X -> + 1
     if(N_abs /= N_abs .or. N_abs <= 0.0 .or. N_abs > 1.0) return
     tau_upper_limit = get_upper_limit_tau(svec, N_abs, omega, ds2)
     if(tau_upper_limit < tau_ignore) then
@@ -868,7 +868,7 @@ contains
       return
     end if
     N_par = svec%cos_theta * N_abs
-    N_perp = svec%sin_theta * N_abs
+    N_perp = abs(svec%sin_theta * N_abs)
 !    if((N_abs - svec%N_cold) * 2.d0 / (N_abs + svec%N_cold) > 1.d-4) then
 !      print*, N_abs, svec%N_cold
 !      stop "Inconsistent N_abs"
@@ -878,7 +878,7 @@ contains
     do m_sum = 2, max_harmonic ! First harmonic needs to be treated seperately (for now ignored)
       if(real(m_sum,8) < m_0 ) cycle
       !print*, "N_abs ext:", svec%N_cold
-      call abs_Al_integral_nume_fast(svec, X, Y, omega_bar, m_0, N_abs, N_par, N_perp, e, m_sum, c_abs_m)
+      call abs_Al_integral_nume_fast(svec, X, Y, omega_bar, m_0, N_abs, svec%cos_theta, svec%sin_theta, e, m_sum, c_abs_m)
       c_abs = c_abs + sqrt((real(m_sum,8) / m_0)**2 - 1.d0) * c_abs_m
     end do
     !if(Y
@@ -917,7 +917,7 @@ contains
   end subroutine abs_Albajar_fast
 
 
-  subroutine abs_Al_integral_nume(svec, f_spl, dist_params, X, Y, omega_bar, m_0, N_abs, N_par, N_perp, e, mode, m,c_abs, j, c_abs_secondary, j_secondary, debug)
+  subroutine abs_Al_integral_nume(svec, f_spl, dist_params, X, Y, omega_bar, m_0, N_abs, cos_theta, sin_theta, e, mode, m,c_abs, j, c_abs_secondary, j_secondary, debug)
     Use mod_ecfm_refr_types,        only: rad_diag_ch_mode_ray_freq_svec_type, k_int, dstf, dstf_comp, ffp, spl_type_2d, non_therm_params_type, dstf_comp
     use constants,                  only: pi,e0, mass_e ,c0
     use mod_ecfm_radiation_dist,    only: radiation_dist_f_norm, make_f_and_Rf_along_line
@@ -925,7 +925,7 @@ contains
     type(rad_diag_ch_mode_ray_freq_svec_type), intent(in)   :: svec
     type(spl_type_2d), intent(in)                           :: f_spl
     type(non_therm_params_type), intent(in)                   :: dist_params
-    real(rkind), intent(in)                            :: X, Y, omega_bar ,m_0, N_abs, N_par, N_perp
+    real(rkind), intent(in)                            :: X, Y, omega_bar, m_0, N_abs, cos_theta, sin_theta
     complex(r8), dimension(:), intent(in)              :: e
     integer(ikind), intent(in)                         :: mode, m
     real(rkind), intent(out)                           :: c_abs, j
@@ -934,10 +934,12 @@ contains
     real(rkind), dimension(size(Int_weights)) :: u_par, u_perp_sq, gamma, pol_fact, c_abs_int, j_int, &
                                                  c_abs_secondary_int,  j_secondary_int, f_dist, Rf_dist, &
                                                  f_dist_comp, Rf_dist_comp ! these two belong to the distribution
-    real(rkind)     :: m_omega_bar, mu, norm
+    real(rkind)     :: m_omega_bar, mu, norm, N_par, N_perp
     character(7)    :: dstf_old ! for switching dstf to compute thermal distribution
     integer(ikind)                :: k
     c_abs= 0.d0
+    N_par = N_abs * cos_theta
+    N_perp = abs(N_abs * sin_theta)
     if(present(c_abs_secondary)) c_abs_secondary= 0.d0
     j = 0.d0
     if(present(j_secondary)) j_secondary= 0.d0
@@ -958,9 +960,9 @@ contains
     end if
     gamma(:) = sqrt(1.d0 + u_par(:)**2 + u_perp_sq(:))
     if(dstf_comp == "Al") then
-      call abs_Al_pol_fact_perp(svec, Int_absz, X, Y, omega_bar, m_0, N_abs, N_par, N_perp, e, mode,  m, pol_fact)
+      call abs_Al_pol_fact_perp(svec, Int_absz, X, Y, omega_bar, m_0, N_abs, e, mode,  m, pol_fact)
     else
-      call abs_Al_pol_fact(svec, Int_absz, X, Y, omega_bar, m_0, N_abs, N_par, N_perp, e, mode,  m, pol_fact)
+      call abs_Al_pol_fact(svec, Int_absz, X, Y, omega_bar, m_0, N_abs, cos_theta, sin_theta, e, mode,  m, pol_fact)
     end if
     call make_f_and_Rf_along_line(u_par, sqrt(u_perp_sq), gamma, m_omega_bar, N_par, mu, svec, f_spl, dist_params, dstf, f_dist, Rf_dist)
     c_abs_int =  Int_weights * pol_fact * Rf_dist
@@ -1062,19 +1064,21 @@ contains
     end if
   end subroutine abs_Al_integral_nume
 
-  subroutine abs_Al_integral_nume_fast(svec, X, Y, omega_bar, m_0, N_abs, N_par, N_perp, e,  m,c_abs)
+  subroutine abs_Al_integral_nume_fast(svec, X, Y, omega_bar, m_0, N_abs, cos_theta, sin_theta, e,  m,c_abs)
     Use mod_ecfm_refr_types,        only: rad_diag_ch_mode_ray_freq_svec_type, k_int, dstf_comp
     use constants,                  only: pi,e0, mass_e ,c0
     implicit none
     type(rad_diag_ch_mode_ray_freq_svec_type), intent(in)   :: svec
-    real(rkind), intent(in)                            :: X, Y, omega_bar ,m_0, N_abs, N_par, N_perp
+    real(rkind), intent(in)                            :: X, Y, omega_bar ,m_0, N_abs, cos_theta, sin_theta
     complex(r8), dimension(:), intent(in)              :: e
     integer(ikind), intent(in)                         :: m
     real(rkind), intent(out)                           :: c_abs
     real(rkind), dimension(size(Int_weights)) :: u_par, u_perp_sq, gamma, pol_fact, c_abs_int, j_int
-    real(rkind)     :: m_omega_bar, mu, a_norm, a
+    real(rkind)     :: m_omega_bar, mu, a_norm, a, N_par, N_perp
     integer(ikind)                :: k
     c_abs= 0.d0
+    N_par = N_abs * cos_theta
+    N_perp = abs(N_abs * sin_theta)
     m_omega_bar = real(m) / omega_bar
     mu = c0**2 * mass_e/(svec%Te * e0)
     u_par(:) = 1.d0 / sqrt(1.d0 - N_par**2) * ( real(m,8)/m_0 * N_par + &
@@ -1090,7 +1094,7 @@ contains
     c_abs = c_abs * a * (sqrt(mu / (2 * pi))**3)
   end subroutine abs_Al_integral_nume_fast
 
-  subroutine abs_Al_pol_fact(svec, t, X, Y, omega_bar, m_0, N_abs, N_par, N_perp, e, mode, m, pol_fact)
+  subroutine abs_Al_pol_fact(svec, t, X, Y, omega_bar, m_0, N_abs, cos_theta, sin_theta, e, mode, m, pol_fact)
   ! According to formula (2a and 2c) in [1]
   ! The 1D ECE is slightly oblique and the Inline and imagining systems are very oblique,
   ! hence the approximation of N_par = 0 is not appropriate
@@ -1099,12 +1103,12 @@ contains
     implicit none
     type(rad_diag_ch_mode_ray_freq_svec_type), intent(in)   :: svec
     real(rkind), dimension(:), intent(in)              :: t
-    real(rkind), intent(in)                            ::  X, Y, omega_bar, m_0, N_abs, N_par, N_perp
+    real(rkind), intent(in)                            ::  X, Y, omega_bar, m_0, N_abs, cos_theta, sin_theta
     complex(r8), dimension(:), intent(in)              :: e
     integer(ikind), intent(in)                         :: mode, m
     real(rkind), dimension(:), intent(out)             :: pol_fact
     real(rkind)                   :: x_m
-    real(rkind)                   :: N_eff, Axz_sq, Re_Axz_ey, Re_Axz_ez, Re_ey_ez, N_gray, ey_sq, ez_sq, abs_c
+    real(rkind)                   :: N_eff, Axz_sq, Re_Axz_ey, Re_Axz_ez, Re_ey_ez, N_gray, ey_sq, ez_sq, abs_c, N_par, N_perp
     real(rkind), dimension(3,3)  :: E_mat
     complex(r8), dimension(3)  :: pol_vect
     complex(r8)                :: Axz
@@ -1112,6 +1116,8 @@ contains
     logical                      :: cold, debug
     cold = .true. ! to see if Gray the polarzation vector increases accuracy -> cold = .false.
     debug = .false.
+    N_par = N_abs * cos_theta
+    N_perp = abs(N_abs * sin_theta)
     x_m =  N_perp * omega_bar * sqrt((real(m,8)/ m_0)**2 - 1.d0)
     N_eff = (N_perp * N_par)/ (1.d0 - N_par**2)
     if(cold) then
@@ -1177,7 +1183,7 @@ contains
     pol_fact(:) = pol_fact(:)  * (real(m,8)  / (N_perp * omega_bar))**2
   end subroutine abs_Al_pol_fact
 
-  subroutine abs_Al_pol_fact_perp(svec, t, X, Y, omega_bar, m_0, N_abs, N_par, N_perp, e, mode, m, pol_fact)
+  subroutine abs_Al_pol_fact_perp(svec, t, X, Y, omega_bar, m_0, N_abs, e, mode, m, pol_fact)
   ! According to formula (2a and 2c) in [1]
   ! The 1D ECE is slightly oblique and the Inline and imagining systems are very oblique,
   ! hence the approximation of N_par = 0 is not appropriate
@@ -1186,7 +1192,7 @@ contains
     implicit none
     type(rad_diag_ch_mode_ray_freq_svec_type), intent(in)   :: svec
     real(rkind), dimension(:), intent(in)              :: t
-    real(rkind), intent(in)                            ::  X, Y, omega_bar, m_0, N_abs, N_par, N_perp
+    real(rkind), intent(in)                            ::  X, Y, omega_bar, m_0, N_abs
     complex(r8), dimension(:), intent(in)              :: e
     integer(ikind), intent(in)                         :: mode, m
     real(rkind), dimension(:), intent(out)             :: pol_fact
@@ -1198,8 +1204,8 @@ contains
     real(rkind), dimension(size(t))  :: bessel_arg, bessel_n_l, bessel_n_2, bessel_n, bessel_n_u, abs_Al_bessel_sqr_deriv
     logical                      :: cold
     cold = .true. ! to see if Gray the polarzation vector increases accuracy -> cold = .false.
-    x_m =  N_perp * omega_bar * sqrt((real(m,8)/ m_0)**2 - 1.d0)
-    N_eff = (N_perp * N_par)/ (1.d0 - N_par**2)
+    x_m =  N_abs * omega_bar * sqrt((real(m,8)/ m_0)**2 - 1.d0)
+    N_eff = 0.d0
     if(cold) then
       pol_vect = e
 !      call get_E_factors(X, Y, N_abs, N_perp, N_par, e,  E_mat )
@@ -1242,13 +1248,13 @@ contains
     pol_fact(:) = pol_fact(:) + Re_Axz_ey * x_m / real(m,8) * abs_Al_bessel_sqr_deriv
     pol_fact(:) = pol_fact(:) - (bessel_arg / real(m,8))**2 * &
       ey_sq * bessel_n_l * bessel_n_u
-    pol_fact(:) = pol_fact(:) + (x_m / (real(m,8) * sqrt( 1.0 - N_par**2)))**2 * &
+    pol_fact(:) = pol_fact(:) + (x_m / (real(m,8)))**2 * &
       ez_sq * t(:)**2 * bessel_n_2
-    pol_fact(:) = pol_fact(:) + x_m / (real(m,8) * sqrt( 1.0 - N_par**2)) * &
+    pol_fact(:) = pol_fact(:) + x_m / (real(m,8)) * &
       2.d0 * Re_Axz_ez * t(:) * bessel_n_2
-    pol_fact(:) = pol_fact(:) + x_m / (real(m,8) * sqrt( 1.0 - N_par**2)) * &
+    pol_fact(:) = pol_fact(:) + x_m / (real(m,8)) * &
       Re_ey_ez * t(:) * x_m / real(m,8) * abs_Al_bessel_sqr_deriv !
-    pol_fact(:) = pol_fact(:)  * (real(m,8)  / (N_perp * omega_bar))**2
+    pol_fact(:) = pol_fact(:)  * (real(m,8)  / (N_abs * omega_bar))**2
   end subroutine abs_Al_pol_fact_perp
 
 
@@ -1303,7 +1309,7 @@ contains
   end function BesselJ_custom
 
 ! Deprecated - this routine encounters difficulties near perpendicular propagation
-  subroutine get_E_factors(X, Y, N_abs, N_perp, N_par, e, E_mat )
+  subroutine get_E_factors(X, Y, N_abs, cos_theta, sin_theta, e, E_mat )
     use constants,                  only: pi, e0, mass_e, eps0, c0
     implicit none
 !    ! Computeses the matrix:
@@ -1315,18 +1321,16 @@ contains
 !    ! ex := A c ey ! c contains all complex factors
 !    ! ez := B c' ey ! c' contains all complex factors
 !    ! ey ey^* = 1 / (N sqrt(a_sq + b_sq))
-    real(rkind), intent(in) :: X, Y, N_abs, N_perp, N_par
+    real(rkind), intent(in) :: X, Y, N_abs,  sin_theta, cos_theta
     complex(r8), dimension(:),  intent(in) :: e
     real(rkind), dimension(:,:), intent(out) :: E_mat
-    real(rkind)         :: A, B, ey_sq, re_norm, sin_theta, cos_theta, rho, f
+    real(rkind)         :: A, B, ey_sq, re_norm,rho, f
     integer(ikind)      :: i
-    sin_theta = N_perp / N_abs
-    cos_theta = N_par / N_abs
     rho =  Y**2 * sin_theta**4 + 4.d0 * (1.d0 - X)**2 * cos_theta**2
     rho = sqrt(rho)
     f =  (2.d0 * (1.d0 - X)) / (2.d0 * (1.d0 - X) - Y**2 * sin_theta**2 - real(1,8) *  Y* rho)
     A = 1.d0 / Y * (1.d0 - (1 - Y**2) * f)
-    B = (N_par * N_perp) / ( 1.d0 - X -  N_perp**2) * A
+    B = (N_abs**2 * sin_theta * cos_theta) / ( 1.d0 - X -  N_abs**2 * sin_theta**2) * A
     ey_sq = abs(e(2))**2
 !    ! 13,6 Introduced normalization -> |(A 1 B) e_y| = 1
 !    !ey_sq = ey_sq / re_norm
@@ -1621,7 +1625,7 @@ contains
 !    end if
 !  end function get_filter_transmittance_wrong
 
-  function get_filter_transmittance(omega, X, Y, sin_theta, cos_theta, mode, x_vec, N_vec, B_vec, x_launch, pol_vec_ext, filter_rot)
+  function get_filter_transmittance(omega, X, Y, cos_theta, sin_theta, mode, x_vec, N_vec, B_vec, x_launch, pol_vec_ext, filter_rot)
   ! Calculates the filtered intensity for a polarization filter aligned with the toroidal direction (e_phi).
   ! Seven steps are required:
   !    1. Calculate polarization vector e in Stix coordinate system
@@ -1636,7 +1640,7 @@ contains
     use mod_ecfm_refr_utils,        only: sub_remap_coords
     use mod_ecfm_refr_types,        only: output_level
     implicit none
-    real(rkind), intent(in)               :: omega, X, Y, sin_theta, cos_theta
+    real(rkind), intent(in)               :: omega, X, Y, cos_theta, sin_theta
     integer(ikind), intent(in)            :: mode
     real(rkind), dimension(:), intent(in) :: x_vec, N_vec, B_vec, x_launch
     complex(r8), dimension(:), intent(in), optional :: pol_vec_ext
@@ -1668,12 +1672,12 @@ contains
       pol_vec = pol_vec_ext
       if(debug)  print*, "External polarization vector", pol_vec
     else
-      call abs_Al_N_with_pol_vec( omega, X, Y, sin_theta, cos_theta, mode, N_abs, pol_vec)
+      call abs_Al_N_with_pol_vec( omega, X, Y, cos_theta, sin_theta, mode, N_abs, pol_vec)
       if(N_abs == 0.d0) then
         get_filter_transmittance = 0.d0 ! cut off - polarization vector undefined
         return
       end if
-      N_perp = N_abs * sin_theta
+      N_perp = abs(N_abs * sin_theta)
       N_par = N_abs * cos_theta
       if(debug) print*, "Internal polarization vector", pol_vec
     end if
