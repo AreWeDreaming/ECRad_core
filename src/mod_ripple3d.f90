@@ -146,7 +146,7 @@ contains
   real(rkind), dimension(4,3)               :: B_w_ripple_aux
   real(rkind), dimension(4,3)               :: aux_R
   type(grad_type)                           :: grad_B_r_ripple, grad_B_t_ripple, grad_B_z_ripple
-  real(rkind)                               :: R0, Btf0, R, h_x
+  real(rkind)                               :: R0, Btf0, h_x
   integer(ikind)                            :: i, j
   Btf0 = - 2.5d0
   R0 = 1.67d0

@@ -6,7 +6,7 @@ contains
 
 
 subroutine make_rhop_Bmin()
-  USE mod_ecfm_refr_types, only: ant, rad, plasma_params, data_folder, N_freq, N_ray, ffp, output_level
+  USE mod_ecfm_refr_types, only: ffp, plasma_params
   use constants,           only: mass_e, e0, pi
   use mod_ecfm_refr_interpol,    only: make_1d_spline, rect_spline
   use mod_contour, only: contour_type, contouring, contour_indx2rz
@@ -96,7 +96,11 @@ subroutine make_rhop_Bmin()
 end subroutine make_rhop_Bmin
 
 subroutine setup_f_rhop_splines(ffp)
-  use mod_ecfm_refr_types,          only: ffp_type, N_absz_large, double_check_splines
+#ifdef NAG
+  use mod_ecfm_refr_types,          only: ffp_type, double_check_splines
+#else
+  use mod_ecfm_refr_types,          only: ffp_type
+#endif
   use mod_ecfm_refr_interpol,       only: make_1d_spline
 #ifdef NAG
   USE nag_spline_1d,                only: nag_spline_1d_interp
@@ -124,7 +128,12 @@ subroutine setup_f_rhop_splines(ffp)
 end subroutine setup_f_rhop_splines
 
 subroutine make_B_min_and_f_inter(svec, f_spl, B_min)
+#ifdef NAG
   use mod_ecfm_refr_types,          only: ffp, rad_diag_ch_mode_ray_freq_svec_type, N_absz_large, double_check_splines, spl_type_2d
+#else
+  use mod_ecfm_refr_types,          only: ffp, rad_diag_ch_mode_ray_freq_svec_type, N_absz_large, spl_type_2d
+#endif
+  use mod_ecfm_refr_types,          only: ffp
   use mod_ecfm_refr_interpol,       only: make_rect_spline, deallocate_rect_spline, rect_spline, rect_spline_vec, spline_1d
 #ifdef NAG
   USE nag_spline_2d,                only: nag_spline_2d_interp
@@ -134,11 +143,8 @@ subroutine make_B_min_and_f_inter(svec, f_spl, B_min)
   type(rad_diag_ch_mode_ray_freq_svec_type), intent(in):: svec
   type(spl_type_2d), intent(inout) :: f_spl
   real(rkind)                      :: B_min
-  integer(ikind)                   :: irhop, iu, ipitch, i
-  real(rkind)                      :: rhop_best, u, f, dfdu, mu, a, c
-  real(rkind), dimension(30)       :: test_u, test_pitch, test_f, test_df_du
-  integer*4                        :: ier, kx, ky
-  real*8                           :: fp
+  integer(ikind)                   :: iu, ipitch
+  real(rkind)                      :: rhop_best
   real(rkind), dimension(ffp%N_u, ffp%N_pitch) :: f_inter
   rhop_best = svec%rhop
   if(rhop_best > ffp%rhop_max) return ! automatic switch to thermal distributions when the distribution function is evaluated
@@ -282,7 +288,7 @@ subroutine cyl_to_pol(u_par, u_perp, svec, B_min, u, pitch)
 end subroutine cyl_to_pol
 
 subroutine make_f_and_f_grad_along_line(u_par, u_perp, svec, f_spl, B_min, f, df_du_par, df_du_perp, debug)
-  use mod_ecfm_refr_types,          only: ffp,rad_diag_ch_mode_ray_freq_svec_type, double_check_splines, spl_type_2d
+  use mod_ecfm_refr_types,          only: ffp,rad_diag_ch_mode_ray_freq_svec_type, spl_type_2d
   use constants,                    only: mass_e, pi, e0, c0
   use mod_ecfm_refr_interpol,       only: rect_spline_vec
   implicit none
@@ -294,13 +300,12 @@ subroutine make_f_and_f_grad_along_line(u_par, u_perp, svec, f_spl, B_min, f, df
   logical, intent(in), optional          :: debug
   logical                                :: dbg
   real(rkind), dimension(size(u_par))    :: sign_array
-  real(rkind)                     :: interpolate_f_u
   integer(ikind)                  :: i
   real(rkind), dimension(size(u_par)) :: temp_u, temp_pitch, u, pitch, df_du, df_dpitch,&
                                          du_du_par, du_du_perp, &
                                          dpitch_du_par, dpitch_du_perp, u_step, pitch_step
   real(rkind)                         :: zeta, h, mu, a, norm
-  integer*4                           :: ier, kx, ky, nux, nuy, m
+  integer*4                           :: m
   sign_array(:) = 1.d0
   sign_array = sign(sign_array, u_par)
   dbg = .false.

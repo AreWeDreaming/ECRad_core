@@ -12,8 +12,7 @@ module mod_ecfm_refr_raytrace
     !$OMP THREADPRIVATE(glob_omega, &
     !$OMP               x_loc_vec, N_loc_vec, &
     !$OMP               glob_mode, debug_level)
-    public :: near_kin_res, span_svecs, &
-              dealloc_rad, reinterpolate_svec
+    public :: span_svecs, dealloc_rad, reinterpolate_svec
     private :: glob_plasma_params, glob_omega, x_loc_vec, N_loc_vec, &
                func_Delta, func_N_s_2, func_N_s_star_2, &
                func_Lambda, func_Lambda_star, &
@@ -25,18 +24,14 @@ module mod_ecfm_refr_raytrace
                func_dLambda_star_dX, func_dLambda_star_dY2, &
                func_dN_s_star_2_dN_par, func_dR_dx, func_dR_dy, &
                func_dphi_dx, func_dphi_dy, sub_spatial_grad_rhop, &
-               sub_spatial_grad_rhop_ana, sub_grad_n_e_ana, sub_grad_T_e_ana,&
-               func_rhop, func_rhop_ana, func_n_e_ana, func_T_e_ana, &
-               func_B_abs, make_B_vec, func_flux_norm_vec, func_B_abs_ana, &
-               sub_N_par, sub_theta, sub_N_par_ana, sub_ripple, func_B_r, &
+               func_rhop, func_B_abs, make_B_vec, func_flux_norm_vec, &
+               sub_N_par, sub_theta, func_B_r, &
                func_B_x, func_B_y, func_B_z, func_B_x_R, func_B_y_R, &
-               func_B_z_R, func_B_r_R, func_B_phi_R, sub_grad_N_par, &
-               sub_B_r_ana, func_B_x_ana, func_B_x_ana_R, &
-               func_B_y_ana_R, delta, sub_spatial_grad_X, sub_spatial_grad_X_ana, &
-               func_X, sub_spatial_grad_N_par, sub_spatial_grad_N_par_ana, &
-               func_Y, sub_spatial_grad_Y2, sub_spatial_grad_Y, sub_spatial_grad_Y_ana, &
+               func_B_z_R, func_B_r_R, func_B_phi_R, sub_grad_N_par, delta, sub_spatial_grad_X, &
+               func_X, sub_spatial_grad_N_par, &
+               func_Y, sub_spatial_grad_Y2, sub_spatial_grad_Y, &
                sub_grad_H, sub_grad_Lambda, sub_grad_Lambda_star, f_H, f_Lambda, jac, &
-               sub_single_step_LSODE, sub_single_step_explicit_RK4, &
+               sub_single_step_LSODE, &
                sub_local_params, make_Snells_refraction, make_H, sub_calculate_initial_N, &
                func_within_plasma, find_first_point_in_plasma, make_ray_segment, &
                make_s_grid, interpolate_svec
@@ -68,7 +63,6 @@ module mod_ecfm_refr_raytrace
     real(rkind), intent(in)       :: X, Y, N_par
     integer(ikind), intent(in)    :: mode
     real(rkind)                   :: func_N_s_2
-    real(rkind)                   :: delta
     if(mode /= 1 .and. mode /= -1) then
       print*, "Only -1 (X-mode) and 1 (O-Mode) allowed for variable mode in"
       print*, "Function: func_N_s_star_2 in mod_raytrace.f90"
@@ -90,7 +84,6 @@ module mod_ecfm_refr_raytrace
     real(rkind), intent(in)       :: X, Y, N_par
     integer(ikind), intent(in)    :: mode
     real(rkind)                   :: func_N_s_star_2
-    real(rkind)                   :: delta
     if(mode /= 1 .and. mode /= -1) then
       print*, "Only -1 (X-mode) and 1 (O-Mode) allowed for variable mode in"
       print*, "Function: func_N_s_star_2 in mod_raytrace.f90"
@@ -244,7 +237,6 @@ module mod_ecfm_refr_raytrace
 
   function func_dA_dX(X, Y)
     USE f90_kind
-    USE mod_ecfm_refr_types , only : eps
     implicit none
     real(rkind),              intent(in)  :: X, Y
     real(rkind)                           :: func_dA_dX
@@ -253,7 +245,6 @@ module mod_ecfm_refr_raytrace
 
 function func_dA_dY(X, Y)
     USE f90_kind
-    USE mod_ecfm_refr_types , only : eps
     implicit none
     real(rkind),              intent(in)  :: X, Y
     real(rkind)                           :: func_dA_dY
@@ -520,7 +511,7 @@ function func_dA_dY(X, Y)
 
   subroutine sub_spatial_grad_rhop(plasma_params, x_vec, rhop, spatial_grad_rhop)
     USE f90_kind
-    USE mod_ecfm_refr_types , only: plasma_params_type, h_x_glob
+    USE mod_ecfm_refr_types , only: plasma_params_type
     USE ripple3d,                 only: grad_type
     use mod_ecfm_refr_utils,      only: sub_remap_coords
     use mod_ecfm_refr_interpol,      only: rect_spline
@@ -555,190 +546,10 @@ function func_dA_dY(X, Y)
     !rhop = func_n_e(plasma_params, x_vec)
   end subroutine sub_spatial_grad_rhop
 
-  subroutine sub_spatial_grad_rhop_ana(plasma_params, x_vec, rhop, spatial_grad_rhop)
-    USE f90_kind
-    USE mod_ecfm_refr_types ,     only: plasma_params_type, h_x_glob
-    USE ripple3d,                 only: grad_type
-    use mod_ecfm_refr_utils,      only: sub_remap_coords
-    !USE nag_spline_2d             , only: nag_spline_2d_eval, &
-    !                                      nag_error, nag_set_error
-    implicit none
-    type(plasma_params_type)                   :: plasma_params
-    real(rkind), dimension(:)  , intent(in)    :: x_vec
-    real(rkind)                , intent(out)   :: rhop
-    real(rkind), dimension(3)  , intent(out)   :: spatial_grad_rhop
-    type(grad_type)                            :: R_grad_rhop
-    real(rkind), dimension(3)                  :: R_vec, x_test_vec
-    integer(ikind)                             :: i
-    call sub_remap_coords(x_vec, R_vec)
-    spatial_grad_rhop(1) = func_dR_dx(x_vec(1),x_vec(2)) * (3.d0*(-1.5d0 + R_vec(1)))/(2.*Sqrt((-1.5d0 + R_vec(1))**2 + R_vec(3)**2/10.d0))
-    spatial_grad_rhop(2) = func_dR_dy(x_vec(1),x_vec(2)) * (3.d0*(-1.5d0 + R_vec(1)))/(2.*Sqrt((-1.5d0 + R_vec(1))**2 + R_vec(3)**2/10.d0))
-    spatial_grad_rhop(3) = (3.d0*R_vec(3))/(20.d0*Sqrt((-1.5d0 + R_vec(1))**2 + R_vec(3)**2/10.d0))
-    rhop =  (3.d0*Sqrt((-1.5d0 + R_vec(1))**2 + R_vec(3)**2/10.d0))/2.d0
-!    if(debug_level < 2) return
-!    do i =1,3
-!      print*,spatial_grad_rhop(i)
-!      x_test_vec = x_vec
-!      x_test_vec(i) = x_test_vec(i) + h_x_glob
-!      print*,(func_rhop_ana(plasma_params,x_test_vec) -  func_rhop_ana(plasma_params,x_vec))/ h_x_glob
-!    end do
-!      stop " rhop"
-    !call bilin_inter_regular(plasma_params, R_vec, plasma_params%rhop, rhop)
-    !print*,"rhop_bilin", rhop
-    !rhop = func_n_e(plasma_params, x_vec)
-  end subroutine sub_spatial_grad_rhop_ana
-
-!  subroutine sub_grad_n_e(plasma_params, rhop, n_e,  grad_n_e)
-!  ! dne / drhop
-!    USE f90_kind
-!    USE mod_ecfm_refr_types , only : plasma_params_type
-!    !use interpolation_routines, only : linear_interpolation
-!    USE nag_spline_1d             , only: nag_spline_1d_eval, &
-!                                          nag_error, nag_set_error
-!    implicit none
-!    type(plasma_params_type)   , intent(in)  :: plasma_params
-!    real(rkind)                , intent(in)  :: rhop
-!    real(rkind)                , intent(out) :: n_e
-!    real(rkind)      , intent(out), optional :: grad_n_e
-!    integer(ikind)                           :: i
-!    type(nag_error)                          :: error
-!    real(rkind)                              :: scaled_rhop
-!    scaled_rhop = rhop * plasma_params%rhop_scale_ne
-!    !i  = int(floor(rhop / plasma_params%n_e_rhop_step) + 2)! find position in array
-!    ! the interval search fails when very close to either i1 or i2
-!    ! this  causes only small problems numerically, hence we can ignore these cases
-!    ! -> introduce small tolerance to the stop call
-!    !if(i > size(plasma_params%rhop_vec) .or. i < 1) then
-!    !    grad_n_e = 0.d0
-!    !    n_e = 0.d0
-!        !print*, "returned"
-!    !  return
-!    !end if
-!    !if(plasma_params%rhop_vec(i-1) - 1.d-6 > rhop .or. plasma_params%rhop_vec(i) + 1.d-6 < rhop) then
-!    !    print*, plasma_params%rhop_vec(i-1), "<", rhop, "<", plasma_params%rhop_vec(i)
-!    !    stop "interval find failed"
-!    !end if
-!    if(rhop > plasma_params%rhop_max) then
-!       n_e = 0.d0
-!      return
-!    end if
-!    !if(plasma_params%rhop_vec(i-1) - 1.d-6 > rhop .or. plasma_params%rhop_vec(i) + 1.d-6 < rhop) then
-!    !    print*, plasma_params%rhop_vec(i-1), "<", rhop, "<", plasma_params%rhop_vec(i)
-!    !    stop "interval find failed"
-!    !end if
-!    call nag_set_error(error)
-!    error%halt_level = 4
-!    if(present(grad_n_e)) then
-!      call nag_spline_1d_eval(plasma_params%ne_spline_nag, scaled_rhop, n_e, sd1 = grad_n_e, error = error)
-!    else
-!      call nag_spline_1d_eval(plasma_params%ne_spline_nag, scaled_rhop, n_e, error = error)
-!    end if
-!    if(error%level > 0) then
-!      print*, rhop, plasma_params%rhop_max
-!      stop "critical failure when calculating density"
-!    end if
-!    return
-!  end subroutine sub_grad_n_e
-
-  subroutine sub_grad_n_e_ana(plasma_params, rhop, n_e,  grad_n_e)
-  ! dne / drhop
-    USE f90_kind
-    USE mod_ecfm_refr_types , only : plasma_params_type,  h_x_glob
-    implicit none
-    type(plasma_params_type)   , intent(in)  :: plasma_params
-    real(rkind)                , intent(in)  :: rhop
-    real(rkind)                , intent(out) :: n_e, grad_n_e
-    integer(ikind)                           :: i
-    real(rkind)                              :: rhop_debug
-    n_e = (3.d19*(1.5625d0 - rhop**2)**2)/exp(rhop**2)
-    grad_n_e = (-12.d19*rhop*(1.5625d0 - rhop**2))/exp(rhop**2) - &
-               (6.d19*rhop*(1.5625d0- rhop**2)**2)/exp(rhop**2)
-!    if(debug_level > 1) then
-!      print*, grad_n_e
-!      rhop_debug = rhop + h_x_glob
-!      print*, ((3.d19*(1.5625d0 - rhop_debug**2)**2)/exp(rhop_debug**2) - (3.d19*(1.5625d0 - rhop**2)**2)/exp(rhop**2))/ h_x_glob
-!      stop "ne"
-!    end if
-  end subroutine sub_grad_n_e_ana
-! Moved to mod_ecfm_refr_raytrace_initialize
-!  subroutine sub_grad_T_e(plasma_params, rhop, T_e,  grad_T_e)
-!  ! dne / drhop
-!    USE f90_kind
-!    USE mod_ecfm_refr_types , only : plasma_params_type
-!    !use interpolation_routines, only : linear_interpolation
-!    USE nag_spline_1d             , only: nag_spline_1d_eval, &
-!                                          nag_error, nag_set_error
-!    implicit none
-!    type(plasma_params_type)   , intent(in)  :: plasma_params
-!    real(rkind)                , intent(in)  :: rhop
-!    real(rkind)                , intent(out) :: T_e
-!    real(rkind)    , intent(out), optional   :: grad_T_e
-!    integer(ikind)                           :: i
-!    real(rkind)                              :: scaled_rhop
-!    type(nag_error)                          :: error
-!    scaled_rhop = rhop * plasma_params%rhop_scale_te
-!    !i  = int(floor(rhop / plasma_params%n_e_rhop_step) + 2)! find position in array
-!    ! the interval search fails when very close to either i1 or i2
-!    ! this  causes only small problems numerically, hence we can ignore these cases
-!    ! -> introduce small tolerance to the stop call
-!    !if(i > size(plasma_params%rhop_vec) .or. i < 1) then
-!    !    grad_n_e = 0.d0
-!    !    n_e = 0.d0
-!        !print*, "returned"
-!    !  return
-!    !end if
-!    !if(plasma_params%rhop_vec(i-1) - 1.d-6 > rhop .or. plasma_params%rhop_vec(i) + 1.d-6 < rhop) then
-!    !    print*, plasma_params%rhop_vec(i-1), "<", rhop, "<", plasma_params%rhop_vec(i)
-!    !    stop "interval find failed"
-!    !end if
-!    if(rhop > plasma_params%rhop_max) then
-!       T_e = 0.d0
-!      return
-!    end if
-!    !if(plasma_params%rhop_vec(i-1) - 1.d-6 > rhop .or. plasma_params%rhop_vec(i) + 1.d-6 < rhop) then
-!    !    print*, plasma_params%rhop_vec(i-1), "<", rhop, "<", plasma_params%rhop_vec(i)
-!    !    stop "interval find failed"
-!    !end if
-!    call nag_set_error(error)
-!    error%halt_level = 4
-!    !call nag_spline_1d_eval(plasma_params%ne_spline_nag, rhop, n_e, error = error)
-!     if(present(grad_T_e)) then
-!      call nag_spline_1d_eval(plasma_params%Te_spline_nag, scaled_rhop, T_e, sd1 = grad_T_e, error = error)
-!    else
-!      call nag_spline_1d_eval(plasma_params%Te_spline_nag, scaled_rhop, T_e, error = error)
-!    end if
-!    if(error%level > 0) then
-!      print*, rhop, plasma_params%rhop_max
-!      stop "critical failure when calculating temperature"
-!    end if
-!    return
-!  end subroutine sub_grad_T_e
-
-  subroutine sub_grad_T_e_ana(plasma_params, rhop, T_e,  grad_T_e)
-  ! dne / drhop
-    USE f90_kind
-    USE mod_ecfm_refr_types , only : plasma_params_type,  h_x_glob
-    !use interpolation_routines, only : linear_interpolation
-    implicit none
-    type(plasma_params_type)   , intent(in)  :: plasma_params
-    real(rkind)                , intent(in)  :: rhop
-    real(rkind)                , intent(out) :: T_e, grad_T_e
-    integer(ikind)                           :: i
-    real(rkind)                              :: rhop_debug
-    T_e = (3.d3*(1.5625d0 - rhop**2)**2)/exp(rhop**2)
-    grad_T_e = (-12.d3*rhop*(1.5625d0 - rhop**2))/exp(rhop**2) - &
-               (6.d3*rhop*(1.5625d0- rhop**2)**2)/exp(rhop**2)
-!    if(debug_level > 1) then
-!      print*, grad_n_e
-!      rhop_debug = rhop + h_x_glob
-!      print*, ((3.d19*(1.5625d0 - rhop_debug**2)**2)/exp(rhop_debug**2) - (3.d19*(1.5625d0 - rhop**2)**2)/exp(rhop**2))/ h_x_glob
-!      stop "ne"
-!    end if
-  end subroutine sub_grad_T_e_ana
 
   function func_rhop(plasma_params, x_vec)
     USE f90_kind
-    USE mod_ecfm_refr_types , only : plasma_params_type, h_x_glob, output_level
+    USE mod_ecfm_refr_types , only : plasma_params_type
     USE ripple3d,                 only: grad_type
     USE mod_ecfm_refr_utils,        only: sub_remap_coords
     use mod_ecfm_refr_interpol,      only: rect_spline
@@ -746,7 +557,6 @@ function func_dA_dY(X, Y)
     real(rkind), dimension(:)  , intent(in)   :: x_vec
     real(rkind), dimension(3)                 :: R_vec
     real(rkind)                               :: func_rhop
-    real(rkind)                               :: dummy
     call sub_remap_coords(x_vec, R_vec)
     if(R_vec(1) - plasma_params%R_shift > plasma_params%R_max .or. R_vec(1) - plasma_params%R_shift < plasma_params%R_min .or. &
        R_vec(3) - plasma_params%z_shift > plasma_params%z_max .or. R_vec(3) - plasma_params%z_shift < plasma_params%z_min) then
@@ -774,162 +584,9 @@ function func_dA_dY(X, Y)
     end if
   end function func_rhop
 
-  function func_rhop_ana(plasma_params, x_vec)
-    USE f90_kind
-    USE mod_ecfm_refr_types , only : plasma_params_type, h_x_glob
-    USE ripple3d,                 only: grad_type
-    use mod_ecfm_refr_utils,      only: sub_remap_coords
-    type(plasma_params_type)                  :: plasma_params
-    real(rkind), dimension(:)  , intent(in)   :: x_vec
-    real(rkind), dimension(3)                 :: R_vec
-    real(rkind)                               :: func_rhop_ana
-    real(rkind)                               :: ddx, ddy, dummy
-    call sub_remap_coords(x_vec, R_vec)
-    func_rhop_ana = (3.d0*Sqrt((-1.5d0 + R_vec(1))**2 + R_vec(3)**2/10.d0))/2.d0
-  end function func_rhop_ana
-
-!  function func_n_e(plasma_params, x_vec)
-!  ! dne / drhop
-!    USE f90_kind
-!    use interpolation_routines, only : linear_interpolation
-!    USE mod_ecfm_refr_types , only : plasma_params_type
-!    USE nag_spline_1d             , only: nag_spline_1d_eval, &
-!                                          nag_error, nag_set_error
-!    !USE mod_ecfm_refr_types , only h_rhop ! assuming that taking the derivative
-!    !                                        without higher order interpolation is sufficient
-!    implicit none
-!    type(plasma_params_type)   , intent(in)  :: plasma_params
-!    real(rkind), dimension(:)  , intent(in)  :: x_vec
-!    real(rkind)                              :: func_n_e
-!    integer(ikind)                           :: i
-!    real(rkind)                              :: rhop
-!    type(nag_error)                          :: error
-!    rhop = func_rhop(plasma_params, x_vec)
-!    !i  = int(floor(rhop / plasma_params%n_e_rhop_step)) + 2! find position in array
-!    rhop = rhop * plasma_params%rhop_scale_ne
-!    if(rhop > plasma_params%rhop_max) then
-!       func_n_e = 0.d0
-!      return
-!    end if
-!    !if(plasma_params%rhop_vec(i-1) - 1.d-6 > rhop .or. plasma_params%rhop_vec(i) + 1.d-6 < rhop) then
-!    !    print*, plasma_params%rhop_vec(i-1), "<", rhop, "<", plasma_params%rhop_vec(i)
-!    !    stop "interval find failed"
-!    !end if
-!    call nag_set_error(error)
-!    error%halt_level = 4
-!    call nag_spline_1d_eval(plasma_params%ne_spline_nag, rhop, func_n_e, error = error)
-!    if(error%level > 0) then
-!      print*, x_vec, rhop, plasma_params%rhop_max
-!      stop "critical failure when calculating density"
-!    end if
-!    !print*,"ne nag", func_n_e
-!    return
-!  end function func_n_e
-
-
-!  function func_T_e(plasma_params, x_vec)
-!  ! dne / drhop
-!    USE f90_kind
-!    USE mod_ecfm_refr_types , only : plasma_params_type
-!    USE nag_spline_1d             , only: nag_spline_1d_eval, &
-!                                          nag_error, nag_set_error
-!    !USE mod_ecfm_refr_types , only h_rhop ! assuming that taking the derivative
-!    !                                        without higher order interpolation is sufficient
-!    implicit none
-!    type(plasma_params_type)   , intent(in)  :: plasma_params
-!    real(rkind), dimension(:)  , intent(in)  :: x_vec
-!    real(rkind)                              :: func_T_e
-!    integer(ikind)                           :: i
-!    real(rkind)                              :: rhop
-!    type(nag_error)                          :: error
-!    rhop = func_rhop(plasma_params, x_vec)
-!    rhop = rhop * plasma_params%rhop_scale_te
-!    !i  = int(floor(rhop / plasma_params%n_e_rhop_step)) + 2! find position in array
-!    if(rhop > plasma_params%rhop_max) then
-!       func_T_e = 0.d0
-!      return
-!    end if
-!    !if(plasma_params%rhop_vec(i-1) - 1.d-6 > rhop .or. plasma_params%rhop_vec(i) + 1.d-6 < rhop) then
-!    !    print*, plasma_params%rhop_vec(i-1), "<", rhop, "<", plasma_params%rhop_vec(i)
-!    !    stop "interval find failed"
-!    !end if
-!    call nag_set_error(error)
-!    error%halt_level = 4
-!    call nag_spline_1d_eval(plasma_params%Te_spline_nag, rhop, func_T_e, error = error)
-!    if(error%level > 0) then
-!      print*, x_vec, rhop, plasma_params%rhop_max
-!      stop "critical failure when calculating Temperature"
-!    end if
-!    !print*,"ne nag", func_n_e
-!    return
-!  end function func_T_e
-
-!  function func_T_e_rhop(plasma_params, rhop)
-!  ! dne / drhop
-!    USE f90_kind
-!    USE mod_ecfm_refr_types , only : plasma_params_type
-!    USE nag_spline_1d             , only: nag_spline_1d_eval, &
-!                                          nag_error, nag_set_error
-!    !USE mod_ecfm_refr_types , only h_rhop ! assuming that taking the derivative
-!    !                                        without higher order interpolation is sufficient
-!    implicit none
-!    type(plasma_params_type)   , intent(in)  :: plasma_params
-!    real(rkind)                , intent(in)  :: rhop
-!    real(rkind)                              :: func_T_e_rhop
-!    integer(ikind)                           :: i
-!    type(nag_error)                          :: error
-!    if(rhop > plasma_params%rhop_max) then
-!       func_T_e_rhop = 0.d0
-!      return
-!    end if
-!    !if(plasma_params%rhop_vec(i-1) - 1.d-6 > rhop .or. plasma_params%rhop_vec(i) + 1.d-6 < rhop) then
-!    !    print*, plasma_params%rhop_vec(i-1), "<", rhop, "<", plasma_params%rhop_vec(i)
-!    !    stop "interval find failed"
-!    !end if
-!    call nag_set_error(error)
-!    error%halt_level = 4
-!    call nag_spline_1d_eval(plasma_params%Te_spline_nag, rhop, func_T_e_rhop, error = error)
-!    if(error%level > 0) then
-!      print*, rhop, plasma_params%rhop_max
-!      stop "critical failure when calculating Temperature"
-!    end if
-!    !print*,"ne nag", func_n_e
-!    return
-!  end function func_T_e_rhop
-
-  function func_n_e_ana(plasma_params, x_vec)
-  ! dne / drhop
-    USE f90_kind
-    USE mod_ecfm_refr_types , only : plasma_params_type
-    !USE mod_ecfm_refr_types , only h_rhop ! assuming that taking the derivative
-    !                                        without higher order interpolation is sufficient
-    implicit none
-    type(plasma_params_type)   , intent(in)  :: plasma_params
-    real(rkind), dimension(:)  , intent(in)  :: x_vec
-    real(rkind)                              :: func_n_e_ana
-    real(rkind)                              :: rhop
-    rhop = func_rhop_ana(plasma_params, x_vec)
-    func_n_e_ana = (3.d19*(1.5625d0 - rhop**2)**2)/exp(rhop**2)
-  end function func_n_e_ana
-
-  function func_T_e_ana(plasma_params, x_vec)
-  ! dne / drhop
-    USE f90_kind
-    USE mod_ecfm_refr_types , only : plasma_params_type
-    !USE mod_ecfm_refr_types , only h_rhop ! assuming that taking the derivative
-    !                                        without higher order interpolation is sufficient
-    implicit none
-    type(plasma_params_type)   , intent(in)  :: plasma_params
-    real(rkind), dimension(:)  , intent(in)  :: x_vec
-    real(rkind)                              :: func_T_e_ana
-    real(rkind)                              :: rhop
-    rhop = func_rhop_ana(plasma_params, x_vec)
-    func_T_e_ana = (3.d3*(1.5625d0 - rhop**2)**2)/exp(rhop**2) ! same profile shape as ne with 8 keV core Te
-  end function func_T_e_ana
-
   function func_B_abs(plasma_params, x_vec)
     USE f90_kind
-    USE mod_ecfm_refr_types , only : plasma_params_type, output_level
+    USE mod_ecfm_refr_types , only : plasma_params_type
     USE ripple3d,                 only: get_ripple, grad_type
     USE mod_ecfm_refr_utils,      only: sub_remap_coords
     use mod_ecfm_refr_interpol,      only: rect_spline
@@ -937,7 +594,7 @@ function func_dA_dY(X, Y)
     type(plasma_params_type)                  :: plasma_params
     real(rkind), dimension(:)  , intent(in)   :: x_vec
     real(rkind)                               :: func_B_abs
-    real(rkind), dimension(3)                 :: R_vec, B_r_vec,B_ripple, dummy
+    real(rkind), dimension(3)                 :: R_vec, B_r_vec,B_ripple
     call sub_remap_coords(x_vec, R_vec)
     if(R_vec(1) > plasma_params%R_max .or. R_vec(1) < plasma_params%R_min .or. &
        R_vec(3) > plasma_params%z_max .or. R_vec(3) < plasma_params%z_min) then
@@ -978,7 +635,7 @@ function func_dA_dY(X, Y)
 
   subroutine make_B_vec(plasma_params, x_vec, B_vec)
     USE f90_kind
-    USE mod_ecfm_refr_types , only : plasma_params_type, output_level
+    USE mod_ecfm_refr_types , only : plasma_params_type
     USE ripple3d,                 only: get_ripple, grad_type
     USE mod_ecfm_refr_utils,      only: sub_remap_coords
     use mod_ecfm_refr_interpol,      only: rect_spline
@@ -986,7 +643,7 @@ function func_dA_dY(X, Y)
     type(plasma_params_type)                  :: plasma_params
     real(rkind), dimension(:)  , intent(in)   :: x_vec
     real(rkind), dimension(:)  , intent(out)  :: B_vec
-    real(rkind), dimension(3)                 :: R_vec, B_r_vec,B_ripple, dummy
+    real(rkind), dimension(3)                 :: R_vec, B_r_vec,B_ripple
     real(rkind)                               :: cos_phi, sin_phi
     call sub_remap_coords(x_vec, R_vec)
     if(R_vec(1) > plasma_params%R_max .or. R_vec(1) < plasma_params%R_min .or. &
@@ -1042,7 +699,7 @@ function func_dA_dY(X, Y)
     type(plasma_params_type), intent(in)      :: plasma_params
     real(rkind), dimension(:), intent(in)     :: x_vec
     real(rkind), dimension(3)                 :: func_flux_norm_vec
-    real(rkind), dimension(3)                 :: R_vec, B_ripple, dummy
+    real(rkind), dimension(3)                 :: R_vec, B_ripple
     call sub_remap_coords(x_vec, R_vec)
     if(R_vec(1) > plasma_params%R_max .or. R_vec(1) < plasma_params%R_min .or. &
        R_vec(3) > plasma_params%z_max .or. R_vec(3) < plasma_params%z_min) then
@@ -1067,24 +724,9 @@ function func_dA_dY(X, Y)
     func_flux_norm_vec(3) = - func_flux_norm_vec(3)
   end function func_flux_norm_vec
 
-  function func_B_abs_ana(plasma_params, x_vec)
-    USE f90_kind
-    USE mod_ecfm_refr_types , only : plasma_params_type
-    Use ripple3d,             only : grad_type
-    implicit none
-    type(plasma_params_type), intent(in)      :: plasma_params
-    real(rkind), dimension(:)  , intent(in)   :: x_vec
-    real(rkind)                               :: func_B_abs_ana
-    real(rkind), dimension(3)                 :: R_vec, B_x_vec
-    B_x_vec(1) = func_B_x_ana(x_vec)
-    B_x_vec(2) = func_B_y_ana(x_vec)
-    B_x_vec(3) = 0.d0
-    func_B_abs_ana = sqrt(B_x_vec(1)**2 + B_x_vec(2)**2 + B_x_vec(3)**2)
-  end function func_B_abs_ana
-
   subroutine sub_N_par(plasma_params, x_vec, N_vec, N_par, N_abs, B_abs)
     USE f90_kind
-    USE mod_ecfm_refr_types , only : plasma_params_type, output_level
+    USE mod_ecfm_refr_types , only : plasma_params_type
     Use ripple3d,             only : grad_type,get_ripple
     Use mod_ecfm_refr_utils,  only : sub_remap_coords
     use mod_ecfm_refr_interpol,      only: rect_spline
@@ -1092,7 +734,7 @@ function func_dA_dY(X, Y)
     type(plasma_params_type), intent(in)      :: plasma_params
     real(rkind), dimension(:)  , intent(in)   :: x_vec, N_vec
     real(rkind), intent(out)                  :: N_par, N_abs, B_abs
-    real(rkind), dimension(3)                 :: R_vec, B_R_vec, B_x_vec,  dummy, B_ripple
+    real(rkind), dimension(3)                 :: R_vec, B_R_vec, B_x_vec, B_ripple
     real(rkind)                               :: cos_phi, sin_phi, scal_prod
     integer(ikind)                            :: i
     call sub_remap_coords(x_vec, R_vec)
@@ -1146,7 +788,7 @@ function func_dA_dY(X, Y)
 
   subroutine sub_theta(plasma_params, x_vec, N_vec, theta, N_abs, B_abs, B_vec)
     USE f90_kind
-    USE mod_ecfm_refr_types , only : plasma_params_type, output_level
+    USE mod_ecfm_refr_types , only : plasma_params_type
     Use ripple3d,             only : grad_type, get_ripple
     use mod_ecfm_refr_utils, only  : sub_remap_coords
     use mod_ecfm_refr_interpol,      only: rect_spline
@@ -1156,8 +798,8 @@ function func_dA_dY(X, Y)
     real(rkind), dimension(:)  , intent(in)   :: x_vec, N_vec
     real(rkind), intent(out)                  :: theta, N_abs, B_abs
     real(rkind), dimension(3), intent(out)    :: B_vec
-    real(rkind), dimension(3)                 :: R_vec, B_R_vec, B_x_vec,  dummy, B_ripple
-    real(rkind)                               :: cos_phi, sin_phi, scal_prod, ddx, ddy
+    real(rkind), dimension(3)                 :: R_vec, B_R_vec, B_x_vec, B_ripple
+    real(rkind)                               :: cos_phi, sin_phi, scal_prod
     integer(ikind)                            :: i
     call sub_remap_coords(x_vec, R_vec)
     cos_phi = cos(R_vec(2))
@@ -1219,64 +861,9 @@ function func_dA_dY(X, Y)
     theta = acos(scal_prod / (B_abs * N_abs))
   end subroutine sub_theta
 
-  subroutine sub_N_par_ana(plasma_params, x_vec, N_vec, N_par, N_abs)
-    USE f90_kind
-    USE mod_ecfm_refr_types , only : plasma_params_type
-    Use ripple3d,             only : grad_type
-    use mod_ecfm_refr_utils,  only: sub_remap_coords
-    implicit none
-    type(plasma_params_type), intent(in)      :: plasma_params
-    real(rkind), dimension(:)  , intent(in)   :: x_vec, N_vec
-    real(rkind), intent(out)                  :: N_par, N_abs
-    real(rkind), dimension(3)                 :: R_vec, B_x_vec, B_R_vec
-    real(rkind)                               :: cos_phi, sin_phi, scal_prod, B_abs, ddx, ddy
-    integer(ikind)                            :: i
-    call sub_remap_coords(x_vec, R_vec)
-    cos_phi = cos(R_vec(2))
-    sin_phi = sin(R_vec(2))
-    N_abs = sqrt(N_vec(1)**2 + N_vec(2)**2 + N_vec(3)**2)
-    call sub_B_r_ana( R_vec, B_R_vec)
-    B_x_vec(1) = B_R_vec(1) * cos_phi - sin_phi * B_R_vec(2)
-    B_x_vec(2) = B_R_vec(1) * sin_phi + cos_phi * B_R_vec(2)
-    B_x_vec(3) = B_R_vec(3)
-    B_abs = sqrt(B_x_vec(1)**2 + B_x_vec(2)**2 + B_x_vec(3)**2)
-    scal_prod = 0.d0
-    do i = 1, 3
-      scal_prod = scal_prod + N_vec(i) * B_x_vec(i)
-    end do
-    N_par = scal_prod / B_abs
-   end subroutine sub_N_par_ana
-
-  subroutine sub_ripple(R_vec, value)
-    USE f90_kind
-    implicit none
-    real(rkind), dimension(:), intent(in)       :: R_vec
-    real(rkind), dimension(:), intent(inout)    :: value
-  ! Not yet implemented - should only be a minor correction for raytracing
-  end subroutine sub_ripple
-
-
-
-!  function func_theta(N_norm_vec, B_norm_vec)
-!   ! Returns the angle between B_vec and N_vec
-!    USE f90_kind
-!    use constants, only : pi
-!    implicit none
-!    real(rkind), dimension(:),   intent(in)       :: N_norm_vec, B_norm_vec
-!    real(rkind)                                   :: func_theta
-!    real(rkind)                                   :: scal_prod
-!    integer(ikind)                                :: i
-!    scal_prod = 0.d0
-!    do i = 1,3
-!      scal_prod = scal_prod + N_norm_vec(i) * B_norm_vec(i)
-!    end do
-!    func_theta = acos(scal_prod)
-!    !print*, "theta: ", func_theta/ pi * 180.d0
-!  end function func_theta
-
   subroutine func_B_r(plasma_params, R_vec, B_R_vec)
     use f90_kind
-    USE mod_ecfm_refr_types , only : plasma_params_type, output_level
+    USE mod_ecfm_refr_types , only : plasma_params_type
     Use ripple3d,             only : grad_type, get_ripple
 #ifdef NAG
     USE nag_spline_2d             , only: nag_spline_2d_eval
@@ -1286,9 +873,7 @@ function func_dA_dY(X, Y)
     type(plasma_params_type)   , intent(in)   :: plasma_params
     real(rkind), dimension(:)  , intent(in)   :: R_vec
     real(rkind), dimension(:)  , intent(out)  :: B_R_vec
-    real(rkind), dimension(3)  :: B_ripple, dummy
-    real(rkind)                :: func_B_x
-    real(rkind)                :: dummy_1, dummy_2
+    real(rkind), dimension(3)  :: B_ripple
 #ifdef NAG
     if(debug_level == 0 .or. .not. output_level)  then
       call rect_spline(plasma_params%B_r_spline, R_vec(1), R_vec(3), &
@@ -1437,7 +1022,7 @@ function func_dA_dY(X, Y)
   ! Also calculates N_par, d N_par(theta)/dN_i, d N_par/dx_i, d|B|dx_i since all information is readily available
   ! (Calculating these quantities here safes interpolations)
     USE f90_kind
-    USE mod_ecfm_refr_types , only : plasma_params_type, h_x_glob
+    USE mod_ecfm_refr_types , only : plasma_params_type
     Use ripple3d,         only : grad_type, get_ripple_w_grad
     USE mod_ecfm_refr_utils, only: sub_remap_coords
     use mod_ecfm_refr_interpol,      only: rect_spline
@@ -1449,11 +1034,11 @@ function func_dA_dY(X, Y)
     real(rkind)                , intent(out)  :: B_abs, N_par
     real(rkind), dimension(:)  , intent(out)  :: N_grad_N_par, spatial_grad_N_par
     real(rkind), dimension(3, 3)              :: spatial_grad_B
-    real(rkind)                               :: cos_phi_tok, sin_phi_tok, alpha, scal_prod, h_x
+    real(rkind)                               :: cos_phi_tok, sin_phi_tok, scal_prod, h_x
     type(grad_type)                           :: dB_r_inter, dB_t_inter, dB_z_inter, dB_ripple_r, &
                                                  dB_ripple_t, dB_ripple_z
     real(rkind), dimension(3)                 :: R_vec, B_R_vec, B_x_vec, B_ripple!, N_vec_norm, B_vec_norm
-    real(rkind), dimension(4, 3)              :: aux_x, aux_B_R, aux_R
+    real(rkind), dimension(4, 3)              :: aux_x, aux_R
     real(rkind), dimension(3)                 :: dB_x_dR, dB_y_dR, dB_z_dR
     integer(ikind)                            :: i, j,k
     h_x = 1.d-6!h_x_glob
@@ -1685,60 +1270,7 @@ function func_dA_dY(X, Y)
     end if
   end subroutine sub_grad_N_par
 
-  subroutine sub_B_r_ana(R_vec, B_R_vec)
-    use f90_kind
-    implicit none
-    real(rkind), dimension(:)  , intent(in)   :: R_vec
-    real(rkind), dimension(:)  , intent(out)   :: B_R_vec
-    B_R_vec(:) = 0.d0
-    B_R_vec(2) = 4.25 / R_vec(1)
-  end subroutine sub_B_r_ana
 
-  function  func_B_x_ana(x_vec)
-    use f90_kind
-    use mod_ecfm_refr_utils,  only: sub_remap_coords
-    implicit none
-    real(rkind), dimension(:)  , intent(in)   :: x_vec
-    real(rkind), dimension(3) :: R_vec, B_R_vec
-    real(rkind)                :: func_B_x_ana
-    call sub_remap_coords(x_vec, R_vec)
-    call sub_B_r_ana(R_vec, B_R_vec)
-    func_B_x_ana =  B_R_vec(1) * cos(R_vec(2)) - B_R_vec(2) * sin(R_vec(2))
-  end function func_B_x_ana
-
-  function  func_B_y_ana(x_vec)
-    use f90_kind
-    use mod_ecfm_refr_utils,  only: sub_remap_coords
-    implicit none
-    real(rkind), dimension(:)  , intent(in)   :: x_vec
-    real(rkind), dimension(3) :: R_vec, B_R_vec
-    real(rkind)                :: func_B_y_ana
-    call sub_remap_coords(x_vec, R_vec)
-    call sub_B_r_ana(R_vec, B_R_vec)
-    func_B_y_ana =  B_R_vec(1) * sin(R_vec(2)) + B_R_vec(2) * cos(R_vec(2))
-  end function func_B_y_ana
-
- function  func_B_x_ana_R(R_vec)
-    use f90_kind
-    use mod_ecfm_refr_utils,  only: sub_remap_coords
-    implicit none
-    real(rkind), dimension(:)  , intent(in)   :: R_vec
-    real(rkind), dimension(3) :: B_R_vec
-    real(rkind)               :: func_B_x_ana_R
-    call sub_B_r_ana(R_vec, B_R_vec)
-    func_B_x_ana_R =  B_R_vec(1) * cos(R_vec(2)) - B_R_vec(2) * sin(R_vec(2))
-  end function func_B_x_ana_R
-
-  function  func_B_y_ana_R(R_vec)
-    use f90_kind
-    use mod_ecfm_refr_utils,  only: sub_remap_coords
-    implicit none
-    real(rkind), dimension(:)  , intent(in)   :: R_vec
-    real(rkind), dimension(3)  :: B_R_vec
-    real(rkind)                :: func_B_y_ana_R
-    call sub_B_r_ana(R_vec, B_R_vec)
-    func_B_y_ana_R =  B_R_vec(1) * sin(R_vec(2)) + B_R_vec(2) * cos(R_vec(2))
-  end function func_B_y_ana_R
 
   function delta(i,j) !Kronecker-Delta
     USE f90_kind
@@ -1748,160 +1280,7 @@ function func_dA_dY(X, Y)
     delta = 0.5d0 * real(sign(1,i-j) + sign(1,j-i),8)
   end function delta
 
-  subroutine sub_grad_N_par_ana(plasma_params, x_vec, N_vec, N_abs, B_abs, spatial_grad_B_abs, &
-                           N_par, N_grad_N_par, spatial_grad_N_par) !spatial_grad_B_x, spatial_grad_B_y, spatial_grad_B_z,
-  ! Gradient of vec(B) along LOS coordinates x ripple not (yet) included => dB_vec/dphi = 0
-  ! Also calculates N_par, d N_par(theta)/dN_i, d N_par/dx_i, d|B|dx_i since all information is readily available
-  ! (Calculating these quantities here safes interpolations)
-    USE f90_kind
-    USE mod_ecfm_refr_types , only : plasma_params_type, h_x_glob
-    USE ripple3d,                 only: grad_type
-    use mod_ecfm_refr_utils,  only: sub_remap_coords
-    implicit none
-    type(plasma_params_type)   , intent(in)   :: plasma_params
-    real(rkind), dimension(:)  , intent(in)   :: x_vec, N_vec
-    real(rkind)                , intent(in)   :: N_abs
-    real(rkind), dimension(:), intent(out)    :: spatial_grad_B_abs
-    real(rkind)                , intent(out)  :: B_abs, N_par
-    real(rkind), dimension(:)  , intent(out)  :: N_grad_N_par, spatial_grad_N_par
-    real(rkind), dimension(3,3)               :: spatial_grad_B
-    real(rkind)                               :: cos_phi_tok, sin_phi_tok, alpha, scal_prod, h_x
-    type(grad_type)                           :: dB_r_inter, dB_t_inter, dB_z_inter
-    real(rkind), dimension(3)                 :: R_vec, B_R_vec, B_x_vec!, N_vec_norm, B_vec_norm
-    real(rkind), dimension(4,3)               :: aux_x, aux_B_R, aux_R
-    real(rkind), dimension(3)                 :: dB_x_dR, dB_y_dR, dB_z_dR
-    integer(ikind)                            :: i, j, k
-    h_x = h_x_glob
-    call sub_remap_coords(x_vec, R_vec)
-    call sub_B_r_ana(R_vec, B_R_vec)
-    cos_phi_tok = cos(R_vec(2))
-    sin_phi_tok = sin(R_vec(2))
-    B_x_vec(1) = B_R_vec(1) * cos_phi_tok - sin_phi_tok * B_R_vec(2)
-    B_x_vec(2) = B_R_vec(1) * sin_phi_tok + cos_phi_tok * B_R_vec(2)
-    B_x_vec(3) = B_R_vec(3)
-    dB_r_inter%dR = 0.d0
-    dB_r_inter%dz = 0.d0
-    dB_t_inter%dR = -4.25 * 1.0/R_vec(1)**2
-    dB_t_inter%dz = 0.d0
-    dB_z_inter%dR = 0.d0
-    dB_z_inter%dz = 0.d0
-    ! Next dB_x_j/d_x_i --> j (first index) direction of magnetic field
-    !                   --> i (second index) direction of the derivative
-    ! To do this analyitaclly the multidimensional chain rule is used
-    ! First dvec(B_x)dR and dvec(B_x)dz are computed
-    ! Since no ripple dvec(B)/dphi= 0, hence we only need to sum over dvec(B)/dR and dvec(B)/dz
-    ! dB_x/dR
-    dB_x_dR(1) = dB_r_inter%dR * cos_phi_tok - dB_t_inter%dR * sin_phi_tok
-    ! dB_x/dphi
-    dB_x_dR(2) = -B_R_vec(1) * sin_phi_tok - B_R_vec(2) * cos_phi_tok
-    ! dB_x/dz
-    dB_x_dR(3) = dB_r_inter%dz * cos_phi_tok - dB_t_inter%dz * sin_phi_tok
-    ! dB_y/dR - no ripple yet, hence this term is simpler
-    dB_y_dR(1) = dB_r_inter%dR * sin_phi_tok + dB_t_inter%dR * cos_phi_tok
-    ! dB_y/dphi - no ripple yet, hence this term is simpler
-    dB_y_dR(2) = B_R_vec(1) * cos_phi_tok - B_R_vec(2) * sin_phi_tok
-    ! dB_y/dz
-    dB_y_dR(3) = dB_r_inter%dz * sin_phi_tok + dB_t_inter%dz * cos_phi_tok
-    ! dB_z/dR
-    dB_z_dR(1) = dB_z_inter%dR
-    ! dB_z/dphi
-    dB_z_dR(2) = 0.d0
-    ! dB_z/dz
-    dB_z_dR(3) = dB_z_inter%dz
-    ! Now with the chain rule compute the entries of dB_i/dx_j
-    ! dBx/dx third term is zero since dz/dx = 0
-    spatial_grad_B(1,1) = dB_x_dR(1) * func_dR_dx(x_vec(1), x_vec(2)) + dB_x_dR(2) * func_dphi_dx(x_vec(1), x_vec(2))
-    ! dBx/dy third term is zero since dz/dx = 0
-    spatial_grad_B(1,2) = dB_x_dR(1) * func_dR_dy(x_vec(1), x_vec(2)) + dB_x_dR(2) * func_dphi_dy(x_vec(1), x_vec(2))
-    ! dBx/dz first and second term is zero since dR/dz = dphi/dz = 0
-    spatial_grad_B(1,3) = dB_x_dR(3)
-    ! dBy/dx third term is zero since dz/dy = 0
-    spatial_grad_B(2,1) = dB_y_dR(1) * func_dR_dx(x_vec(1), x_vec(2)) + dB_y_dR(2) * func_dphi_dx(x_vec(1), x_vec(2))
-    ! dBy/dy third term is zero since dz/dy = 0
-    spatial_grad_B(2,2) = dB_y_dR(1) * func_dR_dy(x_vec(1), x_vec(2)) + dB_y_dR(2) * func_dphi_dy(x_vec(1), x_vec(2))
-    ! dBy/dz first and second term is zero since dR/dz = dphi/dz = 0
-    spatial_grad_B(2,3) = dB_y_dR(3)
-    ! dBz/dx third term is zero since dz/dx = 0
-    spatial_grad_B(3,1) = dB_z_dR(1) * func_dR_dx(x_vec(1), x_vec(2))
-    ! dBz/dy third term is zero since dz/dy = 0
-    spatial_grad_B(3,2) = dB_z_dR(1) * func_dR_dy(x_vec(1), x_vec(2))
-    ! dBz/dz first and second term is zero since dR/dz = dphi/dz = 0
-    spatial_grad_B(3,3) = dB_z_dR(3)
-!    print* , "x_vec", x_vec
-!    print* , "R_vec", R_vec
-    if(debug_level > 2) then
-      do i = 1,3
-         do j = 1 , 4
-            aux_x(j,:) = x_vec
-            if(j < 3) aux_x(j,i) = x_vec(i) + (3 - j) * h_x !aux_x(1) = x + 2*h, aux_2(2) = x + h
-            if(j >= 3) aux_x(j,i) = x_vec(i) + (2 - j) * h_x !aux_x(3) = x - h, aux_2(4) = x - 2*h
-            aux_R(j,:) = R_vec
-            if(j < 3) aux_R(j,i) = R_vec(i) + (3 - j) * h_x !aux_x(1) = x + 2*h, aux_2(2) = x + h
-            if(j >= 3) aux_R(j,i) = R_vec(i) + (2 - j) * h_x !aux_x(3) = x - h, aux_2(4) = x - 2*h
-         end do
-         print*,"R",R_vec
-         print*,"x ana",spatial_grad_B(1,i)
-         print*, "x num",(- func_B_x_ana(aux_x(1,:)) + &
-                                    8.d0 *  func_B_x_ana(aux_x(2,:)) - &
-                                8.d0 *  func_B_x_ana(aux_x(3,:))  &
-                                +   func_B_x_ana(aux_x(4,:))) / (12.d0 *h_x)
-         print*,"y ana",spatial_grad_B(2,i)
-         print*, "y num",(- func_B_y_ana(aux_x(1,:)) + &
-                                    8.d0 *  func_B_y_ana(aux_x(2,:)) - &
-                                8.d0 *  func_B_y_ana(aux_x(3,:))  &
-                                +   func_B_y_ana(aux_x(4,:))) / (12.d0 *h_x)
-        print*,"z ana",spatial_grad_B(3,i)
-        print*,"should be zero"
-        print*,"dBx/dR ana",dB_x_dR(i)
-        print*,"dBx/dR num",(- func_B_x_ana_R(aux_R(1,:)) + &
-                                    8.d0 *  func_B_x_ana_R(aux_R(2,:)) - &
-                                8.d0 *  func_B_x_ana_R(aux_R(3,:))  &
-                                +   func_B_x_ana_R(aux_R(4,:))) / (12.d0 *h_x)
-        print*,"dBy/dR ana",dB_y_dR(i)
-        print*,"dBy/dR num",(- func_B_y_ana_R(aux_R(1,:)) + &
-                                    8.d0 *  func_B_y_ana_R(aux_R(2,:)) - &
-                                8.d0 *  func_B_y_ana_R(aux_R(3,:))  &
-                                +   func_B_y_ana_R(aux_R(4,:))) / (12.d0 *h_x)
-        print*,"dBz/dR ana - should be zero", dB_z_dR(i)
-      end do
-    end if
-!    stop "correct?"
-    !---gradient of total magnetic field
-    B_abs = sqrt(B_x_vec(1)**2 + B_x_vec(2)**2 + B_x_vec(3)**2)
-    ! to obtain d|B|/dx it is split into d|B|/dB_x_j and dB_x_i/dx_j
-    ! -> d|B|/dx_i = B_x_j / |B| * dB_j/dx_i
-    spatial_grad_B_abs(:) = 0.d0
-    do i = 1, 3
-        do j = 1,3
-          spatial_grad_B_abs(i) = spatial_grad_B_abs(i) + B_x_vec(j) * spatial_grad_B(j,i)
-        end do
-    end do
-    spatial_grad_B_abs = spatial_grad_B_abs / B_abs
-    !B_vec_norm = B_x_vec / B_abs
-    !N_vec_norm = N_vec / N_abs
-    scal_prod = 0.d0
-    do i =1, 3
-      scal_prod = scal_prod + B_x_vec(i) * N_vec(i)
-    end do
-    N_par = scal_prod / B_abs
-    !------------------------------ Now that all mangetic field gradients are known compute dcos_theta/dx_i-!
-    !------------------------------ and dcos_theta/dN_i ----------------------------------------------------!
-    ! N_grad_N_par = d/dN Sum_i (N_i * B_i)/ (B_abs) = vec(B)/B(abs)
-    !
-    N_grad_N_par =  B_x_vec(:) / B_abs
-    !----------------------------- Finally do the same thing for the spatial gardiend of N_par -------------------------!
-    !----------------------------- Here we resolve dN_par/dx into dN_par/dB_j * dB_j/dx_i  (multidimensional chain rule)!
-    spatial_grad_N_par(:) = 0.d0
-    do i = 1,3
-      do j =1,3
-        do k = 1,3
-        spatial_grad_N_par(i)  = spatial_grad_N_par(i) + (delta(j,k) * (N_vec(j) * B_abs**2 - B_x_vec(j)**2 * N_vec(j)) - &
-                                 (1.d0 - delta(j,k)) * (N_vec(k) * B_x_vec(j) * B_x_vec(k))) * spatial_grad_B(j,i)
-        end do
-      end do
-    end do
-    spatial_grad_N_par(:) = spatial_grad_N_par / (B_abs)**3
-  end subroutine sub_grad_N_par_ana
+
 
 
   subroutine sub_spatial_grad_X(plasma_params, omega, x_vec, X,  spatial_grad_X, rhop_out)
@@ -1920,9 +1299,7 @@ function func_dA_dY(X, Y)
     real(rkind), dimension(:),   intent(out)  :: spatial_grad_X
     real(rkind)              ,   intent(out)  :: rhop_out
     real(rkind)                               :: rhop, n_e, grad_n_e, T_e, grad_T_e
-    real(rkind), dimension(3)                 :: spatial_grad_rhop_ne, spatial_grad_rhop_Te, R_vec, &
-                                                 spatial_grad_T
-    integer(ikind)                            :: i
+    real(rkind), dimension(3)                 :: spatial_grad_rhop_ne, spatial_grad_rhop_Te
     if(.not. plasma_params%Te_ne_mat) then
       call sub_spatial_grad_rhop(plasma_params, x_vec, rhop, spatial_grad_rhop_ne)
       if(rhop == -1.d0) then
@@ -1957,39 +1334,7 @@ function func_dA_dY(X, Y)
     rhop_out = rhop
   end subroutine sub_spatial_grad_X
 
-  subroutine sub_spatial_grad_X_ana(plasma_params, omega, x_vec, X, spatial_grad_X_ana, rhop_out)
-    USE f90_kind
-    USE mod_ecfm_refr_types, only : plasma_params_type, warm_plasma!, h_x_glob
-    USE ripple3d,                 only: grad_type
-    use constants,                 only : pi, e0, mass_e, eps0, c0
-    type(plasma_params_type),    intent(in)   :: plasma_params
-    real(rkind)              ,   intent(in)   :: omega
-    real(rkind), dimension(:),   intent(in)   :: x_vec
-    real(rkind)              ,   intent(out)  :: X
-    real(rkind), dimension(:),   intent(out)  :: spatial_grad_X_ana
-    real(rkind)              ,   intent(out)  :: rhop_out
-    real(rkind)                               :: rhop, n_e, grad_n_e, T_e, grad_T_e
-    real(rkind), dimension(3)                 :: spatial_grad_rhop_ne, spatial_grad_rhop_Te
-    real(rkind), dimension(3)                 :: R_vec
-    call sub_spatial_grad_rhop_ana(plasma_params, x_vec, rhop, spatial_grad_rhop_ne)
-    call sub_grad_n_e_ana(plasma_params, rhop, n_e, grad_n_e)
-    spatial_grad_rhop_Te = spatial_grad_rhop_ne * plasma_params%rhop_scale_Te
-    spatial_grad_rhop_ne = spatial_grad_rhop_ne * plasma_params%rhop_scale_ne
-    if(warm_plasma) then
-      spatial_grad_rhop_Te = spatial_grad_rhop_ne * plasma_params%rhop_scale_Te
-      call sub_grad_T_e_ana(plasma_params, rhop, T_e, grad_T_e)
-      spatial_grad_X_ana = (e0**2*(2.d0*(c0**2 * mass_e + 5.d0 * e0 * T_e) * &
-                       grad_n_e * spatial_grad_rhop_ne - &
-                       5.d0 * e0 * n_e * grad_T_e * spatial_grad_rhop_Te)) / &
-                       (2.d0*eps0*mass_e * omega**2 * (c0**2*mass_e + 5.d0*e0*T_e) * &
-                       Sqrt(1.d0 + (5.d0 * e0*T_e)/(c0**2*mass_e)))
-    else
-      T_e = 0.d0
-      spatial_grad_X_ana = spatial_grad_rhop_ne(:) * grad_n_e * e0**2.d0/(eps0 * mass_e * omega**2)
-    end if
-    X  =  func_X(plasma_params, omega, n_e, T_e)
-    rhop_out = rhop
-  end subroutine sub_spatial_grad_X_ana
+
 
   function func_X(plasma_params, omega, n_e, T_e)
     USE mod_ecfm_refr_types, only : plasma_params_type, warm_plasma
@@ -2017,29 +1362,10 @@ function func_dA_dY(X, Y)
     real(rkind), dimension(:),      intent(out) :: spatial_grad_N_par
     real(rkind), dimension(:),      intent(out) :: spatial_grad_B_abs
     real(rkind), dimension(:),      intent(out) :: N_grad_N_par
-    integer(ikind)                              :: i,j
     call sub_grad_N_par(plasma_params, x_vec, N_vec, N_abs, B_abs, spatial_grad_B_abs, &
                            N_par, N_grad_N_par, spatial_grad_N_par)
 
   end subroutine sub_spatial_grad_N_par
-
-  subroutine sub_spatial_grad_N_par_ana(plasma_params, x_vec, N_vec, N_abs, N_par, spatial_grad_N_par, spatial_grad_B_abs, B_abs, N_grad_N_par)
-  ! dN_par / dx
-      USE f90_kind
-      USE mod_ecfm_refr_types, only : plasma_params_type
-      implicit none
-      type(plasma_params_type), intent(in)        :: plasma_params
-      real(rkind), dimension(:),      intent(in)  :: x_vec, N_vec
-      real(rkind),                    intent(in)  :: N_abs
-      real(rkind),                    intent(out) :: N_par, B_abs
-      real(rkind), dimension(:),      intent(out) :: spatial_grad_N_par
-      real(rkind), dimension(:),      intent(out) :: spatial_grad_B_abs
-      real(rkind), dimension(:),      intent(out) :: N_grad_N_par
-      real(rkind), dimension(3)                   :: R_vec
-      call sub_grad_N_par_ana(plasma_params, x_vec, N_vec, N_abs, B_abs, spatial_grad_B_abs, &
-                             N_par, N_grad_N_par, spatial_grad_N_par)
-   end subroutine sub_spatial_grad_N_par_ana
-
 
   function func_Y(plasma_params, omega, B_abs, T_e)
     USE mod_ecfm_refr_types, only : plasma_params_type, warm_plasma
@@ -2068,8 +1394,6 @@ function func_dA_dY(X, Y)
     real(rkind), dimension(:),   intent(in)   :: spatial_grad_B_abs
     real(rkind),                 intent(out)  :: Y
     real(rkind), dimension(:),   intent(out)  :: spatial_grad_Y2
-    integer(ikind)                            :: i
-    real(rkind), dimension(3)                 :: B2_grad, spatial_grad_Y ! grad_x(B^2)       !
       call sub_spatial_grad_Y(plasma_params, omega, x_vec, B_abs, spatial_grad_B_abs, Y, spatial_grad_Y2)
       spatial_grad_Y2 = 2.d0 * Y * spatial_grad_Y2
   end subroutine sub_spatial_grad_Y2
@@ -2089,8 +1413,7 @@ function func_dA_dY(X, Y)
     real(rkind), dimension(:),   intent(in)   :: spatial_grad_B_abs
     real(rkind),                 intent(out)  :: Y
     real(rkind), dimension(:),   intent(out)  :: spatial_grad_Y
-    integer(ikind)                            :: i
-    real(rkind), dimension(3)                 :: B2_grad, spatial_grad_rhop ! grad_x(B^2)
+    real(rkind), dimension(3)                 :: spatial_grad_rhop ! grad_x(B^2)
     real(rkind)                               :: rhop, T_e, grad_T_e
     if(warm_plasma) then
       if(.not. plasma_params%Te_ne_mat) then
@@ -2117,41 +1440,11 @@ function func_dA_dY(X, Y)
     Y = func_Y(plasma_params, omega, B_abs, T_e)
   end subroutine sub_spatial_grad_Y
 
-  subroutine sub_spatial_grad_Y_ana(plasma_params, omega, x_vec, B_abs, spatial_grad_B_abs, Y, spatial_grad_Y_ana)
-  ! dY^2 / dx
-    USE f90_kind
-    USE mod_ecfm_refr_types, only : plasma_params_type, warm_plasma
-    use constants,            only: pi, e0, mass_e, eps0, c0
-    ! corresponds to flux coordinates
-    implicit None
-    type(plasma_params_type),    intent(in)   :: plasma_params
-    real(rkind),                 intent(in)   :: omega
-    real(rkind), dimension(:),   intent(in)   :: x_vec
-    real(rkind),                 intent(in)   :: B_abs
-    real(rkind), dimension(:),   intent(in)   :: spatial_grad_B_abs
-    real(rkind),                 intent(out)  :: Y
-    real(rkind), dimension(:),   intent(out)  :: spatial_grad_Y_ana
-    integer(ikind)                            :: i
-    real(rkind), dimension(3)                 :: B2_grad, spatial_grad_rhop ! grad_x(B^2)
-    real(rkind)                               :: rhop, T_e, grad_T_e
-    if(warm_plasma) then
-      call sub_spatial_grad_rhop_ana(plasma_params, x_vec, rhop, spatial_grad_rhop)
-      call sub_grad_T_e_ana(plasma_params, rhop, T_e, grad_T_e)
-      spatial_grad_rhop = spatial_grad_rhop * plasma_params%rhop_scale_Te
-      spatial_grad_Y_ana(:) =   (e0*((0.2*c0**2*mass_e + e0*T_e) * spatial_grad_B_abs(:) - &
-        0.5*e0*B_abs*spatial_grad_rhop*grad_T_e)) / &
-        (mass_e*omega*(0.2*c0**2*mass_e + e0*T_e) * &
-        Sqrt(1. + (5.*e0*T_e)/(c0**2*mass_e)))
-    else
-      spatial_grad_Y_ana(:) = spatial_grad_B_abs(:) * e0 / mass_e
-      T_e = 0.d0
-    end if
-    Y = func_Y(plasma_params, omega, B_abs, T_e)
-  end subroutine sub_spatial_grad_Y_ana
+
 
  subroutine sub_grad_H(plasma_params, omega, mode, x_vec, dx_dsigma)
     USE f90_kind
-    USE mod_ecfm_refr_types, only : plasma_params_type, h_x_glob, Analytical
+    USE mod_ecfm_refr_types, only : plasma_params_type, h_x_glob
     USE ripple3d,                 only: grad_type
     USE constants,                 only : eps0, mass_e, e0, c0
     use mod_ecfm_refr_utils, only: retrieve_n_e, retrieve_T_e, sub_remap_coords, &
@@ -2173,15 +1466,9 @@ function func_dA_dY(X, Y)
     real(rkind), dimension(4,3)               :: aux_x, aux_N
     integer(ikind)                            :: i, j
     N_abs = sqrt(x_vec(4)**2 + x_vec(5)**2 + x_vec(6)**2)
-    if(Analytical) then
-      call sub_spatial_grad_X_ana(plasma_params, omega, x_vec(1:3), X, spatial_grad_X, rhop_out)
-      call sub_spatial_grad_N_par_ana(plasma_params, x_vec(1:3), x_vec(4:6), N_abs, N_par, spatial_grad_N_par, spatial_grad_B_abs, B_abs, N_grad_N_par)
-      call sub_spatial_grad_Y_ana(plasma_params, omega, x_vec(1:3), B_abs, spatial_grad_B_abs, Y, spatial_grad_Y)
-    else
-      call sub_spatial_grad_X(plasma_params, omega, x_vec(1:3), X, spatial_grad_X, rhop_out)
-      call sub_spatial_grad_N_par(plasma_params, x_vec(1:3), x_vec(4:6), N_abs, N_par, spatial_grad_N_par, spatial_grad_B_abs, B_abs, N_grad_N_par)
-      call sub_spatial_grad_Y(plasma_params, omega, x_vec(1:3), B_abs, spatial_grad_B_abs, Y, spatial_grad_Y)
-    end if
+    call sub_spatial_grad_X(plasma_params, omega, x_vec(1:3), X, spatial_grad_X, rhop_out)
+    call sub_spatial_grad_N_par(plasma_params, x_vec(1:3), x_vec(4:6), N_abs, N_par, spatial_grad_N_par, spatial_grad_B_abs, B_abs, N_grad_N_par)
+    call sub_spatial_grad_Y(plasma_params, omega, x_vec(1:3), B_abs, spatial_grad_B_abs, Y, spatial_grad_Y)
     A = func_A(X, Y)
     B = func_B(X, Y, N_par)
     C = func_C(X, Y, N_par)
@@ -2220,11 +1507,7 @@ function func_dA_dY(X, Y)
     else
       return
     end if
-    if(Analytical) then
-      rhop = func_rhop_ana(plasma_params, x_vec(1:3))
-    else
-      rhop = func_rhop(plasma_params, x_vec(1:3))
-    end if
+    rhop = func_rhop(plasma_params, x_vec(1:3))
     print*, "H", H
     print*, "omega", omega
     print*, "rhop", rhop
@@ -2233,23 +1516,17 @@ function func_dA_dY(X, Y)
     print*, "ABC", A, B, C
     print*, "X,Y, N_par", X, Y, N_par
     print*, "N_abs", N_abs
-    if(Analytical) then
-      call sub_N_par_ana(plasma_params, x_vec(1:3), x_vec(4:6), N_par_aux(1), N_abs_aux(1))
-      X_aux(1) = func_X(plasma_params, omega,func_n_e_ana(plasma_params, x_vec(1:3)), func_T_e_ana(plasma_params, x_vec(1:3)))
-      Y_aux(1) = func_Y(plasma_params,omega,func_B_abs_ana(plasma_params, x_vec(1:3)), func_T_e_ana(plasma_params, x_vec(1:3)))
+    call sub_N_par(plasma_params, x_vec(1:3), x_vec(4:6), N_par_aux(1), N_abs_aux(1), B_abs_aux)
+    if(.not. plasma_params%Te_ne_mat) then
+      rhop = func_rhop(plasma_params, x_vec(1:3))
+      call retrieve_n_e(plasma_params, rhop, n_e)
+      call retrieve_T_e(plasma_params, rhop, T_e)
     else
-      call sub_N_par(plasma_params, x_vec(1:3), x_vec(4:6), N_par_aux(1), N_abs_aux(1), B_abs_aux)
-      if(.not. plasma_params%Te_ne_mat) then
-        rhop = func_rhop(plasma_params, x_vec(1:3))
-        call retrieve_n_e(plasma_params, rhop, n_e)
-        call retrieve_T_e(plasma_params, rhop, T_e)
-      else
-        call retrieve_n_e_mat_single(plasma_params, x_vec, n_e)
-        call retrieve_T_e_mat_single(plasma_params, x_vec, T_e)
-      end if
-      X_aux(1) = func_X(plasma_params, omega, n_e, T_e)
-      Y_aux(1) =  func_Y(plasma_params,omega, B_abs_aux,T_e)
+      call retrieve_n_e_mat_single(plasma_params, x_vec, n_e)
+      call retrieve_T_e_mat_single(plasma_params, x_vec, T_e)
     end if
+    X_aux(1) = func_X(plasma_params, omega, n_e, T_e)
+    Y_aux(1) =  func_Y(plasma_params,omega, B_abs_aux,T_e)
     print*, "N_par defaul", N_par, "N_par debug", N_par_aux(1)
     print*, "X defaul", X, "X debug", X_aux(1)
     print*, "Y defaul", Y, "Y debug", Y_aux(1)
@@ -2262,29 +1539,20 @@ function func_dA_dY(X, Y)
         if(j >= 3) aux_x(j,i) = x_vec(i) + (2 - j) * h_x !aux_x(3) = x - h, aux_2(4) = x - 2*h
         if(j < 3) aux_N(j,i) = x_vec(i + 3) + (3 - j) * h_x !aux_x(1) = x + 2*h, aux_2(2) = x + h
         if(j >= 3) aux_N(j,i) = x_vec(i + 3) + (2 - j) * h_x !aux_x(3) = x - h, aux_2(4) = x - 2*h
-        if(Analytical) then
-          call sub_N_par_ana(plasma_params, aux_x(j,:), x_vec(4:6), N_par_aux(j), N_abs_aux(j))
-          N_perp_aux(j) = sqrt(N_abs_aux(j)**2 - N_par_aux(j)**2)
-          call sub_N_par_ana(plasma_params, x_vec(1:3), aux_N(j,:), N_par_aux_2(j), N_abs_aux(j))
-          N_perp_aux_2(j) = sqrt(N_abs_aux(j)**2 - N_par_aux_2(j)**2)
-          X_aux(j) = func_X(plasma_params,omega,func_n_e_ana(plasma_params, aux_x(j,:)), func_T_e_ana(plasma_params, aux_x(j,:)))
-          Y_aux(j) = func_Y(plasma_params,omega,func_B_abs_ana(plasma_params, aux_x(j,:)), func_T_e_ana(plasma_params, aux_x(j,:)))
+        call sub_N_par(plasma_params, aux_x(j,:), x_vec(4:6), N_par_aux(j), N_abs_aux(j),  B_abs_aux)
+        if(.not. plasma_params%Te_ne_mat) then
+          rhop = func_rhop(plasma_params, x_vec(1:3))
+          call retrieve_n_e(plasma_params, rhop, n_e)
+          call retrieve_T_e(plasma_params, rhop, T_e)
         else
-          call sub_N_par(plasma_params, aux_x(j,:), x_vec(4:6), N_par_aux(j), N_abs_aux(j),  B_abs_aux)
-          if(.not. plasma_params%Te_ne_mat) then
-            rhop = func_rhop(plasma_params, x_vec(1:3))
-            call retrieve_n_e(plasma_params, rhop, n_e)
-            call retrieve_T_e(plasma_params, rhop, T_e)
-          else
-            call retrieve_n_e_mat_single(plasma_params, x_vec(1:3), n_e)
-            call retrieve_T_e_mat_single(plasma_params, x_vec(1:3), T_e)
-          end if
-          X_aux(j) = func_X(plasma_params, omega, n_e, T_e)
-          Y_aux(j) = func_Y(plasma_params, omega, B_abs_aux, T_e)
-          N_perp_aux(j) = sqrt(N_abs_aux(j)**2 - N_par_aux(j)**2)
-          call sub_N_par(plasma_params, x_vec(1:3), aux_N(j,:), N_par_aux_2(j), N_abs_aux(j),  B_abs_aux)
-          N_perp_aux_2(j) = sqrt(N_abs_aux(j)**2 - N_par_aux_2(j)**2)
+          call retrieve_n_e_mat_single(plasma_params, x_vec(1:3), n_e)
+          call retrieve_T_e_mat_single(plasma_params, x_vec(1:3), T_e)
         end if
+        X_aux(j) = func_X(plasma_params, omega, n_e, T_e)
+        Y_aux(j) = func_Y(plasma_params, omega, B_abs_aux, T_e)
+        N_perp_aux(j) = sqrt(N_abs_aux(j)**2 - N_par_aux(j)**2)
+        call sub_N_par(plasma_params, x_vec(1:3), aux_N(j,:), N_par_aux_2(j), N_abs_aux(j),  B_abs_aux)
+        N_perp_aux_2(j) = sqrt(N_abs_aux(j)**2 - N_par_aux_2(j)**2)
         A_aux(j) = func_A(X_aux(j), Y_aux(j))
         B_aux(j) = func_B(X_aux(j), Y_aux(j), N_par_aux(j))
         C_aux(j) = func_C(X_aux(j), Y_aux(j), N_par_aux(j))
@@ -2415,7 +1683,7 @@ function func_dA_dY(X, Y)
 
   subroutine sub_grad_Lambda(plasma_params, omega, mode, x_vec, dxds)
     USE f90_kind
-    USE mod_ecfm_refr_types, only : plasma_params_type, h_x_glob, Analytical, Lambda_star
+    USE mod_ecfm_refr_types, only : plasma_params_type, h_x_glob
     USE ripple3d,                 only: grad_type
     USE constants,                 only : c0, eps0, mass_e, e0
     use mod_ecfm_refr_utils, only: retrieve_n_e, retrieve_T_e, sub_remap_coords, &
@@ -2429,22 +1697,16 @@ function func_dA_dY(X, Y)
     real(rkind), dimension(:),   intent(out)  :: dxds
     real(rkind)                               :: N_abs, N_par, X, Y, rhop_out
     real(rkind), dimension(3)                 :: R_vec, N_vec, spatial_grad_X, spatial_grad_Y, spatial_grad_Y2, &
-                                                 spatial_grad_N_par, spatial_grad_B_abs, spatial_grad_rhop, N_grad_N_par
-    real(rkind)                               :: theta, Hamil, N_s, B_abs, grad_n_e, n_e, T_e, rhop, N_abs_aux, h_x, dNs_sq_dN_par, B_abs_aux
+                                                 spatial_grad_N_par, spatial_grad_B_abs, N_grad_N_par
+    real(rkind)                               :: Hamil, N_s, B_abs, n_e, T_e, rhop, N_abs_aux, h_x, dNs_sq_dN_par, B_abs_aux
     real(rkind), dimension(4)                 :: X_aux, Y_aux, N_par_aux, N_abs_aux_2
     real(rkind), dimension(4,3)               :: aux_x, aux_N
     integer(ikind)                            :: i, j
     N_abs = sqrt(x_vec(4)**2 + x_vec(5)**2 + x_vec(6)**2)
     N_vec = x_vec(4:6)
-    if(Analytical) then
-      call sub_spatial_grad_X_ana(plasma_params, omega, x_vec(1:3), X, spatial_grad_X, rhop_out)
-      call sub_spatial_grad_N_par_ana(plasma_params, x_vec(1:3), x_vec(4:6), N_abs, N_par, spatial_grad_N_par, spatial_grad_B_abs, B_abs, N_grad_N_par)
-      call sub_spatial_grad_Y_ana(plasma_params, omega, x_vec(1:3), B_abs, spatial_grad_B_abs, Y, spatial_grad_Y)
-    else
-      call sub_spatial_grad_X(plasma_params, omega, x_vec(1:3), X, spatial_grad_X, rhop_out)
-      call sub_spatial_grad_N_par(plasma_params, x_vec(1:3), x_vec(4:6), N_abs, N_par, spatial_grad_N_par, spatial_grad_B_abs, B_abs, N_grad_N_par)
-      call sub_spatial_grad_Y(plasma_params, omega, x_vec(1:3), B_abs, spatial_grad_B_abs, Y, spatial_grad_Y)
-    end if
+    call sub_spatial_grad_X(plasma_params, omega, x_vec(1:3), X, spatial_grad_X, rhop_out)
+    call sub_spatial_grad_N_par(plasma_params, x_vec(1:3), x_vec(4:6), N_abs, N_par, spatial_grad_N_par, spatial_grad_B_abs, B_abs, N_grad_N_par)
+    call sub_spatial_grad_Y(plasma_params, omega, x_vec(1:3), B_abs, spatial_grad_B_abs, Y, spatial_grad_Y)
     spatial_grad_Y2 = 2.d0 * Y * spatial_grad_Y
     dNs_sq_dN_par = func_dNs_sq_dN_par(N_abs,  X, Y, N_par, mode)
     dxds(4:6) = -spatial_grad_N_par(:) * dNs_sq_dN_par
@@ -2465,23 +1727,17 @@ function func_dA_dY(X, Y)
         aux_x(j,:) = x_vec(:)
         if(j < 3) aux_x(j,i) = x_vec(i) + (3 - j) * h_x !aux_x(1) = x + 2*h, aux_2(2) = x + h
         if(j >= 3) aux_x(j,i) = x_vec(i) + (2 - j) * h_x !aux_x(3) = x - h, aux_2(4) = x - 2*h
-        if(Analytical) then
-          call sub_N_par_ana(plasma_params, aux_x(j,:), N_vec, N_par_aux(j), N_abs_aux)
-          X_aux(j) = func_X(plasma_params,omega,func_n_e_ana(plasma_params, aux_x(j,:)), func_T_e_ana(plasma_params, aux_x(j,:)))
-          Y_aux(j) = func_Y(plasma_params,omega,func_B_abs_ana(plasma_params, aux_x(j,:)), func_T_e_ana(plasma_params, aux_x(j,:)))
+        call sub_N_par(plasma_params, aux_x(j,:), N_vec, N_par_aux(j), N_abs_aux,  B_abs_aux)
+        if(.not. plasma_params%Te_ne_mat) then
+          rhop = func_rhop(plasma_params, aux_x(j,:))
+          call retrieve_n_e(plasma_params, rhop, n_e)
+          call retrieve_T_e(plasma_params, rhop, T_e)
         else
-          call sub_N_par(plasma_params, aux_x(j,:), N_vec, N_par_aux(j), N_abs_aux,  B_abs_aux)
-          if(.not. plasma_params%Te_ne_mat) then
-            rhop = func_rhop(plasma_params, aux_x(j,:))
-            call retrieve_n_e(plasma_params, rhop, n_e)
-            call retrieve_T_e(plasma_params, rhop, T_e)
-          else
-            call retrieve_n_e_mat_single(plasma_params, aux_x(j,:), n_e)
-            call retrieve_T_e_mat_single(plasma_params, aux_x(j,:), T_e)
-          end if
-          X_aux(j) = func_X(plasma_params, omega, n_e, T_e)
-          Y_aux(j) = func_Y(plasma_params, omega, B_abs_aux, T_e)
+          call retrieve_n_e_mat_single(plasma_params, aux_x(j,:), n_e)
+          call retrieve_T_e_mat_single(plasma_params, aux_x(j,:), T_e)
         end if
+        X_aux(j) = func_X(plasma_params, omega, n_e, T_e)
+        Y_aux(j) = func_Y(plasma_params, omega, B_abs_aux, T_e)
       end do
       call sub_remap_coords(x_vec(1:3), R_vec)
       print*, "Current position", R_vec
@@ -2537,11 +1793,7 @@ function func_dA_dY(X, Y)
         aux_N(j,:) = N_vec(:)
         if(j < 3) aux_N(j,i) = N_vec(i) + (3 - j) * h_x !aux_x(1) = x + 2*h, aux_2(2) = x + h
         if(j >= 3) aux_N(j,i) = N_vec(i) + (2 - j) * h_x !aux_x(3) = x - h, aux_2(4) = x - 2*h
-        if(Analytical) then
-          call sub_N_par_ana(plasma_params,x_vec, aux_N(j,:), N_par_aux(j), N_abs_aux_2(j))
-        else
-          call sub_N_par(plasma_params,x_vec, aux_N(j,:), N_par_aux(j), N_abs_aux_2(j),  B_abs_aux)
-        end if
+        call sub_N_par(plasma_params,x_vec, aux_N(j,:), N_par_aux(j), N_abs_aux_2(j),  B_abs_aux)
       end do
       print*, "dN_par/dN ana", N_grad_N_par(i)
       print*, "dN_par/dN num forward", (N_par_aux(2) - N_par) / h_x
@@ -2569,7 +1821,7 @@ function func_dA_dY(X, Y)
 
   subroutine sub_grad_Lambda_star(plasma_params, omega, mode, x_vec, dxds)
     USE f90_kind
-    USE mod_ecfm_refr_types, only : plasma_params_type, h_x_glob, Analytical
+    USE mod_ecfm_refr_types, only : plasma_params_type, h_x_glob
     USE ripple3d,                 only: grad_type
     USE constants,                 only : c0, eps0, mass_e, e0
     use mod_ecfm_refr_utils, only: retrieve_n_e, retrieve_T_e, &
@@ -2583,23 +1835,17 @@ function func_dA_dY(X, Y)
     real(rkind), dimension(:),   intent(out)  :: dxds
     real(rkind)                               :: N_abs, N_par, X, Y, rhop_out
     real(rkind), dimension(3)                 :: N_vec, spatial_grad_X, spatial_grad_Y, spatial_grad_Y2, &
-                                                 spatial_grad_N_par, spatial_grad_B_abs, spatial_grad_rhop, N_grad_N_par
-    real(rkind)                               :: theta, Hamil, N_s, B_abs, grad_n_e, n_e, T_e, rhop, N_abs_aux, &
+                                                 spatial_grad_N_par, spatial_grad_B_abs, N_grad_N_par
+    real(rkind)                               :: Hamil, N_s, B_abs, n_e, T_e, rhop, N_abs_aux, &
                                                  h_x, dN_s_star_2_dN_par, B_abs_aux
     real(rkind), dimension(4)                 :: X_aux, Y_aux, N_par_aux, N_abs_aux_2
     real(rkind), dimension(4,3)               :: aux_x, aux_N
     integer(ikind)                            :: i, j
     N_abs = sqrt(x_vec(4)**2 + x_vec(5)**2 + x_vec(6)**2)
     N_vec = x_vec(4:6)
-    if(Analytical) then
-      call sub_spatial_grad_X_ana(plasma_params, omega, x_vec(1:3), X, spatial_grad_X, rhop_out)
-      call sub_spatial_grad_N_par_ana(plasma_params, x_vec(1:3), x_vec(4:6), N_abs, N_par, spatial_grad_N_par, spatial_grad_B_abs, B_abs, N_grad_N_par)
-      call sub_spatial_grad_Y_ana(plasma_params, omega, x_vec(1:3), B_abs, spatial_grad_B_abs, Y, spatial_grad_Y)
-    else
-      call sub_spatial_grad_X(plasma_params, omega, x_vec(1:3), X, spatial_grad_X, rhop_out)
-      call sub_spatial_grad_N_par(plasma_params, x_vec(1:3), x_vec(4:6), N_abs, N_par, spatial_grad_N_par, spatial_grad_B_abs, B_abs, N_grad_N_par)
-      call sub_spatial_grad_Y(plasma_params, omega, x_vec(1:3), B_abs, spatial_grad_B_abs, Y, spatial_grad_Y)
-    end if
+    call sub_spatial_grad_X(plasma_params, omega, x_vec(1:3), X, spatial_grad_X, rhop_out)
+    call sub_spatial_grad_N_par(plasma_params, x_vec(1:3), x_vec(4:6), N_abs, N_par, spatial_grad_N_par, spatial_grad_B_abs, B_abs, N_grad_N_par)
+    call sub_spatial_grad_Y(plasma_params, omega, x_vec(1:3), B_abs, spatial_grad_B_abs, Y, spatial_grad_Y)
     Hamil = func_Lambda_star(N_abs, X, Y,  N_par, mode)
     spatial_grad_Y2 = 2.d0 * Y * spatial_grad_Y
     dN_s_star_2_dN_par = func_dN_s_star_2_dN_par(N_abs,  X, Y, N_par, mode)
@@ -2623,23 +1869,17 @@ function func_dA_dY(X, Y)
           aux_x(j,:) = x_vec(:)
           if(j < 3) aux_x(j,i) = x_vec(i) + (3 - j) * h_x !aux_x(1) = x + 2*h, aux_2(2) = x + h
           if(j >= 3) aux_x(j,i) = x_vec(i) + (2 - j) * h_x !aux_x(3) = x - h, aux_2(4) = x - 2*h
-          if(Analytical) then
-            call sub_N_par_ana(plasma_params, aux_x(j,:), N_vec, N_par_aux(j), N_abs_aux)
-            X_aux(j) = func_X(plasma_params,omega,func_n_e_ana(plasma_params, aux_x(j,:)), func_T_e_ana(plasma_params, aux_x(j,:)))
-            Y_aux(j) = func_Y(plasma_params,omega,func_B_abs_ana(plasma_params, aux_x(j,:)), func_T_e_ana(plasma_params, aux_x(j,:)))
+          call sub_N_par(plasma_params, aux_x(j,:), N_vec, N_par_aux(j), N_abs_aux, B_abs_aux)
+          if(.not. plasma_params%Te_ne_mat) then
+            rhop = func_rhop(plasma_params, aux_x(j,:))
+            call retrieve_n_e(plasma_params, rhop, n_e)
+            call retrieve_T_e(plasma_params, rhop, T_e)
           else
-            call sub_N_par(plasma_params, aux_x(j,:), N_vec, N_par_aux(j), N_abs_aux, B_abs_aux)
-            if(.not. plasma_params%Te_ne_mat) then
-              rhop = func_rhop(plasma_params, aux_x(j,:))
-              call retrieve_n_e(plasma_params, rhop, n_e)
-              call retrieve_T_e(plasma_params, rhop, T_e)
-            else
-              call retrieve_n_e_mat_single(plasma_params,  aux_x(j,:), n_e)
-              call retrieve_T_e_mat_single(plasma_params, aux_x(j,:), T_e)
-            end if
-            X_aux(j) = func_X(plasma_params,omega, n_e, T_e)
-            Y_aux(j) = func_Y(plasma_params,omega, B_abs_aux, T_e)
+            call retrieve_n_e_mat_single(plasma_params,  aux_x(j,:), n_e)
+            call retrieve_T_e_mat_single(plasma_params, aux_x(j,:), T_e)
           end if
+          X_aux(j) = func_X(plasma_params,omega, n_e, T_e)
+          Y_aux(j) = func_Y(plasma_params,omega, B_abs_aux, T_e)
         end do
         print*, "dX/dx ana", spatial_grad_X(i)
         print*, "dX/dx num fwd. :", (X_aux(2) - X)/h_x
@@ -2689,11 +1929,7 @@ function func_dA_dY(X, Y)
           aux_N(j,:) = N_vec(:)
           if(j < 3) aux_N(j,i) = N_vec(i) + (3 - j) * h_x !aux_x(1) = x + 2*h, aux_2(2) = x + h
           if(j >= 3) aux_N(j,i) = N_vec(i) + (2 - j) * h_x !aux_x(3) = x - h, aux_2(4) = x - 2*h
-          if(Analytical) then
-            call sub_N_par_ana(plasma_params,x_vec, aux_N(j,:), N_par_aux(j), N_abs_aux_2(j))
-          else
-            call sub_N_par(plasma_params,x_vec, aux_N(j,:), N_par_aux(j), N_abs_aux_2(j),  B_abs_aux)
-          end if
+          call sub_N_par(plasma_params,x_vec, aux_N(j,:), N_par_aux(j), N_abs_aux_2(j),  B_abs_aux)
         end do
         print*, "dN_par/dN ana",N_grad_N_par(i)
         print*, "dN_par/dN num forward", (N_par_aux(2) - N_par) / h_x
@@ -2719,25 +1955,17 @@ function func_dA_dY(X, Y)
 
   subroutine f_H(m, sigma, x_vec, dx_dsigma)
     use f90_kind
-    USE mod_ecfm_refr_types, only : h_x_glob
     implicit none
     integer          , intent(in)           :: m
     real(rkind),  intent(in)                :: sigma
     real(rkind),  dimension(m), intent(in)  :: x_vec
     real(rkind),  dimension(m), intent(inout) :: dx_dsigma
-    !real(rkind)                             :: ds
     call sub_grad_H(glob_plasma_params, glob_omega, glob_mode, x_vec, dx_dsigma)
-    !ds = abs(dx_dsigma(1)**2 + dx_dsigma(2)**2 + dx_dsigma(3)**2)
-    !if(ds == 0.d0) then
-    !  dx_dsigma(1:3) = h_x_glob * x_vec(4:6)
-    !  dx_dsigma(4:6) = 0.d0
-    !  return
-    !end if
   end subroutine f_H
 
   subroutine f_Lambda(m, s, x_vec, dxds)
     use f90_kind
-    USE mod_ecfm_refr_types, only : h_x_glob, Lambda_star
+    USE mod_ecfm_refr_types, only : Lambda_star
     implicit none
     integer          , intent(in)           :: m
     real(rkind)                             :: s
@@ -2788,13 +2016,10 @@ function func_dA_dY(X, Y)
     real(rkind), dimension(:),   intent(in)   :: work_lsode
     integer(ikind), dimension(:), intent(in)  :: iwork_lsode
     integer(ikind),              intent(inout):: istate
-    real(rkind), dimension(3)                 :: N_grad_N_par_dummy, l_dummy, spatial_grad_X
-    real(rkind)                               :: X, Y, A, B, C, N_par, Hamil_init, sigma_init, dX1, dX2, sigma0
-    integer(ikind)                            :: attempt_count
+    real(rkind)                               :: X, Y, A, B, C, N_par, dX1, dX2, sigma0
     integer, dimension(1)                     :: neq
     double precision, dimension(1)            :: rtol, atol
     real(rkind), dimension(6)                 :: y_vec, dy_vec_dummy, y_vec_init
-    logical                                   :: redo_step, last_step_smaller
     neq = 6
     rtol = 1d-6
     atol = 1d-6
@@ -2890,64 +2115,9 @@ function func_dA_dY(X, Y)
     end if
   end subroutine sub_single_step_LSODE
 
- subroutine sub_single_step_explicit_RK4(plasma_params, omega, x_vec, N_vec, h, x_vec_out, N_vec_out, B_vec_out, theta_out, Hamil_out, N_s_out, n_e_out, omega_c_out, rhop_out)
-    USE f90_kind
-    USE mod_ecfm_refr_types, only : plasma_params_type, Hamil
-    USE constants,                 only : eps0, mass_e, e0, c0
-    implicit None
-    type(plasma_params_type),    intent(in)   :: plasma_params
-    real(rkind),                 intent(in)   :: omega
-    real(rkind), dimension(:),   intent(in)   :: x_vec, N_vec
-    real(rkind), dimension(:),   intent(out)  :: B_vec_out
-    real(rkind),                 intent(in)   :: h
-    real(rkind), dimension(:),   intent(out)  :: x_vec_out, N_vec_out
-    real(rkind),                 intent(out)  :: theta_out, Hamil_out, N_s_out, n_e_out, omega_c_out, rhop_out
-    real(rkind), dimension(0:4,6)             :: k
-    real(rkind), dimension(4)                 :: h_arr
-    real(rkind), dimension(6)                 :: y_vec
-    real(rkind)                               :: N_abs, k_abs, omega_c, omega_p2, T_e_out
-    real(rkind)                               :: X, Y, T_e,  A, B, C, N_par
-    integer(ikind)                            :: i
-    stop "RUNGE KUTTA 4 is insufficient for the ray tracing problem"
-    N_abs = 0.d0
-    do i = 1,3
-      N_abs = N_abs + N_vec(i)**2
-    end do
-    N_abs = sqrt(N_abs)
-    call sub_local_params(glob_plasma_params, glob_omega, x_vec, N_vec, B_vec_out, N_abs, n_e_out, omega_c_out, T_e_out, theta_out, rhop_out)
-    X = func_X(glob_plasma_params,glob_omega, n_e_out,T_e_out)
-    Y = func_Y(glob_plasma_params,glob_omega, omega_c * mass_e / e0, T_e_out)
-    N_par = cos(theta_out) * N_abs
-    h_arr(1) = 0.d0
-    h_arr(2) = 0.5d0 * h
-    h_arr(3) = 0.5d0 * h
-    h_arr(4) = h
-    y_vec(1:3) = x_vec
-    y_vec(4:6) = N_vec
-    k(0,:) = 0.d0
-    if(Hamil == "Dani") then
-      Hamil_out = func_Lambda_star(N_abs, X, Y, N_par, glob_mode)
-      N_s_out = N_abs
-      do i = 1, 4
-        call f_Lambda(6, 0.d0, y_vec + h_arr(i) * k(i - 1,:), k(i,:))
-      end do
-    else
-      N_s_out = N_abs
-      A = func_A(X, Y)
-      B = func_B(X, Y, N_par)
-      C = func_C(X, Y, N_par)
-      Hamil_out = func_H(sqrt(N_abs**2 - N_par**2),A, B, C, glob_mode)
-      do i = 1, 4
-        call f_H(6, 0.d0, y_vec + h_arr(i) * k(i - 1,:), k(i,:))
-      end do
-    end if
-    x_vec_out = x_vec + h / 6.d0 * (k(1,1:3)  + 2.d0 * k(2,1:3) + 2.d0 * k(3,1:3) + k(4,1:3))
-    N_vec_out = N_vec + h / 6.d0 * (k(1,4:6)  + 2.d0 * k(2,4:6) + 2.d0 * k(3,4:6) + k(4,4:6))
-  end subroutine sub_single_step_explicit_RK4
-
   subroutine sub_local_params(plasma_params, omega, x_vec, N_vec, B_vec, N_abs, n_e, omega_c, T_e, theta, rhop_out)
     USE f90_kind
-    USE mod_ecfm_refr_types, only : plasma_params_type, h_check, Analytical, &
+    USE mod_ecfm_refr_types, only : plasma_params_type, &
                                     straight, SOL_ne, SOL_Te !, h_x_glob
     USE ripple3d,                 only: grad_type
     USE constants,                 only : e0, mass_e
@@ -2959,42 +2129,33 @@ function func_dA_dY(X, Y)
     real(rkind), dimension(:),   intent(in)   :: x_vec, N_vec
     real(rkind), dimension(:),   intent(out)  :: B_vec
     real(rkind),                 intent(out)  :: N_abs, theta, n_e, omega_c, T_e, rhop_out
-    real(rkind)                               :: N_par, B_abs
+    real(rkind)                               :: B_abs
     if(any(x_vec /= x_vec)) then
       print*, "nan in x_vec"
       stop "Nan in x_vec in sub_local_params in mod_raytrace.f90"
     end if
-    if(Analytical) then
-      call sub_N_par_ana(plasma_params, x_vec, N_vec, N_par, N_abs)
-      T_e = func_T_e_ana(plasma_params, x_vec)
-      n_e = func_n_e_ana(plasma_params, x_vec)
-      omega_c = e0 * func_B_abs_ana(plasma_params, x_vec) / mass_e
-      rhop_out = func_rhop_ana(plasma_params, x_vec)
-      theta = acos(N_par / N_abs)
+    call sub_theta(plasma_params, x_vec, N_vec, theta, N_abs, B_abs, B_vec)
+    omega_c = e0 * B_abs /mass_e
+    rhop_out = func_rhop(plasma_params, x_vec)
+    if(rhop_out > plasma_params%rhop_max .or. &
+       rhop_out > plasma_params%rhop_entry .or. &
+       rhop_out == -1.d0) then
+      n_e = SOL_ne
+      T_e = SOL_Te
     else
-      call sub_theta(plasma_params, x_vec, N_vec, theta, N_abs, B_abs, B_vec)
-      omega_c = e0 * B_abs /mass_e
-      rhop_out = func_rhop(plasma_params, x_vec)
-      if(rhop_out > plasma_params%rhop_max .or. &
-         rhop_out > plasma_params%rhop_entry .or. &
-         rhop_out == -1.d0) then
-        n_e = SOL_ne
-        T_e = SOL_Te
-      else
-        if(plasma_params%No_ne_te) then
-          if(.not. straight) then
-            print*, "Ne and Te must be present if raytracing is considered"
-            call abort
-          end if
-          n_e = 0.d0
-          T_e = 0.d0
-        else if(.not. plasma_params%Te_ne_mat) then
-          call retrieve_n_e(plasma_params, rhop_out, n_e)
-          call retrieve_T_e(plasma_params, rhop_out, T_e)
-        else
-          call retrieve_n_e_mat_single(plasma_params, x_vec, n_e)
-          call retrieve_T_e_mat_single(plasma_params, x_vec, T_e)
+      if(plasma_params%No_ne_te) then
+        if(.not. straight) then
+          print*, "Ne and Te must be present if raytracing is considered"
+          call abort
         end if
+        n_e = 0.d0
+        T_e = 0.d0
+      else if(.not. plasma_params%Te_ne_mat) then
+        call retrieve_n_e(plasma_params, rhop_out, n_e)
+        call retrieve_T_e(plasma_params, rhop_out, T_e)
+      else
+        call retrieve_n_e_mat_single(plasma_params, x_vec, n_e)
+        call retrieve_T_e_mat_single(plasma_params, x_vec, T_e)
       end if
     end if
   end subroutine sub_local_params
@@ -3162,7 +2323,7 @@ function func_dA_dY(X, Y)
 
   subroutine sub_calculate_initial_N(plasma_params, omega, mode, x_vec, N_vec, H_init, total_reflection)
     USE f90_kind
-    USE mod_ecfm_refr_types, only : plasma_params_type, Hamil, eps, Lambda_star, output_level
+    USE mod_ecfm_refr_types, only : plasma_params_type, output_level
     USE mod_ecfm_refr_utils, only : BrentRoots
 #ifdef NAG
     USE nag_nlin_eqn,             only : nag_nlin_eqn_sol
@@ -3177,12 +2338,10 @@ function func_dA_dY(X, Y)
     real(rkind), dimension(:),   intent(inout)                       :: N_vec
     real(rkind),                 intent(out)                         :: H_init
     logical, intent(out)                                             :: total_reflection
-    real(rkind)                                                      :: N_abs, N_abs_lower, N_abs_upper, N_abs_0, X, Y, n_e, T_e, omega_c, theta,N_par, N_s, A, B, C, rhop_out
-    real(rkind)                                                      :: f, rho, sin_theta, cos_theta, X_Y_2, n_approx, H_lower, H_upper, H_lower_last, H_upper_last
-    real(rkind)                                                      :: h, ftol, H_val
+    real(rkind)                                                      :: N_abs, N_abs_lower, N_abs_upper, N_abs_0, X, Y, n_e, T_e, omega_c, theta,N_par, rhop_out
+    real(rkind)                                                      :: H_lower, H_upper, H_lower_last, H_upper_last
+    real(rkind)                                                      :: h
     real(rkind), dimension(3)                                        :: B_vec
-    real(rkind), dimension(1)                                        :: N_abs_opt
-    real(rkind), dimension(1,1)                                      :: xi
     integer(ikind)                                                   :: n, iter, error
     call sub_local_params(plasma_params, omega, x_vec, N_vec, B_vec, N_abs_0, n_e, omega_c, T_e, theta, rhop_out)
     if(output_level .and. debug_level > 0) print*, "Rho pol and ne at first point in plasma", rhop_out, n_e
@@ -3308,8 +2467,8 @@ function func_dA_dY(X, Y)
   ! this approach is brute force and therefore very slow
   ! FIXME :  Use geometry to find the intersection between LOS and first wall
     USE f90_kind
-    USE mod_ecfm_refr_types, only : plasma_params_type, ray_element_full_type, h_x_glob, Hamil, &
-                                          LSODE, straight, max_points_svec, output_level, SOL_ne, SOL_Te
+    USE mod_ecfm_refr_types, only : plasma_params_type, ray_element_full_type, &
+                                          straight, max_points_svec, output_level, SOL_ne, SOL_Te
     USE mod_ecfm_refr_utils, only : sub_remap_coords, func_in_poly, distance_to_poly
     USE constants,                 only : mass_e, e0, eps0
     implicit none
@@ -3320,9 +2479,9 @@ function func_dA_dY(X, Y)
     type(ray_element_full_type), dimension(:), intent(inout)      :: ray_segment !temporary ray
     logical, intent(out)                                             :: LOS_end
     logical                                                          :: plasma_prop
-    integer(ikind)                                                   :: N, i, istate, first_N
+    integer(ikind)                                                   :: N, first_N
     real(rkind), dimension(3)                                        :: R_vec
-    real(rkind)                                                      :: delta_N, h, R_cur, R_last
+    real(rkind)                                                      :: h, R_cur, R_last
     wall_hits = 0
     glob_omega = omega
     glob_mode = mode
@@ -3433,8 +2592,8 @@ function func_dA_dY(X, Y)
 
   subroutine make_ray_segment(distance, plasma_params, omega, mode, ray_segment, last_N, wall_hits, N_start)
     USE f90_kind
-    USE mod_ecfm_refr_types, only : plasma_params_type, ray_element_full_type, h_x_glob, Hamil, &
-                                    LSODE, straight, max_points_svec, output_level, UH_stop
+    USE mod_ecfm_refr_types, only : plasma_params_type, ray_element_full_type, Hamil, &
+                                    straight, max_points_svec, output_level, UH_stop
     USE mod_ecfm_refr_utils, only : sub_remap_coords, func_in_poly
     USE constants,                 only : pi, mass_e, e0, eps0
     implicit none
@@ -3448,7 +2607,7 @@ function func_dA_dY(X, Y)
     logical                                                          :: propagating
     integer(ikind)                                                   :: N, i, istate, first_N
     real(rkind), dimension(3)                                        :: R_vec
-    real(rkind)                                                      :: first_s, X, Y, A, B, C, N_par, N_cold, angle_change
+    real(rkind)                                                      :: first_s, X, Y, angle_change
     real(rkind), dimension(116)               :: work_lsode
     integer(ikind), dimension(20)             :: iwork_lsode
     iwork_lsode(:) = 0.d0
@@ -3500,48 +2659,28 @@ function func_dA_dY(X, Y)
       if(.not. straight) then
          ! also retrieve N_par, N_s, X, Y for current step
         if(Hamil == "Dani") then
-          if(LSODE) then
-            if(N > 1) ray_segment(N)%h = ray_segment(N - 1)%h ! retrieve updated h from last step
-            ray_segment(N + 1)%s = ray_segment(N)%s
-            work_lsode(1) = max(ray_segment(N + 1)%s + 4.d0 * ray_segment(N)%h, work_lsode(13) + 4.d0 * ray_segment(N)%h)! s can be smaller than s from the solver
-            call sub_single_step_LSODE(ray_segment(N + 1)%s, ray_segment(N)%x_vec, ray_segment(N)%N_vec, &
-                                 ray_segment(N)%h, ray_segment(N + 1)%x_vec, &
-                                 ray_segment(N + 1)%N_vec, ray_segment(N + 1)%B_vec, ray_segment(N + 1)%theta, &
-                                 ray_segment(N + 1)%Hamil, ray_segment(N + 1)%N_s, ray_segment(N + 1)%n_e, &
-                                 ray_segment(N + 1)%omega_c,  ray_segment(N + 1)%T_e, ray_segment(N + 1)%rhop, &
-                                 ray_segment(N + 1)%v_g_perp, work_lsode, iwork_lsode, istate)
-            call sub_remap_coords(ray_segment(N + 1)%x_vec, ray_segment(N + 1)%R_vec)
+          if(N > 1) ray_segment(N)%h = ray_segment(N - 1)%h ! retrieve updated h from last step
+          ray_segment(N + 1)%s = ray_segment(N)%s
+          work_lsode(1) = max(ray_segment(N + 1)%s + 4.d0 * ray_segment(N)%h, work_lsode(13) + 4.d0 * ray_segment(N)%h)! s can be smaller than s from the solver
+          call sub_single_step_LSODE(ray_segment(N + 1)%s, ray_segment(N)%x_vec, ray_segment(N)%N_vec, &
+                               ray_segment(N)%h, ray_segment(N + 1)%x_vec, &
+                               ray_segment(N + 1)%N_vec, ray_segment(N + 1)%B_vec, ray_segment(N + 1)%theta, &
+                               ray_segment(N + 1)%Hamil, ray_segment(N + 1)%N_s, ray_segment(N + 1)%n_e, &
+                               ray_segment(N + 1)%omega_c,  ray_segment(N + 1)%T_e, ray_segment(N + 1)%rhop, &
+                               ray_segment(N + 1)%v_g_perp, work_lsode, iwork_lsode, istate)
+          call sub_remap_coords(ray_segment(N + 1)%x_vec, ray_segment(N + 1)%R_vec)
             !print*, "x, R", ray_segment(N + 1)%x_vec, ray_segment(N + 1)%R_vec
-          else
-              call sub_single_step_explicit_RK4(plasma_params, omega, ray_segment(N)%x_vec, ray_segment(N)%N_vec, &
-                                 ray_segment(N + 1)%h, ray_segment(N + 1)%x_vec, ray_segment(N + 1)%N_vec, &
-                                 ray_segment(N + 1)%B_vec, ray_segment(N + 1)%theta, ray_segment(N + 1)%Hamil,ray_segment(N + 1)%N_s, &
-                                 ray_segment(N + 1)%n_e,ray_segment(N + 1)%omega_c, ray_segment(N + 1)%rhop) ! also retrieve N_par, N_s, X, Y for current step
-              ray_segment(N + 1)%s = ray_segment(N)%s + plasma_params%h
-              call sub_remap_coords(ray_segment(N + 1)%x_vec, ray_segment(N + 1)%R_vec)
-              istate = 2
-          end if
         else
-          if(LSODE) then
-            ray_segment(N + 1)%sigma = ray_segment(N)%sigma
-            work_lsode(1) = ray_segment(N + 1)%sigma  + 4.d0 * ray_segment(N)%h
-            call sub_single_step_LSODE(ray_segment(N + 1)%sigma, ray_segment(N)%x_vec, ray_segment(N)%N_vec, &
-                                 ray_segment(N)%h, ray_segment(N + 1)%x_vec, ray_segment(N + 1)%N_vec, &
-                                 ray_segment(N + 1)%B_vec, ray_segment(N + 1)%theta, ray_segment(N + 1)%Hamil, ray_segment(N + 1)%N_s, &
-                                 ray_segment(N + 1)%n_e, ray_segment(N + 1)%omega_c, ray_segment(N + 1)%T_e, &
-                                 ray_segment(N + 1)%rhop, ray_segment(N + 1)%v_g_perp, work_lsode, iwork_lsode, istate)
-            !ray_segment(N)%N_s = sqrt(ray_segment(N)%N_vec(1)**2 + ray_segment(N)%N_vec(2)**2 + ray_segment(N)%N_vec(3)**2)
-            call sub_remap_coords(ray_segment(N + 1)%x_vec, ray_segment(N + 1)%R_vec)
-            !print*, ray_segment(N + 1)%R_vec, ray_segment(N)%rhop
-          else
-            call sub_single_step_explicit_RK4(plasma_params, omega, ray_segment(N)%x_vec, ray_segment(N)%N_vec, &
-                               ray_segment(N )%h, ray_segment(N + 1)%x_vec, ray_segment(N + 1)%N_vec, &
-                               ray_segment(N + 1)%B_vec, ray_segment(N + 1)%theta, ray_segment(N + 1)%Hamil,ray_segment(N + 1)%N_s, &
-                               ray_segment(N + 1)%n_e,ray_segment(N + 1)%omega_c, ray_segment(N + 1)%rhop) ! also retrieve N_par, N_s, X, Y for current step
-            ray_segment(N + 1)%sigma = ray_segment(N)%sigma + plasma_params%h
-            call sub_remap_coords(ray_segment(N + 1)%x_vec, ray_segment(N + 1)%R_vec)
-            istate = 2
-          end if
+          ray_segment(N + 1)%sigma = ray_segment(N)%sigma
+          work_lsode(1) = ray_segment(N + 1)%sigma  + 4.d0 * ray_segment(N)%h
+          call sub_single_step_LSODE(ray_segment(N + 1)%sigma, ray_segment(N)%x_vec, ray_segment(N)%N_vec, &
+                               ray_segment(N)%h, ray_segment(N + 1)%x_vec, ray_segment(N + 1)%N_vec, &
+                               ray_segment(N + 1)%B_vec, ray_segment(N + 1)%theta, ray_segment(N + 1)%Hamil, ray_segment(N + 1)%N_s, &
+                               ray_segment(N + 1)%n_e, ray_segment(N + 1)%omega_c, ray_segment(N + 1)%T_e, &
+                               ray_segment(N + 1)%rhop, ray_segment(N + 1)%v_g_perp, work_lsode, iwork_lsode, istate)
+          !ray_segment(N)%N_s = sqrt(ray_segment(N)%N_vec(1)**2 + ray_segment(N)%N_vec(2)**2 + ray_segment(N)%N_vec(3)**2)
+          call sub_remap_coords(ray_segment(N + 1)%x_vec, ray_segment(N + 1)%R_vec)
+          !print*, ray_segment(N + 1)%R_vec, ray_segment(N)%rhop
           ray_segment(N + 1)%s = ray_segment(N)%s + sqrt((ray_segment(N + 1)%x_vec(1) - ray_segment(N)%x_vec(1))**2 + (ray_segment(N + 1)%x_vec(2) - ray_segment(N)%x_vec(2))**2 + &
                 (ray_segment(N + 1)%x_vec(3) - ray_segment(N)%x_vec(3))**2)
         end if
@@ -3639,28 +2778,6 @@ function func_dA_dY(X, Y)
 !    close(96)
   end subroutine make_ray_segment
 
-
-  function near_kin_res(ray, omega)
-    ! This function tells if near a kinetic resonance
-    ! I.e. resonance at the plasma core for an edge ECE channel
-    use mod_ecfm_refr_types,        only: ray_element_full_type
-    use f90_kind
-    use constants,                  only: mass_e, c0, e0, pi
-    implicit none
-    type(ray_element_full_type), dimension(:), intent(in)                :: ray
-    real(rkind), intent(in)                                              :: omega
-    logical                                                              :: near_kin_res
-    real(rkind)                                                          :: v_t, omega_c_obs
-    ! TODO: Derive a good approximation
-    !v_t = sqrt(svec%Te * e0 / (mass_e * c0**2)) * 5.3d0
-    !omega_c_obs = svec%freq_2X * pi * Sqrt(1.d0 - v_t**2) / (1.d0 - v_t * svec%N_cold * svec%cos_theta)
-    ! observed cyclotron frequency
-    near_kin_res = .false.
-    if(any(ray(:)%T_e > 6000)) near_kin_res = .true.
-    !near_kin_res = .false.
-    !if(omega_c_obs / omega > 0.49)
-  end function near_kin_res
-
   subroutine make_s_grid(plasma_params, omega, Y_res, svec, ray, total_LOS_points, &
                          last_N, dist, rad_ray_freq, max_points_svec_reached)
   ! Linearly interpolates R,z on the ray which corresponds
@@ -3671,7 +2788,7 @@ function func_dA_dY(X, Y)
   ! i referst to the svec, while N refers to the ray_segment
   ! This routine also conrolls the step size.
   use mod_ecfm_refr_types,        only: rad_diag_ch_mode_ray_freq_svec_type, plasma_params_type, &
-                                        ray_element_full_type, output_level, max_points_svec, &
+                                        ray_element_full_type, max_points_svec, &
                                         spl_type_1d, eps_svec_max_length, rad_diag_ch_mode_ray_freq_type
   use mod_ecfm_refr_utils,        only: binary_search
   use f90_kind
@@ -3691,8 +2808,7 @@ function func_dA_dY(X, Y)
   real(rkind), dimension(last_N)                                             :: flush_ray_s, flush_ray_y, roots, s_dense, s_dense_debug
   integer(ikind)                                                             :: i, N_roots, N_s_dense, i_root, roots_processed, grid, &
                                                                                 i_next, i_next_root, i_svec, i_last, N_interval
-  real(rkind)                                                                :: s_next, a, b, dense_interval, sparse_interval, &
-                                                                                i_interval, cur_dist, s_res
+  real(rkind)                                                                :: s_next, a, b, i_interval, cur_dist
   logical                                                                    :: ray_finished
   flush_ray_s = ray(1:last_N)%s
   flush_ray_y = ray(1:last_N)%omega_c / omega
@@ -3853,7 +2969,7 @@ function func_dA_dY(X, Y)
 
   subroutine interpolate_svec(plasma_params, svec, ray, omega, total_LOS_points, N, rad_ray_freq, svec_extra_output)
   use mod_ecfm_refr_types,        only: rad_diag_ch_mode_ray_freq_svec_type, plasma_params_type, &
-                                        ray_element_full_type, output_level, max_points_svec, &
+                                        ray_element_full_type, max_points_svec, &
                                         SOL_ne, SOL_Te, spl_type_1d, rad_diag_ch_mode_ray_freq_type, &
                                         rad_diag_ch_mode_ray_freq_svec_extra_output_type
   use mod_ecfm_refr_interpol,     only: make_1d_spline, deallocate_1d_spline, spline_1d
@@ -4016,19 +3132,18 @@ function func_dA_dY(X, Y)
   subroutine span_svecs(plasma_params)
   ! Creates the svecs for a all diags
   ! Also allocates all vectors related to output_level = .true.
-  use mod_ecfm_refr_types,        only: rad, ant, rad_diag_type, plasma_params_type, ray_out_folder, &
+  use mod_ecfm_refr_types,        only: rad, ant, rad_diag_type, plasma_params_type, &
                                         N_ray, N_freq, modes, mode_cnt, output_level, pnts_BPD, &
                                         max_points_svec, Hamil, straight, largest_svec, ray_element_full_type
   use f90_kind
   use constants,                  only: pi,e0, mass_e
   implicit none
   type(plasma_params_type), intent(inout)                       :: plasma_params
-  integer(ikind)                                                :: idiag, last_N, grid_size, ich, ir, &
+  integer(ikind)                                                :: idiag, last_N, ich, ir, &
                                                                    ifreq, imode,  N, N_init, mode
   real(rkind), dimension(2)                                     :: dist
   type(ray_element_full_type), dimension(:), allocatable        :: ray_segment
-  logical                                                       :: finished_ray
-  real(rkind)                                                   :: a, b, omega, temp, X, Y, N_cold
+  real(rkind)                                                   :: omega, temp, X, Y
   real(rkind), dimension(1)                                     :: Y_res_O
   real(rkind), dimension(2)                                     :: Y_res_X
   integer(ikind)                                                :: wall_hits
@@ -4053,8 +3168,8 @@ function func_dA_dY(X, Y)
   do idiag = 1, ant%N_diag
 #ifdef OMP
     !$omp parallel private(ich, imode, ir, ifreq, &
-    !$omp                 grid_size, N_init, last_N, wall_hits, N, &
-    !$omp                 a, b, omega, temp, X, Y, N_cold, finished_ray, &
+    !$omp                 N_init, last_N, wall_hits, N, &
+    !$omp                 omega, temp, X, Y, &
     !$omp                 ray_segment, mode) default(shared)
 #endif
     allocate(ray_segment(max_points_svec), x_loc_vec(3), N_loc_vec(3))
@@ -4339,8 +3454,7 @@ function func_dA_dY(X, Y)
   use f90_kind
   use mod_ecfm_refr_types,        only: rad_diag_ch_mode_ray_freq_svec_type, &
                                         plasma_params_type, output_level, &
-                                        N_freq, max_points_svec, &
-                                        largest_svec, ray_element_full_type, &
+                                        ray_element_full_type, &
                                         rad_diag_ch_mode_ray_freq_svec_extra_output_type
   use f90_kind
   use constants,                  only: pi
@@ -4354,14 +3468,10 @@ function func_dA_dY(X, Y)
   real(rkind), intent(in)                                                 :: ds1, ds2
   type(rad_diag_ch_mode_ray_freq_svec_extra_output_type), dimension(:), intent(inout), optional  :: svec_extra_output
   type(ray_element_full_type), dimension(total_LOS_points)                :: ray_segment
-  integer(ikind)                                                          :: last_N, k, grid_size
+  integer(ikind)                                                          :: last_N, k
   real(rkind), dimension(2)                                               :: dist, Y_res_X
   real(rkind), dimension(1)                                               :: Y_res_O
-  logical                                                                 :: finished_ray, max_points_in_svec_reached
-  integer(ikind)                                                          :: wall_hits
-  real(rkind)                                                             :: a, b
-  type(rad_diag_ch_mode_ray_freq_svec_type), dimension(max_points_svec)   :: new_svec
-  type(rad_diag_ch_mode_ray_freq_svec_extra_output_type), dimension(max_points_svec)   :: new_svec_extra_output
+  logical                                                                 :: max_points_in_svec_reached
   if(max_points_svec_reached) then
     print*, "reinterpolate_rad_ray_freq should not be called for frequencies which were"
     print*, "identified to have insufficient amount of max_points_svecs to reinterpolate"
@@ -4440,14 +3550,12 @@ function func_dA_dY(X, Y)
 
 
   subroutine dealloc_rad(rad)
-  use mod_ecfm_refr_types,        only: rad_type, ant, plasma_params, ray_init, &
-                                        N_ray, N_freq, mode_cnt, stand_alone, output_level
+  use mod_ecfm_refr_types,        only: rad_type, ant, ray_init, N_ray, N_freq, mode_cnt, stand_alone, output_level
   use f90_kind
   use constants,                  only: pi,e0, mass_e, c0
   implicit none
   type(rad_type), intent(inout)    :: rad
-  integer(ikind)                                                :: idiag, last_N, grid_size, ich, ir, &
-                                                                   ifreq, imode, i
+  integer(ikind)                                                :: idiag, ich, ir, ifreq, imode
   if(stand_alone) then
     print*, "There is no reason to call dealloc_rad in mod_raytrace.f90 in stand_alone mode"
     stop "stand_alone = T in dealloc_rad"

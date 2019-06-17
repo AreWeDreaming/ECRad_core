@@ -13,7 +13,6 @@ subroutine setup_fgene_rhop_splines(fgene)
   implicit none
   type(fgene_type), intent(inout)   :: fgene
   integer(ikind)                  :: ivpar, imu
-  real(rkind), dimension(fgene%N_vpar, fgene%N_mu) :: g_inter
   ! N_vpar x N_mu splines are set up along rhop
   allocate(fgene%g_rhop_spl(fgene%N_vpar, fgene%N_mu))
 #ifdef NAG
@@ -37,8 +36,8 @@ subroutine make_g_inter(svec, g_spl)
   implicit none
   type(rad_diag_ch_mode_ray_freq_svec_type), intent(in):: svec
   type(spl_type_2d), intent(inout) :: g_spl
-  integer(ikind)                  :: irhop, ivpar, imu, i
-  real(rkind)                     :: rhop_best, vpar, f, dfdvpar, mu, a, c
+  integer(ikind)                  :: ivpar, imu
+  real(rkind)                     :: rhop_best
   real(rkind), dimension(fgene%N_vpar, fgene%N_mu) :: g_inter
   rhop_best = svec%rhop
   if(rhop_best > fgene%rhop_max) return ! automatic switch to thermal distributions when the distribution function is evaluated
@@ -64,7 +63,7 @@ subroutine v_par_mu_to_cyl(u_par, u_perp, svec, vpar, mu)
   use constants,                    only: mass_e, pi, e0, c0
   implicit none
   real(rkind), dimension(:), intent(in)         :: u_par, u_perp!
-  type(rad_diag_ch_mode_ray_freq_svec_type), intent(in):: svec
+  type(rad_diag_ch_mode_ray_freq_svec_type), intent(in):: svec ! Not used here, but could be used in future to compute actual B_0
   real(rkind),  dimension(size(u_par)), intent(out)         :: vpar, mu
   real(rkind), dimension(size(u_par))                       :: gam
   gam = sqrt(1.d0 + u_par**2 + u_perp**2)
@@ -83,8 +82,6 @@ subroutine make_g_and_g_grad_along_line(u_par, u_perp, svec, g_spl, g, dg_du_par
   real(rkind), dimension(:), intent(out) :: g, dg_du_par, dg_du_perp
   logical, intent(in), optional          :: debug
   logical                                :: dbg
-  real(rkind), dimension(size(u_par))    :: sign_array
-  real(rkind)                     :: interpolate_g_u
   integer(ikind)                  :: i
   real(rkind), dimension(size(u_par)) :: temp_vpar, temp_mu, vpar, mu, dg_dvpar, dg_dmu,gam, &
                                          dvpar_du_par, dvpar_du_perp, &
@@ -160,8 +157,6 @@ subroutine make_gene_f_and_gene_f_grad_along_line(u_par, u_perp, svec, g_spl, f,
   real(rkind), dimension(:), intent(out) :: f, df_du_par, df_du_perp
   logical, intent(in), optional          :: debug
   logical                                :: dbg
-  real(rkind), dimension(size(u_par))    :: sign_array
-  real(rkind)                     :: interpolate_f_u
   integer(ikind)                  :: i
   real(rkind), dimension(size(u_par)) :: temp_vpar, temp_mu, vpar, mu, df_dvpar, df_dmu,gam, &
                                          dvpar_du_par, dvpar_du_perp, &
@@ -236,8 +231,6 @@ subroutine make_gene_f0_and_gene_f0_grad_along_line(u_par, u_perp, svec, f0, df0
   real(rkind), dimension(:), intent(out) :: f0, df0_du_par, df0_du_perp
   logical, intent(in), optional          :: debug
   logical                                :: dbg
-  real(rkind), dimension(size(u_par))    :: sign_array
-  real(rkind)                     :: interpolate_f_u
   integer(ikind)                  :: i
   real(rkind), dimension(size(u_par)) :: temp_vpar, temp_mu, vpar, mu, df_dvpar, df_dmu,gam, &
                                          dvpar_du_par, dvpar_du_perp, &

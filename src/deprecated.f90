@@ -171,6 +171,504 @@
 #endif
 
 !!! mod_ecfm_refr_raytrace
+subroutine sub_spatial_grad_rhop_ana(plasma_params, x_vec, rhop, spatial_grad_rhop)
+    USE f90_kind
+    USE mod_ecfm_refr_types ,     only: plasma_params_type
+    USE ripple3d,                 only: grad_type
+    use mod_ecfm_refr_utils,      only: sub_remap_coords
+    !USE nag_spline_2d             , only: nag_spline_2d_eval, &
+    !                                      nag_error, nag_set_error
+    implicit none
+    type(plasma_params_type)                   :: plasma_params
+    real(rkind), dimension(:)  , intent(in)    :: x_vec
+    real(rkind)                , intent(out)   :: rhop
+    real(rkind), dimension(3)  , intent(out)   :: spatial_grad_rhop
+    real(rkind), dimension(3)                  :: R_vec
+    call sub_remap_coords(x_vec, R_vec)
+    spatial_grad_rhop(1) = func_dR_dx(x_vec(1),x_vec(2)) * (3.d0*(-1.5d0 + R_vec(1)))/(2.*Sqrt((-1.5d0 + R_vec(1))**2 + R_vec(3)**2/10.d0))
+    spatial_grad_rhop(2) = func_dR_dy(x_vec(1),x_vec(2)) * (3.d0*(-1.5d0 + R_vec(1)))/(2.*Sqrt((-1.5d0 + R_vec(1))**2 + R_vec(3)**2/10.d0))
+    spatial_grad_rhop(3) = (3.d0*R_vec(3))/(20.d0*Sqrt((-1.5d0 + R_vec(1))**2 + R_vec(3)**2/10.d0))
+    rhop =  (3.d0*Sqrt((-1.5d0 + R_vec(1))**2 + R_vec(3)**2/10.d0))/2.d0
+  end subroutine sub_spatial_grad_rhop_ana
+
+  subroutine sub_grad_n_e_ana(plasma_params, rhop, n_e,  grad_n_e)
+  ! dne / drhop
+    USE f90_kind
+    USE mod_ecfm_refr_types , only : plasma_params_type,  h_x_glob
+    implicit none
+    type(plasma_params_type)   , intent(in)  :: plasma_params
+    real(rkind)                , intent(in)  :: rhop
+    real(rkind)                , intent(out) :: n_e, grad_n_e
+    integer(ikind)                           :: i
+    real(rkind)                              :: rhop_debug
+    n_e = (3.d19*(1.5625d0 - rhop**2)**2)/exp(rhop**2)
+    grad_n_e = (-12.d19*rhop*(1.5625d0 - rhop**2))/exp(rhop**2) - &
+               (6.d19*rhop*(1.5625d0- rhop**2)**2)/exp(rhop**2)
+!    if(debug_level > 1) then
+!      print*, grad_n_e
+!      rhop_debug = rhop + h_x_glob
+!      print*, ((3.d19*(1.5625d0 - rhop_debug**2)**2)/exp(rhop_debug**2) - (3.d19*(1.5625d0 - rhop**2)**2)/exp(rhop**2))/ h_x_glob
+!      stop "ne"
+!    end if
+  end subroutine sub_grad_n_e_ana
+
+  subroutine sub_grad_T_e_ana(plasma_params, rhop, T_e,  grad_T_e)
+  ! dne / drhop
+    USE f90_kind
+    USE mod_ecfm_refr_types , only : plasma_params_type,  h_x_glob
+    !use interpolation_routines, only : linear_interpolation
+    implicit none
+    type(plasma_params_type)   , intent(in)  :: plasma_params
+    real(rkind)                , intent(in)  :: rhop
+    real(rkind)                , intent(out) :: T_e, grad_T_e
+    integer(ikind)                           :: i
+    real(rkind)                              :: rhop_debug
+    T_e = (3.d3*(1.5625d0 - rhop**2)**2)/exp(rhop**2)
+    grad_T_e = (-12.d3*rhop*(1.5625d0 - rhop**2))/exp(rhop**2) - &
+               (6.d3*rhop*(1.5625d0- rhop**2)**2)/exp(rhop**2)
+!    if(debug_level > 1) then
+!      print*, grad_n_e
+!      rhop_debug = rhop + h_x_glob
+!      print*, ((3.d19*(1.5625d0 - rhop_debug**2)**2)/exp(rhop_debug**2) - (3.d19*(1.5625d0 - rhop**2)**2)/exp(rhop**2))/ h_x_glob
+!      stop "ne"
+!    end if
+  end subroutine sub_grad_T_e_ana
+
+ function func_n_e_ana(plasma_params, x_vec)
+  ! dne / drhop
+    USE f90_kind
+    USE mod_ecfm_refr_types , only : plasma_params_type
+    !USE mod_ecfm_refr_types , only h_rhop ! assuming that taking the derivative
+    !                                        without higher order interpolation is sufficient
+    implicit none
+    type(plasma_params_type)   , intent(in)  :: plasma_params
+    real(rkind), dimension(:)  , intent(in)  :: x_vec
+    real(rkind)                              :: func_n_e_ana
+    real(rkind)                              :: rhop
+    rhop = func_rhop_ana(plasma_params, x_vec)
+    func_n_e_ana = (3.d19*(1.5625d0 - rhop**2)**2)/exp(rhop**2)
+  end function func_n_e_ana
+
+  function func_T_e_ana(plasma_params, x_vec)
+  ! dne / drhop
+    USE f90_kind
+    USE mod_ecfm_refr_types , only : plasma_params_type
+    !USE mod_ecfm_refr_types , only h_rhop ! assuming that taking the derivative
+    !                                        without higher order interpolation is sufficient
+    implicit none
+    type(plasma_params_type)   , intent(in)  :: plasma_params
+    real(rkind), dimension(:)  , intent(in)  :: x_vec
+    real(rkind)                              :: func_T_e_ana
+    real(rkind)                              :: rhop
+    rhop = func_rhop_ana(plasma_params, x_vec)
+    func_T_e_ana = (3.d3*(1.5625d0 - rhop**2)**2)/exp(rhop**2) ! same profile shape as ne with 8 keV core Te
+  end function func_T_e_ana
+
+  function func_B_abs_ana(plasma_params, x_vec)
+    USE f90_kind
+    USE mod_ecfm_refr_types , only : plasma_params_type
+    Use ripple3d,             only : grad_type
+    implicit none
+    type(plasma_params_type), intent(in)      :: plasma_params
+    real(rkind), dimension(:)  , intent(in)   :: x_vec
+    real(rkind)                               :: func_B_abs_ana
+    real(rkind), dimension(3)                 :: R_vec, B_x_vec
+    B_x_vec(1) = func_B_x_ana(x_vec)
+    B_x_vec(2) = func_B_y_ana(x_vec)
+    B_x_vec(3) = 0.d0
+    func_B_abs_ana = sqrt(B_x_vec(1)**2 + B_x_vec(2)**2 + B_x_vec(3)**2)
+  end function func_B_abs_ana
+
+    subroutine sub_N_par_ana(plasma_params, x_vec, N_vec, N_par, N_abs)
+    USE f90_kind
+    USE mod_ecfm_refr_types , only : plasma_params_type
+    Use ripple3d,             only : grad_type
+    use mod_ecfm_refr_utils,  only: sub_remap_coords
+    implicit none
+    type(plasma_params_type), intent(in)      :: plasma_params
+    real(rkind), dimension(:)  , intent(in)   :: x_vec, N_vec
+    real(rkind), intent(out)                  :: N_par, N_abs
+    real(rkind), dimension(3)                 :: R_vec, B_x_vec, B_R_vec
+    real(rkind)                               :: cos_phi, sin_phi, scal_prod, B_abs, ddx, ddy
+    integer(ikind)                            :: i
+    call sub_remap_coords(x_vec, R_vec)
+    cos_phi = cos(R_vec(2))
+    sin_phi = sin(R_vec(2))
+    N_abs = sqrt(N_vec(1)**2 + N_vec(2)**2 + N_vec(3)**2)
+    call sub_B_r_ana( R_vec, B_R_vec)
+    B_x_vec(1) = B_R_vec(1) * cos_phi - sin_phi * B_R_vec(2)
+    B_x_vec(2) = B_R_vec(1) * sin_phi + cos_phi * B_R_vec(2)
+    B_x_vec(3) = B_R_vec(3)
+    B_abs = sqrt(B_x_vec(1)**2 + B_x_vec(2)**2 + B_x_vec(3)**2)
+    scal_prod = 0.d0
+    do i = 1, 3
+      scal_prod = scal_prod + N_vec(i) * B_x_vec(i)
+    end do
+    N_par = scal_prod / B_abs
+   end subroutine sub_N_par_ana
+
+subroutine sub_B_r_ana(R_vec, B_R_vec)
+    use f90_kind
+    implicit none
+    real(rkind), dimension(:)  , intent(in)   :: R_vec
+    real(rkind), dimension(:)  , intent(out)   :: B_R_vec
+    B_R_vec(:) = 0.d0
+    B_R_vec(2) = 4.25 / R_vec(1)
+  end subroutine sub_B_r_ana
+
+  function  func_B_x_ana(x_vec)
+    use f90_kind
+    use mod_ecfm_refr_utils,  only: sub_remap_coords
+    implicit none
+    real(rkind), dimension(:)  , intent(in)   :: x_vec
+    real(rkind), dimension(3) :: R_vec, B_R_vec
+    real(rkind)                :: func_B_x_ana
+    call sub_remap_coords(x_vec, R_vec)
+    call sub_B_r_ana(R_vec, B_R_vec)
+    func_B_x_ana =  B_R_vec(1) * cos(R_vec(2)) - B_R_vec(2) * sin(R_vec(2))
+  end function func_B_x_ana
+
+  function  func_B_y_ana(x_vec)
+    use f90_kind
+    use mod_ecfm_refr_utils,  only: sub_remap_coords
+    implicit none
+    real(rkind), dimension(:)  , intent(in)   :: x_vec
+    real(rkind), dimension(3) :: R_vec, B_R_vec
+    real(rkind)                :: func_B_y_ana
+    call sub_remap_coords(x_vec, R_vec)
+    call sub_B_r_ana(R_vec, B_R_vec)
+    func_B_y_ana =  B_R_vec(1) * sin(R_vec(2)) + B_R_vec(2) * cos(R_vec(2))
+  end function func_B_y_ana
+
+ function  func_B_x_ana_R(R_vec)
+    use f90_kind
+    use mod_ecfm_refr_utils,  only: sub_remap_coords
+    implicit none
+    real(rkind), dimension(:)  , intent(in)   :: R_vec
+    real(rkind), dimension(3) :: B_R_vec
+    real(rkind)               :: func_B_x_ana_R
+    call sub_B_r_ana(R_vec, B_R_vec)
+    func_B_x_ana_R =  B_R_vec(1) * cos(R_vec(2)) - B_R_vec(2) * sin(R_vec(2))
+  end function func_B_x_ana_R
+
+  function  func_B_y_ana_R(R_vec)
+    use f90_kind
+    use mod_ecfm_refr_utils,  only: sub_remap_coords
+    implicit none
+    real(rkind), dimension(:)  , intent(in)   :: R_vec
+    real(rkind), dimension(3)  :: B_R_vec
+    real(rkind)                :: func_B_y_ana_R
+    call sub_B_r_ana(R_vec, B_R_vec)
+    func_B_y_ana_R =  B_R_vec(1) * sin(R_vec(2)) + B_R_vec(2) * cos(R_vec(2))
+  end function func_B_y_ana_R
+
+  subroutine sub_grad_N_par_ana(plasma_params, x_vec, N_vec, N_abs, B_abs, spatial_grad_B_abs, &
+                           N_par, N_grad_N_par, spatial_grad_N_par) !spatial_grad_B_x, spatial_grad_B_y, spatial_grad_B_z,
+  ! Gradient of vec(B) along LOS coordinates x ripple not (yet) included => dB_vec/dphi = 0
+  ! Also calculates N_par, d N_par(theta)/dN_i, d N_par/dx_i, d|B|dx_i since all information is readily available
+  ! (Calculating these quantities here safes interpolations)
+    USE f90_kind
+    USE mod_ecfm_refr_types , only : plasma_params_type, h_x_glob
+    USE ripple3d,                 only: grad_type
+    use mod_ecfm_refr_utils,  only: sub_remap_coords
+    implicit none
+    type(plasma_params_type)   , intent(in)   :: plasma_params
+    real(rkind), dimension(:)  , intent(in)   :: x_vec, N_vec
+    real(rkind)                , intent(in)   :: N_abs
+    real(rkind), dimension(:), intent(out)    :: spatial_grad_B_abs
+    real(rkind)                , intent(out)  :: B_abs, N_par
+    real(rkind), dimension(:)  , intent(out)  :: N_grad_N_par, spatial_grad_N_par
+    real(rkind), dimension(3,3)               :: spatial_grad_B
+    real(rkind)                               :: cos_phi_tok, sin_phi_tok, alpha, scal_prod, h_x
+    type(grad_type)                           :: dB_r_inter, dB_t_inter, dB_z_inter
+    real(rkind), dimension(3)                 :: R_vec, B_R_vec, B_x_vec!, N_vec_norm, B_vec_norm
+    real(rkind), dimension(4,3)               :: aux_x, aux_B_R, aux_R
+    real(rkind), dimension(3)                 :: dB_x_dR, dB_y_dR, dB_z_dR
+    integer(ikind)                            :: i, j, k
+    h_x = h_x_glob
+    call sub_remap_coords(x_vec, R_vec)
+    call sub_B_r_ana(R_vec, B_R_vec)
+    cos_phi_tok = cos(R_vec(2))
+    sin_phi_tok = sin(R_vec(2))
+    B_x_vec(1) = B_R_vec(1) * cos_phi_tok - sin_phi_tok * B_R_vec(2)
+    B_x_vec(2) = B_R_vec(1) * sin_phi_tok + cos_phi_tok * B_R_vec(2)
+    B_x_vec(3) = B_R_vec(3)
+    dB_r_inter%dR = 0.d0
+    dB_r_inter%dz = 0.d0
+    dB_t_inter%dR = -4.25 * 1.0/R_vec(1)**2
+    dB_t_inter%dz = 0.d0
+    dB_z_inter%dR = 0.d0
+    dB_z_inter%dz = 0.d0
+    ! Next dB_x_j/d_x_i --> j (first index) direction of magnetic field
+    !                   --> i (second index) direction of the derivative
+    ! To do this analyitaclly the multidimensional chain rule is used
+    ! First dvec(B_x)dR and dvec(B_x)dz are computed
+    ! Since no ripple dvec(B)/dphi= 0, hence we only need to sum over dvec(B)/dR and dvec(B)/dz
+    ! dB_x/dR
+    dB_x_dR(1) = dB_r_inter%dR * cos_phi_tok - dB_t_inter%dR * sin_phi_tok
+    ! dB_x/dphi
+    dB_x_dR(2) = -B_R_vec(1) * sin_phi_tok - B_R_vec(2) * cos_phi_tok
+    ! dB_x/dz
+    dB_x_dR(3) = dB_r_inter%dz * cos_phi_tok - dB_t_inter%dz * sin_phi_tok
+    ! dB_y/dR - no ripple yet, hence this term is simpler
+    dB_y_dR(1) = dB_r_inter%dR * sin_phi_tok + dB_t_inter%dR * cos_phi_tok
+    ! dB_y/dphi - no ripple yet, hence this term is simpler
+    dB_y_dR(2) = B_R_vec(1) * cos_phi_tok - B_R_vec(2) * sin_phi_tok
+    ! dB_y/dz
+    dB_y_dR(3) = dB_r_inter%dz * sin_phi_tok + dB_t_inter%dz * cos_phi_tok
+    ! dB_z/dR
+    dB_z_dR(1) = dB_z_inter%dR
+    ! dB_z/dphi
+    dB_z_dR(2) = 0.d0
+    ! dB_z/dz
+    dB_z_dR(3) = dB_z_inter%dz
+    ! Now with the chain rule compute the entries of dB_i/dx_j
+    ! dBx/dx third term is zero since dz/dx = 0
+    spatial_grad_B(1,1) = dB_x_dR(1) * func_dR_dx(x_vec(1), x_vec(2)) + dB_x_dR(2) * func_dphi_dx(x_vec(1), x_vec(2))
+    ! dBx/dy third term is zero since dz/dx = 0
+    spatial_grad_B(1,2) = dB_x_dR(1) * func_dR_dy(x_vec(1), x_vec(2)) + dB_x_dR(2) * func_dphi_dy(x_vec(1), x_vec(2))
+    ! dBx/dz first and second term is zero since dR/dz = dphi/dz = 0
+    spatial_grad_B(1,3) = dB_x_dR(3)
+    ! dBy/dx third term is zero since dz/dy = 0
+    spatial_grad_B(2,1) = dB_y_dR(1) * func_dR_dx(x_vec(1), x_vec(2)) + dB_y_dR(2) * func_dphi_dx(x_vec(1), x_vec(2))
+    ! dBy/dy third term is zero since dz/dy = 0
+    spatial_grad_B(2,2) = dB_y_dR(1) * func_dR_dy(x_vec(1), x_vec(2)) + dB_y_dR(2) * func_dphi_dy(x_vec(1), x_vec(2))
+    ! dBy/dz first and second term is zero since dR/dz = dphi/dz = 0
+    spatial_grad_B(2,3) = dB_y_dR(3)
+    ! dBz/dx third term is zero since dz/dx = 0
+    spatial_grad_B(3,1) = dB_z_dR(1) * func_dR_dx(x_vec(1), x_vec(2))
+    ! dBz/dy third term is zero since dz/dy = 0
+    spatial_grad_B(3,2) = dB_z_dR(1) * func_dR_dy(x_vec(1), x_vec(2))
+    ! dBz/dz first and second term is zero since dR/dz = dphi/dz = 0
+    spatial_grad_B(3,3) = dB_z_dR(3)
+!    print* , "x_vec", x_vec
+!    print* , "R_vec", R_vec
+    if(debug_level > 2) then
+      do i = 1,3
+         do j = 1 , 4
+            aux_x(j,:) = x_vec
+            if(j < 3) aux_x(j,i) = x_vec(i) + (3 - j) * h_x !aux_x(1) = x + 2*h, aux_2(2) = x + h
+            if(j >= 3) aux_x(j,i) = x_vec(i) + (2 - j) * h_x !aux_x(3) = x - h, aux_2(4) = x - 2*h
+            aux_R(j,:) = R_vec
+            if(j < 3) aux_R(j,i) = R_vec(i) + (3 - j) * h_x !aux_x(1) = x + 2*h, aux_2(2) = x + h
+            if(j >= 3) aux_R(j,i) = R_vec(i) + (2 - j) * h_x !aux_x(3) = x - h, aux_2(4) = x - 2*h
+         end do
+         print*,"R",R_vec
+         print*,"x ana",spatial_grad_B(1,i)
+         print*, "x num",(- func_B_x_ana(aux_x(1,:)) + &
+                                    8.d0 *  func_B_x_ana(aux_x(2,:)) - &
+                                8.d0 *  func_B_x_ana(aux_x(3,:))  &
+                                +   func_B_x_ana(aux_x(4,:))) / (12.d0 *h_x)
+         print*,"y ana",spatial_grad_B(2,i)
+         print*, "y num",(- func_B_y_ana(aux_x(1,:)) + &
+                                    8.d0 *  func_B_y_ana(aux_x(2,:)) - &
+                                8.d0 *  func_B_y_ana(aux_x(3,:))  &
+                                +   func_B_y_ana(aux_x(4,:))) / (12.d0 *h_x)
+        print*,"z ana",spatial_grad_B(3,i)
+        print*,"should be zero"
+        print*,"dBx/dR ana",dB_x_dR(i)
+        print*,"dBx/dR num",(- func_B_x_ana_R(aux_R(1,:)) + &
+                                    8.d0 *  func_B_x_ana_R(aux_R(2,:)) - &
+                                8.d0 *  func_B_x_ana_R(aux_R(3,:))  &
+                                +   func_B_x_ana_R(aux_R(4,:))) / (12.d0 *h_x)
+        print*,"dBy/dR ana",dB_y_dR(i)
+        print*,"dBy/dR num",(- func_B_y_ana_R(aux_R(1,:)) + &
+                                    8.d0 *  func_B_y_ana_R(aux_R(2,:)) - &
+                                8.d0 *  func_B_y_ana_R(aux_R(3,:))  &
+                                +   func_B_y_ana_R(aux_R(4,:))) / (12.d0 *h_x)
+        print*,"dBz/dR ana - should be zero", dB_z_dR(i)
+      end do
+    end if
+!    stop "correct?"
+    !---gradient of total magnetic field
+    B_abs = sqrt(B_x_vec(1)**2 + B_x_vec(2)**2 + B_x_vec(3)**2)
+    ! to obtain d|B|/dx it is split into d|B|/dB_x_j and dB_x_i/dx_j
+    ! -> d|B|/dx_i = B_x_j / |B| * dB_j/dx_i
+    spatial_grad_B_abs(:) = 0.d0
+    do i = 1, 3
+        do j = 1,3
+          spatial_grad_B_abs(i) = spatial_grad_B_abs(i) + B_x_vec(j) * spatial_grad_B(j,i)
+        end do
+    end do
+    spatial_grad_B_abs = spatial_grad_B_abs / B_abs
+    !B_vec_norm = B_x_vec / B_abs
+    !N_vec_norm = N_vec / N_abs
+    scal_prod = 0.d0
+    do i =1, 3
+      scal_prod = scal_prod + B_x_vec(i) * N_vec(i)
+    end do
+    N_par = scal_prod / B_abs
+    !------------------------------ Now that all mangetic field gradients are known compute dcos_theta/dx_i-!
+    !------------------------------ and dcos_theta/dN_i ----------------------------------------------------!
+    ! N_grad_N_par = d/dN Sum_i (N_i * B_i)/ (B_abs) = vec(B)/B(abs)
+    !
+    N_grad_N_par =  B_x_vec(:) / B_abs
+    !----------------------------- Finally do the same thing for the spatial gardiend of N_par -------------------------!
+    !----------------------------- Here we resolve dN_par/dx into dN_par/dB_j * dB_j/dx_i  (multidimensional chain rule)!
+    spatial_grad_N_par(:) = 0.d0
+    do i = 1,3
+      do j =1,3
+        do k = 1,3
+        spatial_grad_N_par(i)  = spatial_grad_N_par(i) + (delta(j,k) * (N_vec(j) * B_abs**2 - B_x_vec(j)**2 * N_vec(j)) - &
+                                 (1.d0 - delta(j,k)) * (N_vec(k) * B_x_vec(j) * B_x_vec(k))) * spatial_grad_B(j,i)
+        end do
+      end do
+    end do
+    spatial_grad_N_par(:) = spatial_grad_N_par / (B_abs)**3
+  end subroutine sub_grad_N_par_ana
+
+  function func_rhop_ana(plasma_params, x_vec)
+    USE f90_kind
+    USE mod_ecfm_refr_types , only : plasma_params_type, h_x_glob
+    USE ripple3d,                 only: grad_type
+    use mod_ecfm_refr_utils,      only: sub_remap_coords
+    type(plasma_params_type)                  :: plasma_params
+    real(rkind), dimension(:)  , intent(in)   :: x_vec
+    real(rkind), dimension(3)                 :: R_vec
+    real(rkind)                               :: func_rhop_ana
+    real(rkind)                               :: ddx, ddy, dummy
+    call sub_remap_coords(x_vec, R_vec)
+    func_rhop_ana = (3.d0*Sqrt((-1.5d0 + R_vec(1))**2 + R_vec(3)**2/10.d0))/2.d0
+  end function func_rhop_ana
+
+    subroutine sub_spatial_grad_N_par_ana(plasma_params, x_vec, N_vec, N_abs, N_par, spatial_grad_N_par, spatial_grad_B_abs, B_abs, N_grad_N_par)
+  ! dN_par / dx
+      USE f90_kind
+      USE mod_ecfm_refr_types, only : plasma_params_type
+      implicit none
+      type(plasma_params_type), intent(in)        :: plasma_params
+      real(rkind), dimension(:),      intent(in)  :: x_vec, N_vec
+      real(rkind),                    intent(in)  :: N_abs
+      real(rkind),                    intent(out) :: N_par, B_abs
+      real(rkind), dimension(:),      intent(out) :: spatial_grad_N_par
+      real(rkind), dimension(:),      intent(out) :: spatial_grad_B_abs
+      real(rkind), dimension(:),      intent(out) :: N_grad_N_par
+      real(rkind), dimension(3)                   :: R_vec
+      call sub_grad_N_par_ana(plasma_params, x_vec, N_vec, N_abs, B_abs, spatial_grad_B_abs, &
+                             N_par, N_grad_N_par, spatial_grad_N_par)
+   end subroutine sub_spatial_grad_N_par_ana
+
+   subroutine sub_spatial_grad_Y_ana(plasma_params, omega, x_vec, B_abs, spatial_grad_B_abs, Y, spatial_grad_Y_ana)
+  ! dY^2 / dx
+    USE f90_kind
+    USE mod_ecfm_refr_types, only : plasma_params_type, warm_plasma
+    use constants,            only: pi, e0, mass_e, eps0, c0
+    ! corresponds to flux coordinates
+    implicit None
+    type(plasma_params_type),    intent(in)   :: plasma_params
+    real(rkind),                 intent(in)   :: omega
+    real(rkind), dimension(:),   intent(in)   :: x_vec
+    real(rkind),                 intent(in)   :: B_abs
+    real(rkind), dimension(:),   intent(in)   :: spatial_grad_B_abs
+    real(rkind),                 intent(out)  :: Y
+    real(rkind), dimension(:),   intent(out)  :: spatial_grad_Y_ana
+    integer(ikind)                            :: i
+    real(rkind), dimension(3)                 :: B2_grad, spatial_grad_rhop ! grad_x(B^2)
+    real(rkind)                               :: rhop, T_e, grad_T_e
+    if(warm_plasma) then
+      call sub_spatial_grad_rhop_ana(plasma_params, x_vec, rhop, spatial_grad_rhop)
+      call sub_grad_T_e_ana(plasma_params, rhop, T_e, grad_T_e)
+      spatial_grad_rhop = spatial_grad_rhop * plasma_params%rhop_scale_Te
+      spatial_grad_Y_ana(:) =   (e0*((0.2*c0**2*mass_e + e0*T_e) * spatial_grad_B_abs(:) - &
+        0.5*e0*B_abs*spatial_grad_rhop*grad_T_e)) / &
+        (mass_e*omega*(0.2*c0**2*mass_e + e0*T_e) * &
+        Sqrt(1. + (5.*e0*T_e)/(c0**2*mass_e)))
+    else
+      spatial_grad_Y_ana(:) = spatial_grad_B_abs(:) * e0 / mass_e
+      T_e = 0.d0
+    end if
+    Y = func_Y(plasma_params, omega, B_abs, T_e)
+  end subroutine sub_spatial_grad_Y_ana
+
+    subroutine sub_spatial_grad_X_ana(plasma_params, omega, x_vec, X, spatial_grad_X_ana, rhop_out)
+    USE f90_kind
+    USE mod_ecfm_refr_types, only : plasma_params_type, warm_plasma!, h_x_glob
+    USE ripple3d,                 only: grad_type
+    use constants,                 only : pi, e0, mass_e, eps0, c0
+    type(plasma_params_type),    intent(in)   :: plasma_params
+    real(rkind)              ,   intent(in)   :: omega
+    real(rkind), dimension(:),   intent(in)   :: x_vec
+    real(rkind)              ,   intent(out)  :: X
+    real(rkind), dimension(:),   intent(out)  :: spatial_grad_X_ana
+    real(rkind)              ,   intent(out)  :: rhop_out
+    real(rkind)                               :: rhop, n_e, grad_n_e, T_e, grad_T_e
+    real(rkind), dimension(3)                 :: spatial_grad_rhop_ne, spatial_grad_rhop_Te
+    real(rkind), dimension(3)                 :: R_vec
+    call sub_spatial_grad_rhop_ana(plasma_params, x_vec, rhop, spatial_grad_rhop_ne)
+    call sub_grad_n_e_ana(plasma_params, rhop, n_e, grad_n_e)
+    spatial_grad_rhop_Te = spatial_grad_rhop_ne * plasma_params%rhop_scale_Te
+    spatial_grad_rhop_ne = spatial_grad_rhop_ne * plasma_params%rhop_scale_ne
+    if(warm_plasma) then
+      spatial_grad_rhop_Te = spatial_grad_rhop_ne * plasma_params%rhop_scale_Te
+      call sub_grad_T_e_ana(plasma_params, rhop, T_e, grad_T_e)
+      spatial_grad_X_ana = (e0**2*(2.d0*(c0**2 * mass_e + 5.d0 * e0 * T_e) * &
+                       grad_n_e * spatial_grad_rhop_ne - &
+                       5.d0 * e0 * n_e * grad_T_e * spatial_grad_rhop_Te)) / &
+                       (2.d0*eps0*mass_e * omega**2 * (c0**2*mass_e + 5.d0*e0*T_e) * &
+                       Sqrt(1.d0 + (5.d0 * e0*T_e)/(c0**2*mass_e)))
+    else
+      T_e = 0.d0
+      spatial_grad_X_ana = spatial_grad_rhop_ne(:) * grad_n_e * e0**2.d0/(eps0 * mass_e * omega**2)
+    end if
+    X  =  func_X(plasma_params, omega, n_e, T_e)
+    rhop_out = rhop
+  end subroutine sub_spatial_grad_X_ana
+
+   subroutine sub_single_step_explicit_RK4(plasma_params, omega, x_vec, N_vec, h, x_vec_out, N_vec_out, B_vec_out, theta_out, Hamil_out, N_s_out, n_e_out, omega_c_out, rhop_out)
+    USE f90_kind
+    USE mod_ecfm_refr_types, only : plasma_params_type, Hamil
+    USE constants,                 only : eps0, mass_e, e0, c0
+    implicit None
+    type(plasma_params_type),    intent(in)   :: plasma_params
+    real(rkind),                 intent(in)   :: omega
+    real(rkind), dimension(:),   intent(in)   :: x_vec, N_vec
+    real(rkind), dimension(:),   intent(out)  :: B_vec_out
+    real(rkind),                 intent(in)   :: h
+    real(rkind), dimension(:),   intent(out)  :: x_vec_out, N_vec_out
+    real(rkind),                 intent(out)  :: theta_out, Hamil_out, N_s_out, n_e_out, omega_c_out, rhop_out
+    real(rkind), dimension(0:4,6)             :: k
+    real(rkind), dimension(4)                 :: h_arr
+    real(rkind), dimension(6)                 :: y_vec
+    real(rkind)                               :: N_abs, k_abs, omega_c, omega_p2, T_e_out
+    real(rkind)                               :: X, Y, T_e,  A, B, C, N_par
+    integer(ikind)                            :: i
+    stop "RUNGE KUTTA 4 is insufficient for the ray tracing problem"
+    N_abs = 0.d0
+    do i = 1,3
+      N_abs = N_abs + N_vec(i)**2
+    end do
+    N_abs = sqrt(N_abs)
+    call sub_local_params(glob_plasma_params, glob_omega, x_vec, N_vec, B_vec_out, N_abs, n_e_out, omega_c_out, T_e_out, theta_out, rhop_out)
+    X = func_X(glob_plasma_params,glob_omega, n_e_out,T_e_out)
+    Y = func_Y(glob_plasma_params,glob_omega, omega_c * mass_e / e0, T_e_out)
+    N_par = cos(theta_out) * N_abs
+    h_arr(1) = 0.d0
+    h_arr(2) = 0.5d0 * h
+    h_arr(3) = 0.5d0 * h
+    h_arr(4) = h
+    y_vec(1:3) = x_vec
+    y_vec(4:6) = N_vec
+    k(0,:) = 0.d0
+    if(Hamil == "Dani") then
+      Hamil_out = func_Lambda_star(N_abs, X, Y, N_par, glob_mode)
+      N_s_out = N_abs
+      do i = 1, 4
+        call f_Lambda(6, 0.d0, y_vec + h_arr(i) * k(i - 1,:), k(i,:))
+      end do
+    else
+      N_s_out = N_abs
+      A = func_A(X, Y)
+      B = func_B(X, Y, N_par)
+      C = func_C(X, Y, N_par)
+      Hamil_out = func_H(sqrt(N_abs**2 - N_par**2),A, B, C, glob_mode)
+      do i = 1, 4
+        call f_H(6, 0.d0, y_vec + h_arr(i) * k(i - 1,:), k(i,:))
+      end do
+    end if
+    x_vec_out = x_vec + h / 6.d0 * (k(1,1:3)  + 2.d0 * k(2,1:3) + 2.d0 * k(3,1:3) + k(4,1:3))
+    N_vec_out = N_vec + h / 6.d0 * (k(1,4:6)  + 2.d0 * k(2,4:6) + 2.d0 * k(3,4:6) + k(4,4:6))
+  end subroutine sub_single_step_explicit_RK4
+
 subroutine prepare_svec_segment_eq_dist_grid(plasma_params, omega, Y_res, svec, ray_segment, total_LOS_points, last_N, &
                                                dist, max_points_svec_reached)
   ! Linearly interpolates R,z on the ray which corresponds
@@ -682,6 +1180,248 @@ subroutine preprare_svec_spline(ray_segment, svec_spline, rad_ray_freq, freq)
 
 
 !!!!!! mod_ecfm_refr_utils
+
+!*******************************************************************************
+subroutine import_all_ece_data()
+USE mod_ecfm_refr_types, only: ant, rad, data_folder, dstf, N_freq, plasma_params, ffp
+use mod_ecfm_refr_interpol,    only: make_1d_spline
+#ifdef NAG
+  USE nag_spline_1d,                only: nag_spline_1d_interp
+#endif
+!use constants, only: mass_e, e0
+implicit none
+integer(ikind)  :: idiag
+Integer(ikind)  :: ich,ifreq,iint, imode
+real(rkind)     :: dfreq
+Character(200)  :: cur_filename, filename
+character(12)   :: ich_str
+character(1)    :: sep
+idiag = 1
+imode = 1
+filename = trim(data_folder) // "cnt.dat"
+open(67,file=trim(filename))
+!filename = trim(data_folder) // "rhopres.dat"
+!open(74,file=trim(filename))
+!filename = trim(data_folder) // "sres.dat"
+!open(76,file=trim(filename))
+filename = trim(data_folder) // "f_ECE.dat"
+open(79,file=trim(filename))
+filename = trim(data_folder) // "diag.dat"
+open(84,file=trim(filename))
+print*, "Importing data for a total of",  ant%diag(idiag)%N_ch, "ECE channels"
+read(84,"(A3)") ant%diag(idiag)%diag_name
+filename = trim(data_folder) // "parms.dat"
+open(80,file=trim(filename))
+do ich = 1, ant%diag(idiag)%N_ch
+  read(67,"(I5)") rad%diag(idiag)%ch(ich)%mode(imode)%ray(1)%freq(1)%total_LOS_points
+  do ifreq = 1, N_freq
+    if(allocated(rad%diag(idiag)%ch(ich)%mode(imode)%ray(1)%freq(ifreq)%svec)) &
+       deallocate(rad%diag(idiag)%ch(ich)%mode(imode)%ray(1)%freq(ifreq)%svec)
+    allocate(rad%diag(idiag)%ch(ich)%mode(imode)%ray(1)%freq(ifreq)%svec(rad%diag(idiag)%ch(ich)%mode(imode)%ray(1)%freq(1)%total_LOS_points))
+    write(ich_str, "(I3.3)") ich
+    cur_filename = trim(data_folder) // "chdata" // trim(ich_str) // ".dat"
+    open(66, file=cur_filename)
+    do iint = 1, rad%diag(idiag)%ch(ich)%mode(imode)%ray(1)%freq(1)%total_LOS_points
+      read(66,"(9(E18.10E3A1))") rad%diag(idiag)%ch(ich)%mode(imode)%ray(1)%freq(ifreq)%svec(iint)%s,sep,&
+         rad%diag(idiag)%ch(ich)%mode(imode)%ray(1)%freq(ifreq)%svec(iint)%R,sep,&
+         rad%diag(idiag)%ch(ich)%mode(imode)%ray(1)%freq(ifreq)%svec(iint)%z,sep,&
+         rad%diag(idiag)%ch(ich)%mode(imode)%ray(1)%freq(ifreq)%svec(iint)%rhop,sep,&
+         rad%diag(idiag)%ch(ich)%mode(imode)%ray(1)%freq(ifreq)%svec(iint)%ne,sep,&
+         rad%diag(idiag)%ch(ich)%mode(imode)%ray(1)%freq(ifreq)%svec(iint)%Te,sep,&
+         rad%diag(idiag)%ch(ich)%mode(imode)%ray(1)%freq(ifreq)%svec(iint)%theta,sep, &
+         rad%diag(idiag)%ch(ich)%mode(imode)%ray(1)%freq(ifreq)%svec(iint)%v_g_perp, sep, &
+         rad%diag(idiag)%ch(ich)%mode(imode)%ray(1)%freq(ifreq)%svec(iint)%freq_2x,sep!, &
+    end do
+    close(66)
+  end do
+  close(89)
+  !read(74,"(E18.10E3)") rad%diag(idiag)%ch(ich)%rhop_res
+  !read(76,"(E18.10E3)") rad%diag(idiag)%ch(ich)%s_res
+  read(79,"(E18.10E3)") ant%diag(1)%ch(ich)%f_ECE
+  ant%diag(1)%ch(ich)%freq(1) = ant%diag(1)%ch(ich)%f_ECE
+end do
+read(80,"(E18.10E3)") plasma_params%B_ax
+close(67)
+!close(74)
+!close(76)
+close(79)
+close(80)
+close(84)
+if(dstf == "numeric") then
+  filename = trim(data_folder) // "B_min.dat"
+  open(90, file=filename)
+  do iint = 1, size(ffp%rhop_B_min)
+    read(90, fmt="(E18.10E3A1E18.10E3)") ffp%rhop_B_min(iint), sep, ffp%B_min(iint)
+  end do
+  close(90)
+  call make_1d_spline(ffp%B_min_spl, int(size(ffp%rhop_B_min), kind=4), ffp%rhop_B_min, ffp%B_min)
+#ifdef NAG
+  call nag_spline_1d_interp(ffp%rhop_B_min, ffp%B_min, ffp%B_min_nag_spl)
+#endif
+end if
+end subroutine import_all_ece_data
+
+subroutine make_ecfm_LOS_grid(flag, sparse_step, dense_step) ! S. Denk 4. 2013
+! it = current index in the time vector
+! flag = "init" or "terminate " for either allocation or deallocation
+! This subroutine initializes the grid for the integration along los
+! The parameters that remain constant within the optimization are saved in the
+! structure rad_time_ch_ray_svec_type declared in the global params section.
+! This structure is memory intensive, but can replace most calls to interpol_LOS.
+! S.Denk March 2013
+use mod_ecfm_refr_types,                    only: ant,rad,  non_maxwellian, N_ray, N_freq, modes, output_level, &
+                                                  dstf, bi_max, data_folder, pnts_BPD, &
+                                                  largest_svec
+use constants,                              only: e0, c0
+!use ecfm_non_therm_abs,                     only: abs_non_therm_init,abs_non_therm_clean_up
+implicit none
+character(10), intent(in)                   :: flag
+integer(ikind), intent(in), optional        :: sparse_step, dense_step
+integer(ikind)                              :: idiag
+integer(ikind)                              :: ich, imode,ir, iint, ifreq
+real(rkind)                                 :: dense_region_l,&
+                                               dense_region_u
+real(rkind)                                 :: ds1, ds2,s_ow, s_iw
+idiag = 1
+imode = 1
+if(ant%N_diag > 1) then
+  stop "Import of svec not supported for multiple diagnostic"
+end if
+if(modes /= 1) then
+  print*, "Loading rays is not supported for O-mode"
+  print*, "Input Error in initialize_LOS.f90"
+  call abort
+end if
+if(flag == "initialize") then
+  largest_svec = 0
+  do ich = 1, ant%diag(idiag)%N_ch
+    do ir = 1, N_ray
+      do ifreq = 1, N_freq
+        ! FIXME: Inconsistent with forward model by Rathgeber
+        if(largest_svec < rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%total_LOS_points) then
+          largest_svec = rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%total_LOS_points
+        end if
+        do iint = 1, rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%total_LOS_points
+          rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%svec(iint)%Ibb = &
+          ant%diag(idiag)%ch(ich)%freq(ifreq)**2 * e0 * &
+          rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%svec(iint)%Te / c0**2
+          rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%svec(iint)%sin_theta =  &
+              sin(rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%svec(iint)%theta)
+          rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%svec(iint)%cos_theta = &
+              cos(rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%svec(iint)%theta)
+          if(dstf == "numeric" .and. iint < rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%total_LOS_points &
+            .and. iint > 1) then
+            if(rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%svec(iint)%rhop < &
+            rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%svec(iint + 1)%rhop &
+            .and. rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%svec(iint - 1)%rhop > &
+            rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%svec(iint)%rhop) &
+            rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%s_axis = rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%svec(iint)%s
+          end if
+        enddo !iint = 1, rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%total_LOS_points
+        rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%svec(1:rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%total_LOS_points)%plasma = .true.
+        where(rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%svec(:)%rhop == -1.d0) \
+              rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%svec(:)%plasma = .false.
+      enddo ! ifreq = 1, ant%diag(idiag)%ch(ich)%N_freq
+      if(output_level) then
+        allocate(rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%Trad(rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(1)%total_LOS_points), &
+                 rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%Trad_secondary(rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(1)%total_LOS_points), &
+                 rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%em(rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(1)%total_LOS_points), &
+                 rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%em_secondary(rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(1)%total_LOS_points), &
+                 rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%ab(rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(1)%total_LOS_points), &
+                 rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%ab_secondary(rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(1)%total_LOS_points), &
+                 rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%T(rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(1)%total_LOS_points), &
+                 rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%T_secondary(rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(1)%total_LOS_points))
+      end if
+    enddo  ! ir = 1, ant%diag(idiag)%ch(ich)%N_ray
+    if(output_level) then
+      allocate(rad%diag(idiag)%ch(ich)%mode_extra_output(imode)%s(rad%diag(idiag)%ch(ich)%mode(imode)%ray(1)%freq(1)%total_LOS_points))
+      allocate(rad%diag(idiag)%ch(ich)%mode_extra_output(imode)%R(rad%diag(idiag)%ch(ich)%mode(imode)%ray(1)%freq(1)%total_LOS_points))
+      allocate(rad%diag(idiag)%ch(ich)%mode_extra_output(imode)%z(rad%diag(idiag)%ch(ich)%mode(imode)%ray(1)%freq(1)%total_LOS_points))
+      allocate(rad%diag(idiag)%ch(ich)%mode_extra_output(imode)%Trad(rad%diag(idiag)%ch(ich)%mode(imode)%ray(1)%freq(1)%total_LOS_points))
+      allocate(rad%diag(idiag)%ch(ich)%mode_extra_output(imode)%Trad_secondary(rad%diag(idiag)%ch(ich)%mode(imode)%ray(1)%freq(1)%total_LOS_points))
+      allocate(rad%diag(idiag)%ch(ich)%mode_extra_output(imode)%em(rad%diag(idiag)%ch(ich)%mode(imode)%ray(1)%freq(1)%total_LOS_points))
+      allocate(rad%diag(idiag)%ch(ich)%mode_extra_output(imode)%em_secondary(rad%diag(idiag)%ch(ich)%mode(imode)%ray(1)%freq(1)%total_LOS_points))
+      allocate(rad%diag(idiag)%ch(ich)%mode_extra_output(imode)%ab(rad%diag(idiag)%ch(ich)%mode(imode)%ray(1)%freq(1)%total_LOS_points))
+      allocate(rad%diag(idiag)%ch(ich)%mode_extra_output(imode)%ab_secondary(rad%diag(idiag)%ch(ich)%mode(imode)%ray(1)%freq(1)%total_LOS_points))
+      allocate(rad%diag(idiag)%ch(ich)%mode_extra_output(imode)%T(rad%diag(idiag)%ch(ich)%mode(imode)%ray(1)%freq(1)%total_LOS_points))
+      allocate(rad%diag(idiag)%ch(ich)%mode_extra_output(imode)%T_secondary(rad%diag(idiag)%ch(ich)%mode(imode)%ray(1)%freq(1)%total_LOS_points))
+      allocate(rad%diag(idiag)%ch(ich)%mode_extra_output(imode)%Te(rad%diag(idiag)%ch(ich)%mode(imode)%ray(1)%freq(1)%total_LOS_points))
+      allocate(rad%diag(idiag)%ch(ich)%mode_extra_output(imode)%N_cold(rad%diag(idiag)%ch(ich)%mode(imode)%ray(1)%freq(1)%total_LOS_points))
+      allocate(rad%diag(idiag)%ch(ich)%mode_extra_output(imode)%N_cor(rad%diag(idiag)%ch(ich)%mode(imode)%ray(1)%freq(1)%total_LOS_points))
+      allocate(rad%diag(idiag)%ch(ich)%mode_extra_output(imode)%N_warm(rad%diag(idiag)%ch(ich)%mode(imode)%ray(1)%freq(1)%total_LOS_points))
+      allocate(rad%diag(idiag)%ch(ich)%mode_extra_output(imode)%rhop_BPD(pnts_BPD))
+      allocate(rad%diag(idiag)%ch(ich)%mode_extra_output(imode)%BPD(pnts_BPD))
+      allocate(rad%diag(idiag)%ch(ich)%mode_extra_output(imode)%BPD_secondary(pnts_BPD))
+    end if
+  enddo ! ich = 1, ant%diag(idiag)%N_ch
+  rad%diag(idiag)%ch(:)%eval_ch = .true. ! stand_alone => evaluate all channels
+  !call abs_non_therm_init("f_nor")
+else if(flag == "terminate ") then
+  do idiag = 1, ant%N_diag
+    do ich = 1, ant%diag(idiag)%N_ch
+      do ir = 1, N_ray
+        do ifreq = 1, N_freq
+        ! FIXME: lots of stuff still allocated after this - clean up!
+          if(allocated(rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%svec)) then
+            deallocate(rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%svec)
+          end if
+        end do ! ifreq = 1, ant%diag(idiag)%ch(ich)%N_freq
+      end do ! ir = 1, ant%diag(idiag)%ch(ich)%N_ray
+    end do !ich = 1, ant%diag(idiag)%N_ch
+  end do
+  if(dstf == "numeric") call ffp_clean_up()
+  if(trim(dstf) == "gene") call fgene_clean_up()
+else
+  print*, "Flag has to be init or terminate "
+  print*, "It was set to: ", flag
+  print*, "Wrong usage of make_ecfm_LOS_grid"
+  call abort
+end if
+end subroutine make_ecfm_LOS_grid
+
+subroutine read_wall_Trad()
+use mod_ecfm_refr_types,       only: reflec_equ, data_folder, modes
+use mod_ecfm_refr_interpol,    only: make_1d_spline
+#ifdef NAG
+USE nag_spline_1d,             only: nag_spline_1d_interp
+#endif
+Character(200)  :: cur_filename
+Character(1)    :: blanc
+integer(ikind)              :: i
+  if(modes == 1 .or. modes == 3) then
+    cur_filename = trim(data_folder) // "X_reflec_Trad.dat"
+    open(67, file = trim(cur_filename))
+    read(67,"(I5.5)") reflec_equ%N_f
+    allocate(reflec_equ%f(reflec_equ%N_f), reflec_equ%X_Trad_equ(reflec_equ%N_f))
+    do i = 1, reflec_equ%N_f
+      read(67,"(E19.12E2A1E19.12E2)") reflec_equ%f(i), blanc, reflec_equ% X_Trad_equ(i)
+    end do
+    close(67)
+    call make_1d_spline(reflec_equ%X_Trad_equ_spl, int(reflec_equ%N_f,4), reflec_equ%f, reflec_equ%X_Trad_equ)
+#ifdef NAG
+    call nag_spline_1d_interp(reflec_equ%f, reflec_equ%X_Trad_equ, reflec_equ%X_Trad_equ_spl_nag)
+#endif
+  end if
+  if(modes == 2 .or. modes == 3) then
+    cur_filename = trim(data_folder) // "O_reflec_Trad.dat"
+    open(67, file = trim(cur_filename))
+    read(67,"(I5.5)") reflec_equ%N_f
+    if(.not. allocated(reflec_equ%f)) allocate(reflec_equ%f(reflec_equ%N_f))
+    allocate(reflec_equ%O_Trad_equ(reflec_equ%N_f))
+    do i = 1, reflec_equ%N_f
+      read(67,"(E19.12E2A1E19.12E2)") reflec_equ%f(i), blanc, reflec_equ%O_Trad_equ(i)
+    end do
+    close(67)
+    call make_1d_spline(reflec_equ%O_Trad_equ_spl, int(reflec_equ%N_f,4), reflec_equ%f, reflec_equ%O_Trad_equ)
+#ifdef NAG
+    call nag_spline_1d_interp(reflec_equ%f, reflec_equ%O_Trad_equ, reflec_equ%O_Trad_equ_spl_nag)
+#endif
+  end if
+    reflec_equ%f_min = minval(reflec_equ%f)
+    reflec_equ%f_max = maxval(reflec_equ%f)
+end subroutine read_wall_Trad
+
+
 subroutine make_CEC_diag_from_shotfile(diag, rad_diag, wg, z_lens)
 ! calculate weight for each LOS and theta for each aufp along LOS:
 !    ant%ch(ich)%ray(ir)%aufp(:)%theta, ant%ch(ich)%ray(ir)%weight
@@ -1048,8 +1788,192 @@ real(rkind), intent(in)               :: z_lens
   call abort()
 end subroutine make_CEC_diag_geometry
 #endif
+! mod_ecf_refr_types
 
+type reflec_equ_type
+! Parameters for wall plasma equilibrium reflection model - reflec_model = 1
+real(rkind), dimension(:), allocatable  :: f, X_Trad_equ, O_Trad_equ
+type(spl_type_1d)                       :: X_Trad_equ_spl, O_Trad_equ_spl
+real(rkind)                             :: f_min, f_max
+integer(ikind)                          :: N_f
+#ifdef NAG
+  type(nag_spline_1d_comm_wp)            :: X_Trad_equ_spl_nag, O_Trad_equ_spl_nag
+#endif
+end type
+
+!
 !mod_ecfm_refr_rad_transp
+subroutine benchmark_abs_and_N()
+! produces profiles of both the absorption coefficient and the refractive index
+use mod_ecfm_refr_types,         only: rad_diag_ch_mode_ray_freq_svec_type, straight
+use f90_kind
+use mod_ecfm_refr_abs_Al,             only: abs_Albajar, abs_Al_tor_abs, func_N_cold, func_rel_N, get_upper_limit_tau
+use mod_ecfm_refr_em_Hu,                    only: calculate_em
+use constants,                    only: pi, e0, mass_e, eps0, c0
+#ifdef OMP
+use omp_lib
+#endif
+implicit none
+type(rad_diag_ch_mode_ray_freq_svec_type) :: svec
+real(rkind)                               :: omega
+integer(ikind)                            :: mode
+real(rkind)                               :: c_abs_Alb, c_abs_warm_disp, c_abs_Hutch
+real(rkind)                               :: N_cold, N_cor, N_gray
+real(rkind), dimension(600)               :: freq_2X_prof
+integer(ikind)                            :: i, m
+real(rkind)                               :: ds, dummy_1, dummy_2, abs_crude_approx!, X, Y,
+logical                                   :: warm_plasma
+!Te_prof(1) = 200.d0
+!Te_prof(200) = 25.d3
+!do i  = 2, 199
+!  Te_prof(i) = Te_prof(1) + (Te_prof(200) - Te_prof(1)) / 200.d0 * i
+!end do
+!ne_prof(1) = 0.5d19
+!ne_prof(200) = 2.d20
+!do i  = 2, 199
+!  ne_prof(i) = ne_prof(1) + (ne_prof(200) - ne_prof(1)) / 200.d0 * i
+!end do
+straight = .true.
+m = size(freq_2X_prof)
+freq_2X_prof(1) = 65.d9
+freq_2X_prof(m) = 220.d9
+do i  = 2, m -2
+  freq_2X_prof(i) = freq_2X_prof(1) + (freq_2X_prof(m) - freq_2X_prof(1)) / real(m,8) * i
+end do
+mode = 1
+svec%theta = 85.d0/180.d0 * Pi
+svec%cos_theta = cos(svec%theta)
+svec%sin_theta = sin(svec%theta)
+!svec%ne = 1.d19
+svec%Te = 8.e3
+omega = 140.d9 * 2.d0 * Pi
+!X =  svec%ne * e0**2 / (eps0 * mass_e) / omega**2
+!Y = freq_2X_prof(1) * Pi / omega
+warm_plasma = .true.
+ds = 1.d0
+svec%v_g_perp = svec%sin_theta
+!print*, "X, Y", X, Y
+svec%ne = 10.d19
+open(81, file = "v_high_ne_abs_prof.dat")
+do i = 1, m
+  svec%freq_2X = freq_2X_prof(i)
+  !omega = (100.d9 + 50.d9 / 200.d0 * i) * 2.d0 * pi
+  !Y = svec%freq_2X * Pi / omega
+  N_cor = func_rel_N(omega, svec, mode)
+  svec%N_cold = N_cor
+  N_cold = func_N_cold(omega, svec, mode)
+  N_gray = N_cor
+  call abs_Albajar(svec, omega, mode, ds, c_abs_Alb, dummy_1)
+  call calculate_em(svec, omega, dummy_1, dummy_2, c_abs_Hutch)
+  c_abs_warm_disp = abs_Al_tor_abs(svec, omega, mode, N_gray)
+  abs_crude_approx =  get_upper_limit_tau(svec, omega, 1.d0, 0.5d0)
+  write(81,"(7(E18.10E3,A1),E18.10E3)") &
+          omega / (svec%freq_2X * Pi), " ", c_abs_Alb, " ", c_abs_Hutch, " ",&
+          c_abs_warm_disp, " ", abs_crude_approx, " ", N_cold, " ", N_cor, " ", N_gray
+end do
+close(81)
+svec%ne = 8.d19
+open(81, file = "high_ne_abs_prof.dat")
+do i = 1, m
+  svec%freq_2X = freq_2X_prof(i)
+  !omega = (100.d9 + 50.d9 / 200.d0 * i) * 2.d0 * pi
+  !Y = svec%freq_2X * Pi / omega
+  N_cor = func_rel_N(omega, svec, mode)
+  svec%N_cold = N_cor
+  N_cold = func_N_cold(omega, svec, mode)
+  N_gray = N_cold
+  call abs_Albajar(svec, omega, mode, ds, c_abs_Alb, dummy_1)
+  call calculate_em(svec, omega, dummy_1, dummy_2, c_abs_Hutch)
+  c_abs_warm_disp = abs_Al_tor_abs(svec, omega, mode, N_gray)
+  abs_crude_approx =  get_upper_limit_tau(svec, omega, 1.d0, 0.5d0)
+  write(81,"(7(E18.10E3,A1),E18.10E3)") &
+          omega / (svec%freq_2X * Pi), " ", c_abs_Alb, " ", c_abs_Hutch, " ",&
+          c_abs_warm_disp, " ", abs_crude_approx, " ", N_cold, " ", N_cor, " ", N_gray
+end do
+close(81)
+open(81,  file = "low_ne_abs_prof.dat")
+svec%ne = 6.d19
+do i = 1, m
+  !omega = (100.d9 + 50.d9 / 200.d0 * i) * 2.d0 * pi
+  svec%freq_2X = freq_2X_prof(i)
+  !X =  svec%ne * e0**2 / (eps0 * mass_e) / omega**2
+  !Y = svec%freq_2X * Pi / omega
+  N_cor = func_rel_N(omega, svec, mode)
+  svec%N_cold = N_cor
+  N_cold = func_N_cold(omega, svec, mode)
+  N_gray = N_cold
+  !print*, "X, Y", X, Y
+  call abs_Albajar(svec, omega, mode, ds, c_abs_Alb, dummy_1)
+  call calculate_em(svec, omega, dummy_1, dummy_2, c_abs_Hutch)
+  c_abs_warm_disp = abs_Al_tor_abs(svec, omega, mode, N_gray)
+  abs_crude_approx =  get_upper_limit_tau(svec, omega, 1.d0, 0.5d0)
+  write(81,"(7(E18.10E3,A1),E18.10E3)") &
+          omega / (svec%freq_2X * Pi), " ", c_abs_Alb, " ", c_abs_Hutch, " ",&
+          c_abs_warm_disp, " ", abs_crude_approx, " ", N_cold, " ", N_cor, " ", N_gray
+end do
+close(81)
+omega = 110.d9 * 2.d0 * Pi
+svec%ne = 6.d19
+open(81, file = "v_high_ne_abs_prof_low_f.dat")
+do i = 1, m
+  svec%freq_2X = freq_2X_prof(i)
+  !omega = (100.d9 + 50.d9 / 200.d0 * i) * 2.d0 * pi
+  !Y = svec%freq_2X * Pi / omega
+  N_cor = func_rel_N(omega, svec, mode)
+  svec%N_cold = N_cor
+  N_cold = func_N_cold(omega, svec, mode)
+  N_gray = N_cor
+  call abs_Albajar(svec, omega, mode, ds, c_abs_Alb, dummy_1)
+  call calculate_em(svec, omega, dummy_1, dummy_2, c_abs_Hutch)
+  c_abs_warm_disp = abs_Al_tor_abs(svec, omega, mode, N_gray)
+  abs_crude_approx =  get_upper_limit_tau(svec, omega, 1.d0, 0.5d0)
+  write(81,"(7(E18.10E3,A1),E18.10E3)") &
+          omega / (svec%freq_2X * Pi), " ", c_abs_Alb, " ", c_abs_Hutch, " ",&
+          c_abs_warm_disp, " ", abs_crude_approx, " ", N_cold, " ", N_cor, " ", N_gray
+end do
+close(81)
+svec%ne = 4.d19
+open(81, file = "high_ne_abs_prof_low_f.dat")
+do i = 1, m
+  svec%freq_2X = freq_2X_prof(i)
+  !omega = (100.d9 + 50.d9 / 200.d0 * i) * 2.d0 * pi
+  !Y = svec%freq_2X * Pi / omega
+  N_cor = func_rel_N(omega, svec, mode)
+  svec%N_cold = N_cor
+  N_cold = func_N_cold(omega, svec, mode)
+  N_gray = N_cor
+  call abs_Albajar(svec, omega, mode, ds, c_abs_Alb, dummy_1)
+  call calculate_em(svec, omega, dummy_1, dummy_2, c_abs_Hutch)
+  c_abs_warm_disp = abs_Al_tor_abs(svec, omega, mode, N_gray)
+  abs_crude_approx =  get_upper_limit_tau(svec, omega, 1.d0, 0.5d0)
+  write(81,"(7(E18.10E3,A1),E18.10E3)") &
+          omega / (svec%freq_2X * Pi), " ", c_abs_Alb, " ", c_abs_Hutch, " ",&
+          c_abs_warm_disp, " ", abs_crude_approx, " ", N_cold, " ", N_cor, " ", N_gray
+end do
+close(81)
+open(81,  file = "low_ne_abs_prof_low_f.dat")
+svec%ne = 2.d19
+do i = 1, m
+  !omega = (100.d9 + 50.d9 / 200.d0 * i) * 2.d0 * pi
+  svec%freq_2X = freq_2X_prof(i)
+  !X =  svec%ne * e0**2 / (eps0 * mass_e) / omega**2
+  !Y = svec%freq_2X * Pi / omega
+  N_cor = func_rel_N(omega, svec, mode)
+  svec%N_cold = N_cor
+  N_cold = func_N_cold(omega, svec, mode)
+  N_gray = N_cold
+  !print*, "X, Y", X, Y
+  call abs_Albajar(svec, omega, mode, ds, c_abs_Alb, dummy_1)
+  call calculate_em(svec, omega, dummy_1, dummy_2, c_abs_Hutch)
+  c_abs_warm_disp = abs_Al_tor_abs(svec, omega, mode, N_gray)
+  abs_crude_approx =  get_upper_limit_tau(svec, omega, 1.d0, 0.5d0)
+  write(81,"(7(E18.10E3,A1),E18.10E3)") &
+          omega / (svec%freq_2X * Pi), " ", c_abs_Alb, " ", c_abs_Hutch, " ",&
+          c_abs_warm_disp," ", abs_crude_approx, " ", N_cold, " ", N_cor, " ", N_gray
+end do
+close(81)
+end subroutine benchmark_abs_and_N
+
   use mod_ecfm_refr_types,         only: rad_diag_ch_mode_ray_freq_svec_type, &
                                          rad_diag_ch_mode_ray_freq_svec_extra_output_type
  real(rkind), dimension(116) :: work_lsode
@@ -2472,3 +3396,1502 @@ end module mod_ecfm_refr_rad_transp_int
 !  deallocate(rhop, n_e, T_e, par, par_ne, par_scal, ne_test)
 !end subroutine simulate_ida
 !#endif
+
+! module radiation
+!        subroutine calculate_abs
+!        subroutine calculate_em_tot
+!        subroutine calculate_mode_frac
+!        subroutine calculate_sf
+!        subroutine calculate_sf_rrf
+!        subroutine calculate_int_beta_nume
+!        subroutine radiation_df_over_f
+
+
+!******************************************************************************
+!******************************************************************************
+!******************************************************************************
+! Emissivity and absorption according to hutchinson with and without some tweaks.
+! Since albajar is generally better, just a bit slower -> Deprecation
+module mod_ecfm_refr_em_Hu
+
+  use f90_kind
+
+  implicit none
+  public :: calculate_em, &
+            radiation_gauss_init, &
+            radiation_gauss_clean_up!, &
+            !calculate_N
+    real(rkind), dimension(:), allocatable :: Int_weights
+    real(rkind), dimension(:), allocatable :: Int_absz
+    real(rkind), dimension(:), allocatable :: Int_weights_many
+    real(rkind), dimension(:), allocatable :: Int_absz_many
+    integer(ikind)                         :: total_cnt, shortcut_cnt
+  private :: BesselJ, &
+             BesselJ_fast_1, &
+             BesselJ_fast_2, &
+             BesselJ_fast_3, & ! different syntax due to use of spline data
+             calculate_em_tot,        & !
+             calculate_mode_frac,     & !
+             calculate_sf_rrf,        & ! analytical calculation from rrf
+             calculate_int_u_gauss, &
+             calculate_int_u_gauss_many, &
+             calculate_int_u_gauss_arbitrary, &
+             bessel_term, &
+             Int_weights, &
+             Int_absz, &
+             Int_weights_many, &
+             Int_absz_many, &
+             total_cnt, &
+             shortcut_cnt
+
+contains
+
+!  subroutine calculate_N(svec, omega, m, N, mode, old_model)
+!    use mod_ecfm_refr_types,        only: rad_diag_ch_mode_ray_freq_svec_type
+!    use constants,                  only: pi, e0 , eps0, mass_e
+!    implicit None
+!    type(rad_diag_ch_mode_ray_freq_svec_type), intent(inout)  :: svec
+!    real(rkind), intent(in)                           :: omega
+!    integer(ikind), intent(in)                        :: m, mode
+!    real(rkind), intent(out)                          :: N
+!    logical, intent(in), optional                     :: old_model
+!    real(rkind)                   :: omega_bar_2, alpha, beta,omega_p_c_2, omega_c, omega_p
+!    real(rkind)                   :: f,rho
+!    real(rkind)                   :: omega_LC, omega_RC
+!    logical                       :: old_model_flag
+!    old_model_flag = .False.
+!    if(present(old_model)) old_model_flag = old_model
+!    omega_c =  svec%freq_2X * PI
+!    omega_p     = sqrt((svec%ne * e0**2.d0)/(eps0 * mass_e))
+!    omega_bar_2 = (omega / omega_c)**2
+!    alpha = omega_p**2 / omega**2
+!    beta = omega_c**2 / omega**2
+!    if(int(abs(mode)) /= 1) then
+!      print*, "Only -1 (X-mode) and 1 (O-Mode) allowed for variable mode in"
+!      print*, "the routine abs_non_therm_N"
+!      stop "abs_non_therm_N in mod_ecfm_abs_Albajar.f90"
+!    end if
+!    omega_RC = sqrt(0.25 * omega_c**2 + omega_p**2)
+!    omega_LC = omega_RC - 0.5 * omega_c
+!    omega_RC = omega_RC + 0.5 * omega_c
+!    omega_p_c_2 = omega_p / omega_c
+!    if(alpha > 1.0) then
+!      N = 0.0
+!    else if(mode == 1) then
+!      if((omega**2 - omega_LC**2)*(omega**2 - omega_RC**2) < 0.0) then
+!        N = 0.0
+!        return
+!      end if
+!    end if
+!    rho =  svec%sin_theta**4 + 4.d0/real(m,8)**2 *(real(m,8)**2 - omega_p_c_2)**2 * svec%cos_theta**2
+!    if(rho < 0.d0) then
+!      print*, "root of negative number avoided: variable rho"
+!      stop "calculate_N in mod_ecfm_radiation.f90"
+!    end if
+!    rho = sqrt(rho)
+!    f = (2.d0 * (reaL(m,8)**2 - omega_p_c_2))/ (2.d0 * (real(m,8)**2 - omega_p_c_2) - (svec%sin_theta**2 + real(mode,8) * rho))
+!    N = 1.d0 - omega_p_c_2/real(m,8)**2 * f
+!    if(N < 0.d0) then
+!      N = 0.0
+!      return
+!    end if
+!    N = sqrt(N)
+!    if(old_model_flag) N =  simple_in_cutoff(N,omega / (2 * Pi), svec%ne)
+!  end subroutine calculate_N
+
+  function simple_in_cutoff(N_abs,freq, ne)
+  use mod_ecfm_refr_types,        only: old_cutoff
+  implicit none
+  real(rkind), intent(in)       :: N_abs, freq, ne
+  logical                       :: simple_in_cutoff
+  if(old_cutoff) then
+    simple_in_cutoff = (0.620221303d-2 * freq**2 < ne)
+    !print*, "cutoff", .620221303d-2 * freq**2, simple_in_cutoff
+  else
+    simple_in_cutoff = (N_abs <= 0.d0)
+  end if
+  end function simple_in_cutoff
+
+  subroutine calculate_em(svec,omega, em, em_secondary, abs)
+    ! S. Denk 4. 2013
+    use mod_ecfm_refr_types,         only: ant, rad, non_maxwellian, &
+                                           rad_diag_ch_mode_ray_freq_svec_type, &
+                                           bi_max,drift_m, Spitzer, multi_slope, output_level, old_cutoff, &
+                                           spl_type_2d, non_therm_params_type, dstf, dstf_comp
+    use constants,                   only: pi, e0, mass_e, eps0, c0
+    !use mod_ecfm_refr_fp_dist_utils, only: interpolate_f_rhop, export_Te_rhop
+    !use ecfm_non_therm_abs,         only: abs_Albajar, abs_non_therm_tor_abs
+    use mod_ecfm_radiation_dist,             only: radiation_dist_f_norm, prepare_dist
+    implicit none
+    type(rad_diag_ch_mode_ray_freq_svec_type), intent(inout)  :: svec
+    real(rkind), intent(in)                           :: omega
+    real(rkind),    intent(out)                       :: em, em_secondary, abs                  ! [W m^-3 sr^-1 Hz^-1]
+    character(30)                                     :: secondary_flag
+    real(rkind)                                       :: freq, em_tot, em_tot_secondary, eta_2X, eta_2O, sf, sf_abs , &
+                                                         sf_secondary,const, ne_frac, f_rel,f_rel_sq, mu, &
+                                                         int_u, int_u_abs, f_norm,a, N, temp_norm , &
+                                                         em_omega, abs_omega, em_secondary_omega, int_u_second
+    integer(ikind)                                    ::  irhop_TDiff, irhop, m, l_omega
+    type(spl_type_2d) :: f_spl
+    type(non_therm_params_type)        :: dist_params
+    em = 0.d0
+    abs = 0.d0
+    em_secondary = 0.d0
+    if(svec%Te < 1.d0) return ! very low Te => absorption can be ignored
+    if(svec%ne < 1.e17) return
+    if(svec%N_cold <= 0.d0 .or. svec%N_cold > 1.d0) return
+    freq = omega / (2.d0 * Pi)
+    f_rel = freq /  svec%freq_2X
+    if(dstf /= "relamax" .and. dstf /=  "Hu_nbes" .and.  dstf /= "Hu_bess") call prepare_dist(svec,Int_weights_many, Int_absz_many, f_spl, dist_params)
+    do m = 2, 2
+      sf = 0.d0
+      sf_secondary = 0.d0
+      sf_abs = 0.d0
+      eta_2X = 0.d0
+      eta_2O = 0.d0
+      em_tot = 0.d0
+      em_tot_secondary = 0.d0
+      f_rel_sq = f_rel**2.d0
+      const = (mass_e * c0**2.d0) / (2.d0 * e0 * svec%Te)
+      mu = 2 * const
+! Compare em/abs
+      if(svec%cos_theta == 0.0 .or. svec%sin_theta == 0.0) then
+          print*, "svec",svec
+          print*, f_rel, svec%theta, svec%sin_theta, svec%cos_theta
+          print*, "Sub_calculate_em"
+          stop "Calculation not possible for theta = 90 deg. or theta == 0 deg."
+      end if
+      sf_secondary = 0.d0
+      if(output_level) then
+        if(trim(dstf_comp) == "Mx") then !"relamax"!! "maxwell"
+          if(m == 2) then
+            call calculate_sf_rrf(svec%Te, mu / 2.d0, svec%theta,       &
+                  svec%cos_theta, svec%sin_theta, svec%freq_2X,f_rel, f_rel_sq, int_u_second)
+!            print*, "doing the fischer", int_u_second
+            call calculate_em_tot_secondary(svec%ne, &
+              svec%cos_theta, &
+              svec%sin_theta, &
+              svec%freq_2X, const,m , em_tot_secondary)
+            sf_secondary = int_u_second / (const**2 )
+           else
+            sf_secondary = 0.d0
+          end if
+        else if( trim(dstf_comp) == "NB") then
+          call calculate_int_u_gauss_no_bessel(svec,mu,f_rel,f_rel_sq, int_u_second, int_u_abs,m,svec%N_cold)!
+          call calculate_em_tot_secondary(svec%ne, &!
+                    svec%cos_theta, &
+                    svec%sin_theta, &
+                    svec%freq_2X, const,m , em_tot_secondary)
+          a = 1.0d0/(1.0d0 + 105.0d0/(128.0d0 * mu**2) + 15.0d0/(8.0d0 * mu))
+          f_norm = a * (sqrt(mu / (2 * pi))**3)
+          f_norm = sqrt(mu / (2 * pi))**3
+          sf_secondary = int_u_second * pi/ freq * f_norm
+        else if( trim(dstf_comp) == "Al") then
+          call calculate_em_tot(svec%ne, &
+            svec%cos_theta, &
+            svec%sin_theta, &
+            svec%freq_2X, const, m, em_tot_secondary)
+          call calculate_int_u_gauss_refr(svec, mu,f_rel,f_rel_sq, int_u_second, int_u_abs,m,svec%N_cold)
+          a = 1.0d0/(1.0d0 + 105.0d0/(128.0d0 * mu**2) + 15.0d0/(8.0d0 * mu))
+          f_norm = a * (sqrt(mu / (2 * pi))**3)
+          f_norm = sqrt(mu / (2 * pi))**3
+          sf_secondary = int_u_second * pi/ freq * f_norm
+        else
+          print*, "Unknown dstf_comp:", dstf_comp
+          stop "Critical ERROR in calcualte_em"
+        end if
+        sf = 0.0
+        sf_abs = 0.0
+        if( dstf == "Hu_nbes") then
+          call calculate_int_u_gauss_no_bessel(svec,mu,f_rel,f_rel_sq, int_u, int_u_abs,m,svec%N_cold)!
+!          print*, "doing no bessels whatsoever", int_u
+          call calculate_em_tot_secondary(svec%ne, &!
+            svec%cos_theta, &
+            svec%sin_theta, &
+            svec%freq_2X, const,m , em_tot)
+          a = 1.0d0/(1.0d0 + 105.0d0/(128.0d0 * mu**2) + 15.0d0/(8.0d0 * mu))
+          f_norm = a * (sqrt(mu / (2 * pi))**3)
+          f_norm = sqrt(mu / (2 * pi))**3
+          sf = int_u * pi/ freq * f_norm
+          sf_abs =  - int_u_abs * pi / (freq**3 * mass_e)
+          sf_abs = sf_abs * f_norm
+        else if(dstf == "Hu_bess") then
+          call calculate_int_u_gauss(svec, mu,f_rel,f_rel_sq , int_u, int_u_abs,m,svec%N_cold)
+          a = 1.0d0/(1.0d0 + 105.0d0/(128.0d0 * mu**2) + 15.0d0/(8.0d0 * mu))
+          f_norm = a * (sqrt(mu / (2 * pi))**3)
+          f_norm = sqrt(mu / (2 * pi))**3
+          sf = int_u * pi/ freq * f_norm
+          sf_abs =  - int_u_abs * pi / (freq**3 * mass_e)
+          sf_abs = sf_abs * f_norm
+          call calculate_em_tot(svec%ne, & !
+                                svec%cos_theta, &
+                                svec%sin_theta, &
+                                svec%freq_2X, const,m , em_tot)
+        else
+          call calculate_int_u_gauss_arbitrary(svec, dist_params,mu,f_rel,f_rel_sq , int_u, int_u_abs,m,svec%N_cold)
+          call calculate_em_tot(svec%ne, &
+                                svec%cos_theta, &
+                                svec%sin_theta, &
+                                svec%freq_2X, const,m , em_tot)
+          a = 1.0d0/(1.0d0 + 105.0d0/(128.0d0 * mu**2) + 15.0d0/(8.0d0 * mu))
+          f_norm = radiation_dist_f_norm(svec%Te, dstf)
+          sf = int_u * pi/ freq * f_norm
+          sf_abs =  int_u * mu * pi / (freq**3 * mass_e)
+          sf_abs = sf_abs * f_norm
+        end if
+      else
+        call calculate_int_u_gauss(svec,mu,f_rel,f_rel_sq , int_u, int_u_abs,m,svec%N_cold)!_arbitrary
+        a = 1.0d0/(1.0d0 + 105.0d0/(128.0d0 * mu**2) + 15.0d0/(8.0d0 * mu))
+        f_norm = a * (sqrt(mu / (2 * pi))**3)
+        sf = int_u * pi/ freq * f_norm
+        call calculate_em_tot(svec%ne, &
+                              svec%cos_theta, &
+                              svec%sin_theta, &
+                              svec%freq_2X, const,m , &
+                              em_tot_secondary)
+      end if
+      call calculate_mode_frac(svec%cos_theta, svec%sin_theta, 0.5d0 / f_rel , eta_2X, eta_2O)
+      em = em + eta_2X * sf * em_tot
+      abs = abs + eta_2X * sf_abs * em_tot
+      em_secondary = em_secondary + em_tot_secondary * eta_2X * sf_secondary
+    end do
+    if( em /= em  .or. em < 0.d0 .or. abs /= abs .or. abs < 0.d0) then !c_abs < 0.d0 .or.
+        print*, "rhop", svec%rhop
+        print*, "Te",svec%Te
+        print*, "ne",svec%ne
+        print*, "freq", freq
+        print*, "freq 2",  svec%freq_2X
+        print*, "eta_2X",eta_2X
+        print*, "em_tot", em_tot
+        print*, "int_u_second", int_u_second
+        print*, "int_u", int_u
+        print*, "sf", sf
+        print*, "sf_abs", sf_abs
+        print*, "em_tot_secondary",  em_tot_secondary
+        print*, "sf_secondary", sf_secondary
+        print*, "em", em
+        print*, "abs", abs
+        print*, "em_secondary", em_secondary
+        stop "Nan in calculate_em"
+      end if
+  end subroutine calculate_em
+
+  !*******************************************************************************
+
+  subroutine calculate_em_tot(ne, cos_theta, sin_theta, freq_2X, const, m, em_tot)
+
+    use constants,                  only: pi, e0, mass_e, eps0, c0
+
+    implicit none
+
+    real(rkind), intent(in)  :: ne, cos_theta, sin_theta, freq_2X, const
+    integer(ikind), intent(in) :: m
+    real(rkind), intent(out) :: em_tot
+    real(rkind) ::  freq_m
+    freq_m = freq_2X / 2 * m
+    em_tot = (e0 * freq_m)**2.d0 * &
+      ne / (eps0 * c0 )
+  end subroutine calculate_em_tot
+
+  subroutine calculate_em_tot_secondary(ne, cos_theta, sin_theta, freq_2X, const, m, em_tot)
+
+    use constants,                  only: pi, e0, mass_e, eps0, c0
+
+    implicit none
+
+    real(rkind), intent(in)  :: ne, cos_theta, sin_theta, freq_2X, const
+    integer(ikind), intent(in) :: m ! order of the harmonic
+    real(rkind), intent(out) :: em_tot
+    real(rkind) ::  freq_m
+    integer(ikind) :: i, fac
+    fac = 1
+    do i = 1,m - 1
+      fac = fac * i
+    end do
+    freq_m = freq_2X / 2 * m
+    em_tot = (m**(2*(m-1))/fac**2) / (2.d0**(2 * m))* sin_theta**(2*(m-1)) * (cos_theta**2.d0  + 1.d0)
+    em_tot = em_tot * (e0 * freq_m)**2.d0 * &
+      ne / (eps0 * c0 )
+  end subroutine calculate_em_tot_secondary
+
+  !*******************************************************************************
+
+  subroutine calculate_mode_frac(cos_theta, sin_theta, Y, eta_2X, eta_2O)
+
+    implicit none
+
+    real(rkind), intent(in)  :: cos_theta, sin_theta, Y
+    real(rkind), intent(out) :: eta_2X, eta_2O
+    real(rkind)  :: a1, a2, a3
+
+    a1 = sin_theta**4.d0 / (4.d0 / Y)
+    a2 = cos_theta**2.d0
+    a3 = (a1 + a2) / ( (a2+1.d0) * sqrt(a2+a1 * Y) )
+
+    eta_2X = 0.5d0 + a3
+    eta_2O = 0.5d0 - a3
+
+  end subroutine calculate_mode_frac
+
+  !*******************************************************************************
+
+
+  !*******************************************************************************
+
+  subroutine calculate_sf_rrf(Te, const, theta, cos_theta, &
+    sin_theta, freq_2X, f_rel, f_rel_sq, sf)
+
+    use mod_ecfm_refr_types,        only: ant
+    use constants,                  only: pi, e0, mass_e, c0, sPi
+
+    implicit none
+
+    real(rkind),    intent(in)  :: Te, const
+    real(rkind),    intent(in)  :: theta, cos_theta, sin_theta
+    real(rkind),    intent(in)  :: freq_2X, f_rel, f_rel_sq
+    real(rkind),    intent(out) :: sf
+
+    real(rkind)     :: eps, eta, xh1, xh2, prefact, t1, t2, sin_theta_2, num_eps, freq_new
+    real(rkind)     :: beta_par_1, beta_par_2, alpha1, alpha2
+    real(rkind)     :: e1, e2, sa1, sa2, ca1, ca2, F1, F2
+
+    real(rkind)     :: sf2
+    sin_theta_2 = sin_theta**2
+    eps = 1.d0 / (const * f_rel_sq)                    ! a small quantity
+    eta = 1.d0 + f_rel_sq * cos_theta**2               ! 1 + (freq/freq_2X * cos(theta))**2
+    if(1.d0 - f_rel_sq * sin_theta_2 < 0.d0) then
+      sf = 0.d0
+      return
+    end if
+    t1 = f_rel_sq * cos_theta                          ! (freq/freq_2X)**2 * cos(theta)
+    t2 = sqrt(1.d0 - f_rel_sq * sin_theta_2)           ! sqrt(1-(freq/freq_2X * sin(theta))**2)
+    beta_par_1 = (t1 - t2) / eta                       ! lower integration limit
+    beta_par_2 = (t1 + t2) / eta
+    num_eps = abs(beta_par_2 - beta_par_1) * 1.d-9
+    beta_par_1 = beta_par_1 + num_eps
+    beta_par_2 = beta_par_2 - num_eps
+    sa1 = 1.d0 - beta_par_1 * cos_theta                ! uses beta_par_1
+    sa2 = 1.d0 - beta_par_2 * cos_theta                ! uses beta_par_2
+    alpha1 = sa1**2                                    ! uses beta_par_1
+    alpha2 = sa2**2                                    ! uses beta_par_2
+    e1  = exp(-const*(1.d0 - f_rel_sq * alpha1))
+    e2  = exp(-const*(1.d0 - f_rel_sq * alpha2))
+    ca1 = sqrt(const*f_rel_sq*alpha1)
+    ca2 = sqrt(const*f_rel_sq*alpha2)
+    xh1 = eta**2 * eps
+    xh2 = (3.d0*eta - 2.d0*sin_theta_2/eps) * sqrt(eps)
+
+    call dawson_integral(ca1, F1)
+    call dawson_integral(ca2, F2)
+    freq_new = f_rel * freq_2X
+    prefact = const**1.5d0 / (sPi * freq_new * f_rel_sq * cos_theta**5)
+
+    sf = prefact * ( e1 * (xh1 - sin_theta_2 / sa1 - xh2 * F1) &
+      -e2 * (xh1 - sin_theta_2 / sa2 - xh2 * F2) )
+    if(sf < 0.d0) sf = 0.d0
+  end subroutine calculate_sf_rrf
+
+  !*******************************************************************************
+
+  subroutine dawson_integral(x, daw)
+    ! Dawson integral: daw = exp(-x**2) int_0^x exp(u**2) du
+
+    use nr_special_funcs,           only: dawson_s
+
+    implicit none
+
+    real(rkind), intent(in)  :: x
+    real(rkind), intent(out) :: daw   ! value of Dawson integral
+    real(rkind)  :: y
+
+    if (x >= 4.8d0) then
+      y   = 1.d0/(2.d0*x**2)
+      daw = (1.d0 + y*(1.d0 + 3.d0*y*(1.d0 + 5.d0*y*(1.d0 + 7.d0*y*(1.d0 + 9.d0*y*(1.d0 + 11.d0*y)))))) / (2.d0*x)
+    else
+      daw = dawson_s(x)
+    endif
+
+  !stop 'subroutine dawson_integral'
+  end subroutine dawson_integral
+
+  !*******************************************************************************
+
+subroutine radiation_gauss_init(N_step_sf_int)
+#ifdef NAG
+    use nag_quad_util,              only: nag_quad_gs_wt_absc
+    USE nag_error_handling
+#endif
+    use quadrature,                 only: cdgqf
+    implicit none
+    integer(ikind), intent(in)     :: N_step_sf_int
+#ifdef NAG
+    type(nag_error)                :: error
+#endif
+    integer(ikind)                 :: i
+    real(rkind)                    :: h
+    real(rkind), dimension(:), allocatable :: Int_weights_check, Int_absz_check
+    allocate( Int_weights(N_step_sf_int),Int_absz(N_step_sf_int))
+    allocate( Int_weights_many(64),Int_absz_many(64))
+    call cdgqf( int(N_step_sf_int,kind=4), int(1,kind=4), 0.d0, 0.d0, Int_absz, Int_weights)
+    call cdgqf( int(64,kind=4), int(1,kind=4), 0.d0, 0.d0, Int_absz_many, Int_weights_many)
+#ifdef NAG
+    allocate( Int_weights_check(N_step_sf_int), Int_absz_check(N_step_sf_int))
+    call nag_quad_gs_wt_absc( 0, -1.d0, 1.d0, Int_weights_check, Int_absz_check)
+    if(sum((Int_weights - Int_weights_check)**2) > 1.d-5) then
+      print*, "Weights deviate by more than 1.d-10"
+      do i = 1, N_step_sf_int
+        print*, Int_weights(i), Int_weights_check(i)
+      end do
+      call abort()
+    end if
+    if(sum((Int_absz - Int_absz_check)**2) > 1.d-5) then
+      print*, "Abszissae deviate by more than 1.d-10"
+      do i = 1, N_step_sf_int
+        print*, Int_absz(i), Int_absz_check(i)
+      end do
+      call abort()
+    end if
+    deallocate(Int_weights_check, Int_absz_check)
+    !call nag_quad_gs_wt_absc( 0, -1.d0, 1.d0, Int_weights, Int_abszz)
+    if (error%level >= 1) print*, error%msg
+    if (error%level >= 1) stop "Failed to setup "
+#endif
+    total_cnt = 0
+    shortcut_cnt = 0
+  end subroutine radiation_gauss_init
+
+  subroutine radiation_gauss_clean_up()
+    use mod_ecfm_refr_types,        only: output_level
+  implicit none
+
+    if(allocated(Int_weights)) deallocate(Int_weights)
+    if(allocated(Int_absz)) deallocate(Int_absz)
+    if(allocated(Int_weights_many)) deallocate(Int_weights_many)
+    if(allocated(Int_absz_many)) deallocate(Int_absz_many)
+    if(output_level) print*, shortcut_cnt, " of ", total_cnt, " were calculated quickly"
+  end subroutine radiation_gauss_clean_up
+
+
+
+
+   subroutine calculate_int_u_gauss(svec,mu, f_rel, f_rel_sq, int_u, int_u_abs, m,N) !
+    use mod_ecfm_refr_types,        only: rad_diag_ch_mode_ray_freq_svec_type
+    implicit none
+
+    type(rad_diag_ch_mode_ray_freq_svec_type),    intent(in)  :: svec
+    real(rkind),    intent(in)  :: mu,f_rel, f_rel_sq, N
+    real(rkind),    intent(out) :: int_u,int_u_abs
+    integer(ikind), intent(in)  :: m
+    ! for numerial calculation of integral
+    real(rkind)     :: m_omega_bar,cos_theta,sin_theta
+    real(rkind)     :: m_omega_bar_2,cos_theta_2,sin_theta_2, det
+    real(rkind), dimension(size(Int_weights))     :: u_par,u_perp, gamma, zeta, int_u_add
+    real(rkind)     :: eps, besselj1,besselj2, besselj3
+    real(rkind)     :: a, b, du_dalpha, int_u_add2
+    integer(ikind)  :: k
+
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    ! numerial calculation of u integral using gaussian quadrature with boundaries -1.0,1.0 !
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    if((real(m,8)/ (f_rel *2.0 ))**2  < 1.e0 - svec%cos_theta**2) then
+      int_u = 0.d0
+      int_u_abs = 0.d0
+      return
+    end if
+    cos_theta = svec%cos_theta
+    sin_theta = svec%sin_theta
+    m_omega_bar =  real(m) / (2.0 * f_rel)
+    m_omega_bar_2 = (m_omega_bar)**2
+    sin_theta_2 = (sin_theta)**2
+    cos_theta_2 = (cos_theta)**2
+    det = sqrt(m_omega_bar_2 - sin_theta_2)
+    a = (m_omega_bar*cos_theta - det) / sin_theta_2
+    b = (m_omega_bar*cos_theta + det) / sin_theta_2
+    eps = (b - a) * 1.d-9 !small quantity to assure we stay in the range of the resonance
+    ! If eps is equal to zero, there are cases were floating point precision is too low
+    ! and the square root of a very small, but negative, number is calculated
+    ! At the boundaries u_perp is very small and therefore the single particle emissivity
+    ! is neglidibly small.
+    ! There should be no noticeable error through this slight tightening of the integral!
+    a = a + eps
+    b = b - eps
+    du_dalpha = (b - a)/2.d0
+    int_u       = 0.d0
+    int_u_abs   = 0.d0
+    !!$OMP PARALLEL DO &
+    !!$OMP SHARED(mu, cos_theta, m_omega_bar,sin_theta,b,a) PRIVATE(k,u_par, u_perp, zeta,gamma, int_u_add2) &
+    !!$OMP REDUCTION(+:int_u)
+    do k = 1, size(Int_weights)
+      u_par(k) = Int_absz(k) * du_dalpha + (b + a) / 2.d0
+      gamma(k) = u_par(k) * cos_theta  + m_omega_bar
+      u_perp(k) = sqrt(gamma(k)**2 - u_par(k)**2 - 1.d0)
+      zeta(k) = 2 *  f_rel * u_perp(k) * sin_theta
+      int_u_add(k) = ((cos_theta - u_par(k)/gamma(k))* Bessel_JN(m, zeta(k)/ sin_theta))**2
+      int_u_add(k) = int_u_add(k)  + ( u_perp(k)/gamma(k))**2  * &
+      (Bessel_JN(m - 1, zeta(k)) - Bessel_JN(m + 1,zeta(k)))**2 / 4.d0
+      int_u_add(k) = int_u_add(k) * du_dalpha * exp( -mu / 2.d0 * ((u_par(k) / gamma(k))**2 + u_perp(k)**2 / gamma(k)**2))* Int_weights(k)
+      !* exp( mu* (1.d0 - gamma(k))) * (gamma(k)**2) * Int_weights(k)
+      !if(stop) print*, u_par(k), int_u_add(k)
+      !if(abs(u_par(k)) < 0.1 .and. u_perp(k) < 0.1 .and. svec%Te > 3000 .and. .not. stop) then
+
+        !print*,"trub",
+        !k_int = k
+       ! stop = .true.
+        !goto 1
+        !return
+
+      !end if
+    enddo
+    !if(stop) stop "done"
+    !!$OMP END PARALLEL DO
+    do k = 1, size(Int_weights)
+      Int_u = int_u + int_u_add(k)
+    end do
+    int_u_abs = -int_u * mu
+  end subroutine calculate_int_u_gauss
+
+  subroutine calculate_int_u_gauss_no_bessel(svec,mu, f_rel, f_rel_sq, int_u, int_u_abs, m,N) !
+    use mod_ecfm_refr_types,        only: rad_diag_ch_mode_ray_freq_svec_type
+    implicit none
+
+    type(rad_diag_ch_mode_ray_freq_svec_type),    intent(in)  :: svec
+    real(rkind),    intent(in)  :: mu,f_rel, f_rel_sq, N
+    real(rkind),    intent(out) :: int_u,int_u_abs
+    integer(ikind), intent(in)  :: m
+    ! for numerial calculation of integral
+    real(rkind)     :: m_omega_bar,cos_theta,sin_theta
+    real(rkind)     :: m_omega_bar_2,cos_theta_2,sin_theta_2, det
+    real(rkind), dimension(size(Int_weights))     :: u_par,u_perp, gamma, int_u_add
+    real(rkind)     :: eps, besselj1,besselj2, besselj3
+    real(rkind)     :: a, b, du_dalpha, int_u_add2
+    integer(ikind)  :: k
+
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    ! numerial calculation of u integral using gaussian quadrature with boundaries -1.0,1.0 !
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    cos_theta = svec%cos_theta
+    sin_theta = svec%sin_theta
+    m_omega_bar =  real(m) / (2.0 * f_rel)
+    m_omega_bar_2 = (m_omega_bar)**2
+    sin_theta_2 = (sin_theta)**2! * N**2
+    cos_theta_2 = (cos_theta)**2! * N**2
+    if(m_omega_bar_2 - sin_theta_2 < 0.d0) then
+      int_u = 0.d0
+      int_u_abs = 0.d0
+      return
+    end if
+    det = sqrt(m_omega_bar_2 - sin_theta_2)
+    a = (m_omega_bar*cos_theta - det) / sin_theta_2
+    b = (m_omega_bar*cos_theta + det) / sin_theta_2
+    eps = (b - a) * 1.d-9 !small quantity to assure we stay in the range of the resonance
+    ! If eps is equal to zero, there are cases were floating point precision is too low
+    ! and the square root of a very small, but negative, number is calculated
+    ! At the boundaries u_perp is very small and therefore the single particle emissivity
+    ! is neglidibly small.
+    ! There should be no noticeable error through this slight tightening of the integral!
+    a = a + eps
+    b = b - eps
+    du_dalpha = (b - a)/2.d0
+    int_u       = 0.d0
+    int_u_abs   = 0.d0
+    !!$OMP PARALLEL DO &
+    !!$OMP SHARED(mu, cos_theta, m_omega_bar,sin_theta,b,a) PRIVATE(k,u_par, u_perp, zeta,gamma, int_u_add2) &
+    !!$OMP REDUCTION(+:int_u)
+    do k = 1, size(Int_weights)
+      u_par(k) = Int_absz(k) * du_dalpha + (b + a) / 2.d0
+      gamma(k) = u_par(k) * cos_theta  + m_omega_bar !* N
+      u_perp(k) = sqrt(gamma(k)**2 - u_par(k)**2 - 1.d0)
+      int_u_add(k) = u_perp(k)**(2*m) / gamma(k)**(2*m - 2)
+      int_u_add(k) = int_u_add(k) * du_dalpha * exp( -mu / 2.d0 * ((u_par(k) / gamma(k))**2 + u_perp(k)**2 / gamma(k)**2)) * Int_weights(k)
+      !exp( mu* (1.d0 - gamma(k))) * Int_weights(k)
+      !if(stop) print*, u_par(k), int_u_add(k)
+!      if(abs(u_par(k)) < 0.1 .and. u_perp(k) < 0.1 .and. svec%Te > 3000 .and. .not. stop) then
+!
+!        !print*,"trub",
+!        !k_int = k
+!        stop = .true.
+!        !goto 1
+!        !return
+!
+!      end if
+    enddo
+    !if(stop) stop "done"
+    !!$OMP END PARALLEL DO
+    do k = 1, size(Int_weights)
+      Int_u = int_u + int_u_add(k)
+    end do
+    int_u_abs = -int_u * mu
+  end subroutine calculate_int_u_gauss_no_bessel
+
+
+  subroutine calculate_int_u_gauss_arbitrary(svec, dist_params, mu, f_rel, f_rel_sq, int_u, int_u_abs, m,N) !
+    use mod_ecfm_refr_types,        only: rad_diag_ch_mode_ray_freq_svec_type, k_int, non_therm_params_type
+    use mod_ecfm_radiation_dist,    only: radiation_dist_f_u, radiation_dist_Rf,radiation_dist_f_norm
+    implicit none
+
+    type(rad_diag_ch_mode_ray_freq_svec_type),    intent(in)  :: svec
+    type(non_therm_params_type), intent(in) :: dist_params
+    real(rkind),    intent(in)  :: mu,f_rel, f_rel_sq, N
+    real(rkind),    intent(out) :: int_u,int_u_abs
+    integer(ikind), intent(in)  :: m
+    ! for numerial calculation of integral
+    real(rkind)     :: m_omega_bar,cos_theta,sin_theta
+    real(rkind)     :: m_omega_bar_2, det!,cos_theta_2,sin_theta_2, det
+    real(rkind), dimension(size(Int_weights_many))     :: u_par,u_perp, gamma, zeta, int_u_add, int_u_abs_add
+    real(rkind)     :: eps, besselj1,besselj2, besselj3
+    real(rkind)     :: a, b, du_dalpha, N_par, N_perp
+    integer(ikind)  :: k
+
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    ! numerial calculation of u integral using gaussian quadrature with boundaries -1.0,1.0 !
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    cos_theta = svec%cos_theta
+    sin_theta = svec%sin_theta
+    N_par = svec%N_cold * cos_theta !
+    N_perp = svec%N_cold * sin_theta !
+    m_omega_bar =  real(m,8) / (2.0 * f_rel)
+    m_omega_bar_2 = (m_omega_bar)**2
+    if(m_omega_bar_2  + N_par**2  - 1.e0 < 0.d0) then
+      int_u = 0.d0
+      int_u_abs = 0.d0
+      return
+    end if
+    !sin_theta_2 = (sin_theta)**2!  * N**2
+    !cos_theta_2 = (cos_theta)**2! * N**2
+    !det = sqrt(m_omega_bar_2 - sin_theta_2)
+    !a = (m_omega_bar*cos_theta - det) / sin_theta_2
+    !b = (m_omega_bar*cos_theta + det) / sin_theta_2
+!    if(m_omega_bar**2  + N_par**2  - 1.e0 < 0.d0) then
+!      Int_u = 0.d0
+!      int_u_abs = 0.d0
+!      return
+!    end if
+    a =  (m_omega_bar * N_par - sqrt(m_omega_bar**2  + N_par**2  - 1.e0)) / ( 1.e0 - N_par**2)
+    b = (m_omega_bar * N_par + sqrt(m_omega_bar**2  + N_par**2  - 1.e0)) / ( 1.e0 - N_par**2)
+    eps = (b - a) * 1.d-9 !small quantity to assure we stay in the range of the resonance
+    ! If eps is equal to zero, there are cases were floating point precision is too low
+    ! and the square root of a very small, but negative, number is calculated
+    ! At the boundaries u_perp is very small and therefore the single particle emissivity
+    ! is neglidibly small.
+    ! There should be no noticeable error through this slight tightening of the integral!
+    a = a + eps
+    b = b - eps
+    du_dalpha = (b - a)/2.d0
+    int_u       = 0.d0
+    int_u_abs   = 0.d0
+    !!$OMP PARALLEL DO &
+    !!$OMP SHARED(mu, cos_theta, m_omega_bar,sin_theta,b,a) PRIVATE(k,u_par, u_perp, zeta,gamma, int_u_add2) &
+    !!$OMP REDUCTION(+:int_u)
+    !1 continue
+    do k = 1, size(Int_weights_many)
+      u_par(k) = Int_absz_many(k) * du_dalpha + (b + a) / 2.d0
+      gamma(k) = u_par(k) * N_par + m_omega_bar
+      !gamma(k) = u_par(k) * cos_theta + m_omega_bar
+      u_perp(k) = sqrt(gamma(k)**2 - u_par(k)**2 - 1.d0)
+
+      ! Hutchinson
+      zeta(k) = 2 * f_rel * u_perp(k) * sin_theta
+      int_u_add(k) = ((cos_theta - u_par(k)/gamma(k))* Bessel_Jn(m, zeta(k))/ sin_theta)**2
+      int_u_add(k) = int_u_add(k)  + ( u_perp(k)/gamma(k))**2  * &
+      (Bessel_JN(m - 1, zeta(k)) - Bessel_Jn(m + 1,zeta(k)))**2 / 4.d0
+      int_u_add(k) = int_u_add(k) * du_dalpha * gamma(k)**2 * Int_weights_many(k)
+      !if(stop)  print*,  u_par(k),  radiation_dist_Rf(u_par(k), u_perp(k), gamma(k), m_omega_bar, cos_theta, mu, svec)
+      !if(u_perp(k) /= u_perp(k) .or. int_u_add(k) /= int_u_add(k)) then
+      !  print*, m_omega_bar**2  + N_par**2  - 1.e0
+      !stop "nan"
+      !end if
+      !if(abs(u_par(k)) < 0.1 .and. u_perp(k) < 0.1 .and. svec%Te > 3000 .and. .not. stop) then
+
+        !print*,"trub",
+        !k_int = k
+        !stop = .true.
+        !goto 1
+        !return
+      !end if
+      !if(svec%rhop > 0.6 .and. svec%R > 1.7) then
+        !print*, "u_par",u_par(k)
+        !print*, "u_perp", u_perp(k)
+        !print*, "f", radiation_dist_f_u(u_par(k), u_perp(k), gamma(k), mu, svec)
+        !print*, "int_u",int_u_add(k)
+      !  print*,u_par(k),radiation_dist_f_u(u_par(k), u_perp(k), gamma(k), mu, svec)
+      !end if
+    enddo
+    int_u_abs_add = int_u_add * radiation_dist_Rf(u_par, u_perp, gamma, m_omega_bar, cos_theta, mu, svec, dist_params)
+    int_u_add = int_u_add * radiation_dist_f_u(u_par, u_perp, gamma, mu, svec, dist_params)
+    !if(stop) stop "done"
+    !if(svec%rhop > 0.6 .and. svec%R > 1.7) then
+    !  stop "Sense?"
+    !end if
+    !!$OMP END PARALLEL DO
+    do k = 1, size(Int_weights_many)
+      Int_u = int_u + int_u_add(k)
+      int_u_abs = int_u_abs  +  int_u_abs_add(k)
+    end do
+    !int_u_abs = -int_u * mu
+  end subroutine calculate_int_u_gauss_arbitrary
+
+  subroutine calculate_int_u_gauss_refr(svec, mu, f_rel, f_rel_sq, int_u, int_u_abs, m,N) !
+    use mod_ecfm_refr_types,        only: rad_diag_ch_mode_ray_freq_svec_type, k_int, non_therm_params_type
+    use mod_ecfm_radiation_dist,    only: radiation_dist_f_u, radiation_dist_Rf,radiation_dist_f_norm
+    implicit none
+
+    type(rad_diag_ch_mode_ray_freq_svec_type),    intent(in)  :: svec
+    real(rkind),    intent(in)  :: mu,f_rel, f_rel_sq, N
+    real(rkind),    intent(out) :: int_u,int_u_abs
+    integer(ikind), intent(in)  :: m
+    ! for numerial calculation of integral
+    real(rkind)     :: m_omega_bar,cos_theta,sin_theta
+    real(rkind)     :: m_omega_bar_2, det!,cos_theta_2,sin_theta_2, det
+    real(rkind), dimension(size(Int_weights))     :: u_par,u_perp, gamma, zeta, int_u_add, int_u_abs_add
+    real(rkind)     :: eps, besselj1,besselj2, besselj3
+    real(rkind)     :: a, b, du_dalpha, N_par, N_perp
+    integer(ikind)  :: k
+
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    ! numerial calculation of u integral using gaussian quadrature with boundaries -1.0,1.0 !
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    cos_theta = svec%cos_theta
+    sin_theta = svec%sin_theta
+    N_par = svec%N_cold * cos_theta !
+    N_perp = svec%N_cold * sin_theta !
+    m_omega_bar =  real(m,8) / (2.0 * f_rel)
+    m_omega_bar_2 = (m_omega_bar)**2
+    if(m_omega_bar_2  + N_par**2  - 1.e0 < 0.d0) then
+      int_u = 0.d0
+      int_u_abs = 0.d0
+      return
+    end if
+    !sin_theta_2 = (sin_theta)**2!  * N**2
+    !cos_theta_2 = (cos_theta)**2! * N**2
+    !det = sqrt(m_omega_bar_2 - sin_theta_2)
+    !a = (m_omega_bar*cos_theta - det) / sin_theta_2
+    !b = (m_omega_bar*cos_theta + det) / sin_theta_2
+!    if(m_omega_bar**2  + N_par**2  - 1.e0 < 0.d0) then
+!      Int_u = 0.d0
+!      int_u_abs = 0.d0
+!      return
+!    end if
+    a =  (m_omega_bar * N_par - sqrt(m_omega_bar**2  + N_par**2  - 1.e0)) / ( 1.e0 - N_par**2)
+    b = (m_omega_bar * N_par + sqrt(m_omega_bar**2  + N_par**2  - 1.e0)) / ( 1.e0 - N_par**2)
+    eps = (b - a) * 1.d-9 !small quantity to assure we stay in the range of the resonance
+    ! If eps is equal to zero, there are cases were floating point precision is too low
+    ! and the square root of a very small, but negative, number is calculated
+    ! At the boundaries u_perp is very small and therefore the single particle emissivity
+    ! is neglidibly small.
+    ! There should be no noticeable error through this slight tightening of the integral!
+    a = a + eps
+    b = b - eps
+    du_dalpha = (b - a)/2.d0
+    int_u       = 0.d0
+    int_u_abs   = 0.d0
+    !!$OMP PARALLEL DO &
+    !!$OMP SHARED(mu, cos_theta, m_omega_bar,sin_theta,b,a) PRIVATE(k,u_par, u_perp, zeta,gamma, int_u_add2) &
+    !!$OMP REDUCTION(+:int_u)
+    !1 continue
+    do k = 1, size(Int_weights)
+      u_par(k) = Int_absz(k) * du_dalpha + (b + a) / 2.d0
+      gamma(k) = u_par(k) * N_par + m_omega_bar
+      !gamma(k) = u_par(k) * cos_theta + m_omega_bar
+      u_perp(k) = sqrt(gamma(k)**2 - u_par(k)**2 - 1.d0)
+
+      ! Hutchinson
+      zeta(k) = 2 * f_rel * u_perp(k) * sin_theta
+      int_u_add(k) = ((cos_theta - u_par(k)/gamma(k))* Bessel_Jn(m, zeta(k))/ sin_theta)**2
+      int_u_add(k) = int_u_add(k)  + ( u_perp(k)/gamma(k))**2  * &
+                     (Bessel_JN(m - 1, zeta(k)) - Bessel_Jn(m + 1,zeta(k)))**2 / 4.d0
+      int_u_add(k) = int_u_add(k) * du_dalpha * gamma(k)**2 * Int_weights(k)
+    enddo
+    int_u_abs_add = -int_u_add * mu * exp( -mu / 2.d0 * ((u_par(:) / gamma(:))**2 + u_perp(:)**2 / gamma(:)**2))
+    int_u_add = int_u_add  * exp( -mu / 2.d0 * ((u_par(:) / gamma(:))**2 + u_perp(:)**2 / gamma(:)**2))
+    !if(stop) stop "done"
+    !if(svec%rhop > 0.6 .and. svec%R > 1.7) then
+    !  stop "Sense?"
+    !end if
+    !!$OMP END PARALLEL DO
+    do k = 1, size(Int_weights)
+      Int_u = int_u + int_u_add(k)
+      int_u_abs = int_u_abs  +  int_u_abs_add(k)
+    end do
+    !int_u_abs = -int_u * mu
+  end subroutine calculate_int_u_gauss_refr
+
+
+  function full_relativistics(cos_theta, sin_theta, freq_2X, freq)
+   ! Returns true if the resonance curve is in the relativistic regime of velocity space
+   ! the relativistic regime is defined here as beta >= 1 %
+   ! Therefore gamma may not be larger than approximately 1.005
+   use mod_ecfm_refr_types,             only: rad_diag_ch_mode_ray_freq_svec_type
+   implicit none
+   real(rkind),                 intent(in) :: cos_theta, sin_theta, freq_2X, freq
+   logical                                 :: full_relativistics
+   real(rkind)                             :: u_par_max
+   real(rkind)                             :: gamma_max
+   full_relativistics = .true.
+   u_par_max = ((freq_2X/freq)*cos_theta + sqrt((freq_2X/freq)**2 - sin_theta**2)) / sin_theta**2
+   gamma_max = (freq_2X/freq) + u_par_max * cos_theta
+   total_cnt = total_cnt + 1
+   if(u_par_max / gamma_max < 1.d-1) full_relativistics = .false.
+   !full_relativistics = .true.
+  end function full_relativistics
+
+  subroutine calculate_int_u_gauss_opt(cos_theta, sin_theta,mu, f_rel, f_rel_sq, int_u) !
+    use mod_ecfm_refr_types,        only: rad_diag_ch_mode_ray_freq_svec_type
+    implicit none
+    real(rkind),    intent(in)  :: cos_theta,sin_theta,mu,f_rel, f_rel_sq
+    real(rkind),    intent(out) :: int_u
+    ! for numerial calculation of integral
+    real(rkind)     :: m_omega_bar
+    real(rkind)     :: m_omega_bar_2,cos_theta_2,sin_theta_2, det
+    real(rkind), dimension(size(Int_weights))     :: u_par,u_perp, gamma, zeta, int_u_add
+    real(rkind)     :: eps, besselj1,besselj2, besselj3
+    real(rkind)     :: a, b, du_dalpha, int_u_add2, ab_mean
+    integer(ikind)  :: k
+
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    ! numerial calculation of u integral using gaussian quadrature with boundaries -1.0,1.0 !
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    m_omega_bar =  1.0 / f_rel
+    m_omega_bar_2 = (m_omega_bar)**2
+    sin_theta_2 = (sin_theta)**2
+    cos_theta_2 = (cos_theta)**2
+    det = sqrt(m_omega_bar_2 - sin_theta_2)
+    a = (m_omega_bar*cos_theta - det) / sin_theta_2
+    b = (m_omega_bar*cos_theta + det) / sin_theta_2
+    eps = (b - a) * 1.d-9 !small quantity to assure we stay in the range of the resonance
+    ! If eps is equal to zero, there are cases were floating point precision is too low
+    ! and the square root of a very small, but negative, number is calculated
+    ! At the boundaries u_perp is very small and therefore the single particle emissivity
+    ! is neglidibly small.
+    ! There should be no noticeable error through this slight tightening of the integral!
+    a = a + eps
+    b = b - eps
+    du_dalpha = (b - a)/2.d0
+    ab_mean = (b + a) / 2.d0
+    int_u       = 0.d0
+    do k = 1, size(Int_weights)
+      u_par(k) = Int_absz(k) * du_dalpha + (b + a) / 2.d0
+      gamma(k) = u_par(k) * cos_theta + m_omega_bar
+     if(gamma(k)**2 - u_par(k)**2 - 1.d0 < 0) then
+      print*, k
+      print*, u_par(k)
+      print*, gamma(k)
+      stop "imaginary value"
+     end if
+      u_perp(k) = sqrt(gamma(k)**2 - u_par(k)**2 - 1.d0)
+      zeta(k) = 2 * f_rel * u_perp(k) * sin_theta
+      int_u_add(k) = ((cos_theta - u_par(k)/gamma(k))* BesselJ_fast_2(zeta(k))/ sin_theta)**2
+      int_u_add(k) = int_u_add(k)  + &
+        ( u_perp(k)/gamma(k))**2  * (BesselJ_fast_1(zeta(k)) - BesselJ_fast_3(zeta(k)))**2 / 4.d0
+      int_u_add(k) = int_u_add(k) * du_dalpha *  exp( mu* (1.d0 - gamma(k))) * (gamma(k)**2) * Int_weights(k)
+    enddo
+    do k = 1, size(Int_weights)
+      int_u = int_u + int_u_add(k)
+    end do
+  end subroutine calculate_int_u_gauss_opt
+
+  function BesselJ_fast_1(x)
+  ! Evaluates the Besselfunction of the first kind for n = 1
+  ! Fast implementation of BesselJ_fast_1
+  ! Optimization remark: This funciton is intended to be used in a vectorized loop.
+    implicit none
+    real(rkind),       intent(in)  :: x
+    real(rkind)                    :: BesselJ_fast_1
+    ! BesselJ = 1/ (n !)
+    BesselJ_fast_1 = 1.0 - x**2/8.d0 ! x^2/ ((n + 1)! * 2^2)
+    BesselJ_fast_1 = BesselJ_fast_1 + x**4/192.d0 ! x^4/((n + 2)! * 2^5)
+    BesselJ_fast_1 = BesselJ_fast_1 - x**6/(9216.d0) ! x^6/((n + 3) ! * 2^7)
+    BesselJ_fast_1 = BesselJ_fast_1 * x / 2.0
+  end function BesselJ_fast_1
+
+  function BesselJ_fast_2(x)
+  ! Evaluates the Besselfunction of the first kind for n = 1
+
+  ! Optimization remark: This funciton is intended to be used in a vectorized loop.
+    implicit none
+    real(rkind),       intent(in)  :: x
+    real(rkind)                    :: BesselJ_fast_2
+    ! BesselJ = 1/ (n !)                :: n_fac
+    BesselJ_fast_2 = 0.5 - x**2/24.d0 ! x^2/ ((n + 1)! * 2^2)
+    BesselJ_fast_2 = BesselJ_fast_2 + x**4/768.d0 ! x^4/((n + 2)! * 2^5)
+    BesselJ_fast_2 = BesselJ_fast_2 - x**6/(46080.d0) ! x^6/((n + 3) ! * 2^7)
+    BesselJ_fast_2 = BesselJ_fast_2 * x**2 / 4.0
+  end function BesselJ_fast_2
+
+  function BesselJ_fast_3(x)
+  ! Evaluates the Besselfunction of the first kind for n = 1
+
+  ! Optimization remark: This funciton is intended to be used in a vectorized loop.
+    implicit none
+    real(rkind),       intent(in)  :: x
+    real(rkind)                    :: BesselJ_fast_3
+    ! BesselJ = 1/ (n !)
+    BesselJ_fast_3 = 1/6.d0 - x**2/(96.d0)! x^2/ ((n + 1)! * 2^2)
+    BesselJ_fast_3 = BesselJ_fast_3 + x**4/(3840.d0) ! x^4/((n + 2)! * 2^5)
+    BesselJ_fast_3 = BesselJ_fast_3 - x**6/(276480.d0)! x^6/((n + 3) ! * 2^7)
+    BesselJ_fast_3 = BesselJ_fast_3 * x**3 / (8.0)
+  end function BesselJ_fast_3
+
+  function BesselJ(n,x)
+  ! Evaluates the Besselfunction of the first kind
+  ! For n = 1, the relativ numerical error for x < 1.5 is below 10^-4
+  ! For values in between 1.5 < x < 2.5 the numerical error is below 1 %
+  ! For values 2.5 > x > 3.0 the numerical error is below 10 %
+  ! For values x > 3 this routine should not be used since the truncation error becomes very large
+  ! The larger n, the greater the range where this function gives an almost exact result
+  ! e.g. for  n = 2 the numerical for x = 3.0 is still below 1 %
+
+  ! Optimization remark: This funciton is intended to be used in a vectorized loop.
+    implicit none
+    real(rkind),       intent(in)  :: x
+    integer(ikind),    intent(in)  :: n
+    real(rkind)                    :: besselj
+    integer(ikind)                 :: i
+    real(rkind)                    :: n_fac
+    n_fac = 1.0
+    do i= 1,n
+      n_fac = real(i) * n_fac
+    end do
+    BesselJ = 1.0/n_fac
+    n_fac = n_fac * real(n + 1)
+    BesselJ = BesselJ - x**2/(n_fac * 2.d0**(2))
+    n_fac = n_fac * real(n + 2)
+    BesselJ = BesselJ + x**4/(n_fac * 2.d0**(5))
+    n_fac = n_fac * real(n + 3)
+    BesselJ = BesselJ - x**6/(n_fac * 2.d0**(7)  * 3.d0)
+    BesselJ = BesselJ * x**n / (2.0)**n
+  end function BesselJ
+
+
+
+  subroutine calculate_int_u_gauss_many(svec,mu, f_rel, f_rel_sq, int_u, int_u_abs, m, N) !
+    use mod_ecfm_refr_types,        only: rad_diag_ch_mode_ray_freq_svec_type
+    implicit none
+
+    type(rad_diag_ch_mode_ray_freq_svec_type),    intent(in)  :: svec
+    real(rkind),    intent(in)  :: mu,f_rel, f_rel_sq, N
+    real(rkind),    intent(out) :: int_u,int_u_abs
+    integer(ikind), intent(in)  :: m
+    ! for numerial calculation of integral
+    real(rkind)     :: m_omega_bar,cos_theta,sin_theta
+    real(rkind), dimension(size(Int_weights_many))     :: u_par,u_perp, gamma, zeta, int_u_add
+    real(rkind)     :: m_omega_bar_2,cos_theta_2,sin_theta_2, det
+    real(rkind)     :: eps
+    real(rkind)     :: a, b, du_dalpha
+    integer(ikind)  :: k
+
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    ! numerial calculation of u integral using gaussian quadrature with boundaries -1.0,1.0 !
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    cos_theta = svec%cos_theta
+    sin_theta =svec%sin_theta
+    m_omega_bar =  real(m) / (2.0 * f_rel)
+    m_omega_bar_2 = (m_omega_bar)**2
+    sin_theta_2 = (sin_theta)**2! * N**2
+    cos_theta_2 = (cos_theta)**2! * N**2
+    det = sqrt(m_omega_bar_2 - sin_theta_2)
+    a = (m_omega_bar*cos_theta - det) / sin_theta_2
+    b = (m_omega_bar*cos_theta + det) / sin_theta_2
+    eps = (b - a) * 1.d-9 !small quantity to assure we stay in the range of the resonance
+    ! If eps is equal to zero, there are cases were floating point precision is too low
+    ! and the square root of a very small, but negative, number is calculated
+    ! At the boundaries u_perp is very small and therefore the single particle emissivity
+    ! is neglidibly small.
+    ! There should be no noticeable error through this slight tightening of the integral!
+    a = a + eps
+    b = b - eps
+    du_dalpha = (b - a)/2.d0
+    int_u       = 0.d0
+    int_u_abs   = 0.d0
+    do k = 1, size(Int_weights_many)
+      u_par(k) = Int_absz_many(k) * du_dalpha + (b + a) / 2.d0
+      gamma(k) = u_par(k)  *  cos_theta + m_omega_bar
+      u_perp(k) = sqrt(gamma(k)**2 - u_par(k)**2 - 1.d0)
+      zeta(k) = 2 * f_rel * u_perp(k) * sin_theta
+      int_u_add(k) = ((cos_theta  - u_par(k)/gamma(k))* BesselJ_fast_2(zeta(k))/ sin_theta )**2
+      int_u_add(k) = int_u_add(k)  + &
+        ( u_perp(k)/gamma(k))**2  * (BesselJ_fast_1(zeta(k)) - BesselJ_fast_3(zeta(k)))**2 / 4.d0
+      int_u_add(k) = int_u_add(k) * du_dalpha *  exp( mu* (1.d0 - gamma(k))) * (gamma(k)**2) * Int_weights_many(k)
+    end do
+    do k = 1, size(Int_weights_many)
+      int_u = int_u + int_u_add(k)
+      int_u_abs = int_u_abs - int_u_add(k) * mu
+    enddo
+    if(int_u < 0 .or. int_u /= int_u) then
+      print*, "Negative Shape function"
+      print*, Int_absz_many(1) * du_dalpha + (b + a) / 2.d0
+      print*,(Int_absz_many(1) * du_dalpha + (b + a) / 2.d0)*cos_theta + m_omega_bar
+      stop "Bug"
+    end if
+  end subroutine calculate_int_u_gauss_many
+
+function bessel_term(u_par, u_perp, gamma,zeta, m, cos_theta, sin_theta)
+implicit none
+
+real(rkind),    intent(in)  :: u_par, u_perp, gamma,zeta, cos_theta, sin_theta
+integer(ikind), intent(in)  :: m
+real(rkind)                 :: bessel_term
+ bessel_term = ((cos_theta - u_par/gamma)/ (sin_theta))**2 * Bessel_JN(m, zeta)**2
+ bessel_term = bessel_term +  ( u_perp/gamma)**2  * &
+   (Bessel_JN(m - 1, zeta) - Bessel_JN(m + 1,zeta))**2 / 4.d0
+
+end function bessel_term
+end module mod_ecfm_refr_em_Hu
+
+! module abs albajar
+  function func_dj_du_par(u_par)
+  ! Not used anymore, gives df/dupar to find maximum point of emission
+  implicit none
+  real(rkind), intent(in) :: u_par
+  real(rkind)             :: func_dj_du_par
+  real(rkind)             :: m_omega_bar, cos_theta, mu
+    m_omega_bar = m_omega_glob
+    cos_theta = cos_theta_glob
+    mu = mu_glob
+    func_dj_du_par = (-1 + (-1 + cos_theta ** 2) * u_par ** 2 + 2 * cos_theta * u_par * m_omega_bar + m_omega_bar ** 2) * &
+        (cos_theta ** 4 * u_par ** 3 * mu + 4 * u_par * m_omega_bar + cos_theta ** 3 * u_par ** 2 * (-2 + 3 * mu * m_omega_bar) - &
+         cos_theta * (2 + mu * m_omega_bar + 2 * m_omega_bar ** 2 - mu * m_omega_bar ** 3 + u_par ** 2 * (-2 + mu * m_omega_bar)) - &
+         cos_theta ** 2 * u_par * (4 * m_omega_bar + mu * (1 + u_par ** 2 - 3 * m_omega_bar ** 2)))
+  return
+  end function func_dj_du_par
+
+ subroutine abs_Al_pol_fact_perp(svec, t, X, Y, omega_bar, m_0, N_abs, e, mode, m, pol_fact)
+  ! According to formula (2a and 2c) in [1]
+  ! The 1D ECE is slightly oblique and the Inline and imagining systems are very oblique,
+  ! hence the approximation of N_par = 0 is not appropriate
+    use mod_ecfm_refr_types,        only: ant, rad_diag_ch_mode_ray_freq_svec_type
+    use constants,                  only: pi, e0, mass_e, eps0, c0
+    implicit none
+    type(rad_diag_ch_mode_ray_freq_svec_type), intent(in)   :: svec
+    real(rkind), dimension(:), intent(in)              :: t
+    real(rkind), intent(in)                            ::  X, Y, omega_bar, m_0, N_abs
+    complex(r8), dimension(:), intent(in)              :: e
+    integer(ikind), intent(in)                         :: mode, m
+    real(rkind), dimension(:), intent(out)             :: pol_fact
+    real(rkind)                   :: x_m
+    real(rkind)                   :: N_eff, Axz_sq, Re_Axz_ey, Re_Axz_ez, Re_ey_ez, N_gray, ey_sq, ez_sq, abs_c
+    real(rkind), dimension(3,3)  :: E_mat
+    complex(r8), dimension(3)  :: pol_vect
+    complex(r8)                :: Axz
+    real(rkind), dimension(size(t))  :: bessel_arg, bessel_n_l, bessel_n_2, bessel_n, bessel_n_u, abs_Al_bessel_sqr_deriv
+    logical                      :: cold
+    cold = .true. ! to see if Gray the polarzation vector increases accuracy -> cold = .false.
+    x_m =  N_abs * omega_bar * sqrt((real(m,8)/ m_0)**2 - 1.d0)
+    N_eff = 0.d0
+    if(cold) then
+      pol_vect = e
+!      call get_E_factors(X, Y, N_abs, N_perp, N_par, e,  E_mat )
+!      ! E_mat (1,2), (2,1) , (3,2) and (2,3) have additional factor of i
+!      Axz_sq = E_mat(1,1)!  + N_eff**2 * E_mat(3,3) + 2.d0 * N_eff * E_mat(1,3) ! mixed terms do not vanish!
+!      Re_Axz_ey = -E_mat(1,2)! - N_eff * E_mat(3,2) ! this includes the additional i
+!      print*, "E_mat(1,2), N_eff * E_mat(3,2)", E_mat(1,2), N_eff * E_mat(3,2)
+!      Re_Axz_ez = 0.d0! E_mat(1,3) + N_eff * E_mat(3,3)
+!      Re_ey_ez = 0.d0! -E_mat(3,2)
+!      ey_sq = E_mat(2,2)
+!      ez_sq = 0.d0!E_mat(3,3)
+    else
+      N_gray = N_abs
+      abs_c =  abs_Al_tor_abs(svec, svec%freq_2X * Pi / Y, mode, N_gray, pol_vec =  pol_vect)
+    end if
+    Axz = e(1)
+!    print*, "Re_Axz^2 cold", Axz_sq
+    Axz_sq = abs(Axz)**2 ! mixed terms do not vanish!
+!    print*, "Re_Axz^2 warm", Axz_sq
+!    print*, "Re_Axz_ey cold", Re_Axz_ey
+    Re_Axz_ey = real(cmplx(0.d0, 1.d0) * Axz * conjg(pol_vect(2)))
+!    print*, "Re_Axz_ey warm", Re_Axz_ey
+!    print*, "Re_Axz_ez cold", Re_Axz_ez
+    Re_Axz_ez = 0.d0
+!    print*, "Re_Axz_ez warm", Re_Axz_ez
+!    print*, "Re_ey_ez warm", Re_ey_ez
+    Re_ey_ez = 0.d0
+    ey_sq = abs(pol_vect(2))**2
+    ez_sq = 0.d0
+!    print*, "pol_vect cold", sqrt(E_mat(1,1)), sqrt(E_mat(2,2)), sqrt(E_mat(3,3))
+!    print*, "normalization  cold", sqrt(E_mat(1,1) + E_mat(2,2) + E_mat(3,3))
+!    print*, "pol_vect warm", pol_vect
+    bessel_arg = x_m * sqrt(1.d0 - t(:)**2)
+    bessel_n_l = BesselJ(m - 1 , bessel_arg)
+    bessel_n = BesselJ(m , bessel_arg)
+    bessel_n_2 = BesselJ(m , bessel_arg)**2
+    bessel_n_u = BesselJ(m + 1 , bessel_arg)
+    abs_Al_bessel_sqr_deriv = bessel_arg / x_m * bessel_n * ( bessel_n_l - bessel_n_u)
+    pol_fact(:) = ( Axz_sq  + ey_sq) * bessel_n_2
+    pol_fact(:) = pol_fact(:) + Re_Axz_ey * x_m / real(m,8) * abs_Al_bessel_sqr_deriv
+    pol_fact(:) = pol_fact(:) - (bessel_arg / real(m,8))**2 * &
+      ey_sq * bessel_n_l * bessel_n_u
+    pol_fact(:) = pol_fact(:) + (x_m / (real(m,8)))**2 * &
+      ez_sq * t(:)**2 * bessel_n_2
+    pol_fact(:) = pol_fact(:) + x_m / (real(m,8)) * &
+      2.d0 * Re_Axz_ez * t(:) * bessel_n_2
+    pol_fact(:) = pol_fact(:) + x_m / (real(m,8)) * &
+      Re_ey_ez * t(:) * x_m / real(m,8) * abs_Al_bessel_sqr_deriv !
+    pol_fact(:) = pol_fact(:)  * (real(m,8)  / (N_abs * omega_bar))**2
+  end subroutine abs_Al_pol_fact_perp
+
+
+! Deprecated - this routine encounters difficulties near perpendicular propagation
+  subroutine get_E_factors(X, Y, N_abs, cos_theta, sin_theta, e, E_mat )
+    use constants,                  only: pi, e0, mass_e, eps0, c0
+    implicit none
+!    ! Computeses the matrix:
+!    ! (ex ex* ex ey* ex ez*)
+!    ! (ey ex* ey ey* ey ez*)
+!    ! (ez ex* ez ey* ez ez*)
+!    ! From Bornatici Review 1983 p. 1198 eq. 3.1.61 and 3.1.62
+!    ! No support for first harmonic nor omega_p > omega_c
+!    ! ex := A c ey ! c contains all complex factors
+!    ! ez := B c' ey ! c' contains all complex factors
+!    ! ey ey^* = 1 / (N sqrt(a_sq + b_sq))
+    real(rkind), intent(in) :: X, Y, N_abs,  sin_theta, cos_theta
+    complex(r8), dimension(:),  intent(in) :: e
+    real(rkind), dimension(:,:), intent(out) :: E_mat
+    real(rkind)         :: A, B, ey_sq, re_norm,rho, f
+    integer(ikind)      :: i
+    rho =  Y**2 * sin_theta**4 + 4.d0 * (1.d0 - X)**2 * cos_theta**2
+    rho = sqrt(rho)
+    f =  (2.d0 * (1.d0 - X)) / (2.d0 * (1.d0 - X) - Y**2 * sin_theta**2 - real(1,8) *  Y* rho)
+    A = 1.d0 / Y * (1.d0 - (1 - Y**2) * f)
+    B = (N_abs**2 * sin_theta * cos_theta) / ( 1.d0 - X -  N_abs**2 * sin_theta**2) * A
+    ey_sq = abs(e(2))**2
+!    ! 13,6 Introduced normalization -> |(A 1 B) e_y| = 1
+!    !ey_sq = ey_sq / re_norm
+    !This what the E_mat looks in the complex realm
+    !E_mat(1,1) = CMPLX(A**2,0.d0)
+    !E_mat(1,2) = CMPLX(0.d0,A)
+    !E_mat(1,3) = CMPLX(-A * B, 0.d0)
+    !E_mat(2,1) = CMPLX(0.d0,-A)
+    !E_mat(2,2) = CMPLX(1.d0, 0.d0)
+    !E_mat(2,3) = CMPLX(0.d0,B)
+    !E_mat(3,1) = CMPLX(-A * B, 0.d0)
+    !E_mat(3,2) = CMPLX(0.0d, -B)
+    !E_mat(3,3) = CMPLX(B**2, 0.d0)
+     E_mat(1,1) = A**2 ! real
+     E_mat(1,2) = A ! imaginary (* i)
+     E_mat(1,3) = -A * B ! real
+     E_mat(2,1) = -A !imaginary (* i)
+     E_mat(2,2) = 1.d0 ! real
+     E_mat(2,3) = B !imaginary (* i)
+     E_mat(3,1) = -A * B ! real
+     E_mat(3,2) = -B !imaginary (* i)
+     E_mat(3,3) = B**2 ! real
+     E_mat(:,:) = E_mat(:,:) * ey_sq
+    ! Square of norm enters this matrix
+    ! Although almost normalized - normalize it here
+    !re_norm = abs(E_mat(1,1)) + abs(E_mat(2,2)) +abs(E_mat(3,3))
+    !E_mat(:,:) = E_mat(:,:) /  re_norm
+    !print*, "re_norm", re_norm
+    if(Any(abs(E_mat(:,:)) > 1.d99) .or. Any(E_mat(:,:) /= E_mat(:,:))) then
+      print*, A, Y
+      stop "E_mat"
+    end if
+  !if(Y > 0.498 .and. Y < 0.502 .and. sqrt(X) > 0.3) then
+  !  print*,sqrt(E_mat(1,1)),sqrt(E_mat(2,2)),sqrt(E_mat(3,3)),sqrt(E_mat(1,1) + E_mat(2,2) + E_mat(3,3))
+  !end if
+  end subroutine get_E_factors
+
+
+!  subroutine get_E_factors_cmplx(X, Y, N_abs, N_perp, N_par, f, a_sq, b_sq, E_mat )
+!    use constants,                  only: pi, e0, mass_e, eps0, c0
+!    implicit none
+!    ! Computeses the matrix:
+!    ! (ex ex* ex ey* ex ez*)
+!    ! (ey ex* ey ey* ey ez*)
+!    ! (ez ex* ez ey* ez ez*)
+!    ! From Bornatici Review 1983 p. 1198 eq. 3.1.61 and 3.1.62
+!    ! No support for first harmonic nor omega_p > omega_c
+!    ! ex := A c ey ! c contains all complex factors
+!    ! ez := B c' ey ! c' contains all complex factors
+!    ! ey ey^* = 1 / (N sqrt(a_sq + b_sq))
+!    real(rkind), intent(in) :: X, Y, N_abs, N_perp, N_par, f, a_sq, b_sq
+!    complex(r8), dimension(:,:), intent(out) :: E_mat
+!    real(rkind)         :: A, B, ey_sq, re_norm
+!    integer(ikind)      :: i
+!    A = 1.d0 / Y * (1.d0 - (1 - Y**2) * f)
+!    B = (N_par * N_perp) / ( 1.d0 - X -  N_perp**2) * A
+!    ey_sq = 1.d0 / (N_abs *  sqrt(a_sq + b_sq))
+!    E_mat(1,1) = cmplx(A**2, 0.d0)
+!    E_mat(1,2) = cmplx(0.d0, -A)
+!    E_mat(1,3) = cmplx(- A * B, 0.d0)
+!    E_mat(2,1) = cmplx(0.d0, A)
+!    E_mat(2,2) = cmplx(1.d0, 0.d0)
+!    E_mat(2,3) = cmplx(0.d0, -B)
+!    E_mat(3,1) = cmplx(- A * B, 0.d0)
+!    E_mat(3,2) = cmplx(0.d0, B)
+!    E_mat(3,3) = cmplx(B**2, 0.d0)
+!    !E_mat(3,:) = 0.d0
+!    !E_mat(:,3) = 0.d0 ! Quasiperpendicular X-mode
+!    !re_norm = 1.d0 !/ (sqrt(ey_sq) * sqrt(1.d0 + E_mat(1,1) + E_mat(3,3)))
+!    E_mat(:,:) = E_mat(:,:) * ey_sq
+!    !do i = 1, 3
+!    !  E_mat(:,i) = E_mat(:,i) * ey_sq * re_norm
+     ! if(Any(abs(E_mat(:,i)) > 1.d99)) then
+     !   print*, A, Y, f
+     !   print*, a_sq, b_sq, N_abs, ey_sq
+     !   stop "E_mat"
+     ! end if
+!    !end do
+!  !if(Y > 0.498 .and. Y < 0.502 .and. sqrt(X) > 0.3) then
+!  !  print*,sqrt(E_mat(1,1)),sqrt(E_mat(2,2)),sqrt(E_mat(3,3)),sqrt(E_mat(1,1) + E_mat(2,2) + E_mat(3,3))
+!  !end if
+!  end subroutine get_E_factors_cmplx
+
+!  subroutine get_pol_vec_cmplx(X, Y, N_abs, N_perp, N_par, f, a_sq, b_sq, pol_vec )
+!    use constants,                  only: pi, e0, mass_e, eps0, c0
+!    implicit none
+!    ! Computeses the polarization vector, where as e_y is defined to be purely imaginary:
+!    ! From Bornatici Review 1983 p. 1198 eq. 3.1.61 and 3.1.62
+!    ! ex := A c ey ! c contains all complex factors
+!    ! ez := B c' ey ! c' contains all complex factors
+!    ! ey ey^* = 1 / (N sqrt(a_sq + b_sq))
+!    real(rkind), intent(in) :: X, Y, N_abs, N_perp, N_par, f, a_sq, b_sq
+!    complex(r8), dimension(:), intent(out) :: pol_vec
+!    real(rkind)         :: A, B, ey_sq, re_norm
+!    integer(ikind)      :: i
+!    A = 1.d0 / Y * (1.d0 - (1 - Y**2) * f)
+!    B = (N_par * N_perp) / ( 1.d0 - X -  N_perp**2) * A
+!    ey_sq = 1.d0 / (N_abs *  sqrt(a_sq + b_sq))
+!    pol_vec(1) = cmplx(-A, 0.d0)
+!    pol_vec(2) = cmplx(0.d0,1.d0) ! define E_y as complex
+!    pol_vec(3) = cmplx(B, 0.d0)
+!    pol_vec(:) = pol_vec(:) * sqrt(ey_sq)
+!    pol_vec(:) = pol_vec(:) / sqrt(abs(pol_vec(1))**2 + abs(pol_vec(2))**2 + abs(pol_vec(3))**2)
+!  end subroutine get_pol_vec_cmplx
+
+!function get_filter_transmittance_wrong(omega, X, Y, sin_theta, cos_theta, mode, x_vec, N_vec, B_vec, x_launch, pol_vec_ext)
+!  ! THIS ROUTINE IS MOST LIKELY INCORRECT - DO NOT USE!
+!  ! The wave pass through the filter perpendicularly. However, because of the optic setup the wave vector at separatrix are not
+!  ! the same as the ones in the plasma. Hence, the polarization vector has to be rotated so that the components of the electric field lie
+!  ! in the same plane as the polarizer.
+!    use constants,                  only: pi, e0, mass_e, eps0, c0
+!    use mod_ecfm_refr_utils,        only: sub_remap_coords
+!    use mod_ecfm_refr_types,        only: output_level
+!    implicit none
+!    real(rkind), intent(in)               :: omega, X, Y, sin_theta, cos_theta
+!    integer(ikind), intent(in)            :: mode
+!    real(rkind), dimension(:), intent(in) :: x_vec, N_vec, B_vec, x_launch
+!    complex(r8), dimension(:), intent(in), optional :: pol_vec_ext
+!    real(rkind)                 :: get_filter_transmittance_wrong, N_abs_ray, B_abs, cos_phi, B_t, B_pol, &
+!                                   sin_phi, N_abs, f, a_sq, b_sq, N_par, N_perp, temp, phi_filter, sigma
+!    real(rkind), dimension(3,3) :: wave_rot_mat, pol_perp_rot_mat, wave_rot_mat_transp
+!    real(rkind), dimension(3)   :: N_filter, norm_vec_N_rot_plane, pol_vec_real, &
+!                                   pol_vector_lab, pol_vec_perp, R_vec, N_vec_perp_test, &
+!                                   e_x, e_y, e_z, N_vec_norm ! unit vectors of the coordinate system where the polarization vector is defined
+!    complex(r8), dimension(3)   :: pol_vec
+!    real(rkind), dimension(2)   :: Jones_vector, filtered_Jones_vector
+!    real(rkind), dimension(2,2) :: filter_mat
+!    integer(ikind)              :: i, j
+!    logical                     :: debug
+!    debug = .true.
+!    !debug = .false.
+!    if(present(pol_vec_ext)) then
+!      pol_vec = pol_vec_ext
+!    else
+!      call abs_Al_N_with_pol_coeff( omega, X, Y, sin_theta, cos_theta, mode, N_abs, f, a_sq, b_sq)
+!      if(N_abs == 0.d0) then
+!        get_filter_transmittance = 0.d0 ! cut off - polarization vector undefined
+!        return
+!      end if
+!      N_perp = N_abs * sin_theta
+!      N_par = N_abs * cos_theta
+!      call get_pol_vec_cmplx(X, Y, N_abs, N_perp, N_par, f, a_sq, b_sq, pol_vec )
+!    end if
+!    pol_vec_real(1) = real(pol_vec(1))
+!    pol_vec_real(2) = aimag(pol_vec(2))
+!    pol_vec_real(3) = real(pol_vec(3))
+!    if(present(pol_vec_ext)) then
+!      if(any(pol_vec_real /= pol_vec_real) .and. output_level) then
+!        print*, "Something wrong with the external pol_coeff"
+!        print*, pol_vec
+!      end if
+!    else
+!      if(any(pol_vec_real /= pol_vec_real)) then
+!        print*, "X", X
+!        print*, "Y", Y
+!        print*, "N_abs", N_abs
+!        print*, "N_perp", N_perp
+!        print*, "f", f
+!        print*, "omega", omega
+!        call abort()
+!      end if
+!    end if
+!    if(debug) print*, "pol_vec", pol_vec_real(:)
+!    ! First we rotate the polarization vector into the carthesian coordinate system of the machine
+!    ! Now calculate rotation from Cartesian to reference frame of the wave and the polarization vector.
+!    ! The polarization coefficients are given in a way so that
+!    ! vec(N) = (vec(e_x) * sin(theta) + vec(e_z) * cos(theta)) * N_abs
+!    ! vec(B) = B e_z
+!    ! Hence, the unit vectors are given by:
+!    ! vec(e_x) = vec(N) / N_abs - cos(theta) * vec(B) / B_abs
+!    ! vec(e_y) = vec(e_x) x vec(e_z)
+!    ! vec(e_z) = vec(B) / B_abs
+!    ! The rotation is then given according to https://en.wikipedia.org/wiki/Rotation_formalisms_in_three_dimensions#Rotations_and_motions
+!    N_abs_ray = sqrt(sum(N_vec**2))
+!    N_vec_norm = N_vec / N_abs_ray
+!    B_abs = sqrt(sum(B_vec**2))
+!    if(debug) then
+!      print*, "X", X
+!      print*, "Y", Y
+!      print*, "omega", omega
+!      print*, "x_vec", x_vec
+!      print*, "N_vec", N_vec
+!      print*, "B_vec", B_vec
+!      print*, "theta", acos(cos_theta) / pi * 180.d0
+!    end if
+!    if(mode > 0 .and. debug) print*, "X-mode"
+!    if(mode < 0 .and. debug) print*, "O-mode"
+!    ! N_vec already points towards the antenna when its is copied into svec
+!    e_x = N_vec_norm - cos_theta  * B_vec / B_abs
+!    e_x = e_x / sqrt(sum(e_x**2))
+!    e_z = B_vec/B_abs
+!    ! e_y = e_z x e_x
+!    e_y(1) = e_z(2) * e_x(3) - e_z(3) * e_x(2)
+!    e_y(2) = e_z(3) * e_x(1) - e_z(1) * e_x(3)
+!    e_y(3) = e_z(1) * e_x(2) - e_z(2) * e_x(1)
+!    e_y(:) = e_y(:) / sqrt(sum(e_y**2)) ! not necessary because e_x and e_z perpendicular
+!    if(debug) then
+!      print*, "e_x", e_x
+!      print*, "e_y", e_y
+!      print*, "e_z", e_z
+!      print*, "e_x . e_y", sum(e_x * e_y)
+!      print*, "e_x . e_z", sum(e_x * e_y)
+!      print*, "e_y . e_z", sum(e_y * e_z)
+!      print*, "e_x.N_vec", sum(e_x * N_vec_norm)
+!      print*, "e_y.N_vec", sum(e_y * N_vec_norm)
+!      print*, "e_z.N_vec", sum(e_z * N_vec_norm)
+!    end if
+!    pol_vector_lab(:) = pol_vec_real(1) * e_x + &
+!                        pol_vec_real(2) * e_y + &
+!                        pol_vec_real(3) * e_z
+!    ! Now remove portion that points along N_vec
+!    pol_vector_lab(:) = pol_vector_lab(:) - N_vec_norm(:) * sum(N_vec_norm(:) * pol_vector_lab(:))
+!    pol_vector_lab(:) = pol_vector_lab(:) / sqrt(sum(pol_vector_lab(:)**2))
+!    if(debug) print*, "Polvec in laboratory frame", pol_vector_lab(:)
+!    if(debug) print*, "Dot product N_vec pol vec in lab frame", sum(N_vec * pol_vector_lab)
+!    ! Next the rotation of k by the quasi-optical system:
+!    ! Normalized vector perpendicular to the filter
+!    N_filter(:) = x_launch(:)
+!    ! We do not want a z component here
+!    N_filter(3) = 0.d0
+!    N_filter(:) = N_filter(:) / sqrt(sum(N_filter**2))
+!    if(debug) print*, "N_vec norm", N_vec_norm
+!    if(debug) print*, "N_filter", N_filter
+!    ! Rotation matrix around angle sigma with axis N_filter x N_vec
+!    sigma = -acos(sum(N_vec_norm * N_filter))
+!    if(debug) print*, "Sigma [deg.]", sigma / pi * 180.d0
+!    norm_vec_N_rot_plane(:) = 0.d0
+!    ! Rotate the polarization vector in the plane spanned by N_filter and N_vec_norm by the angle sigma
+!    norm_vec_N_rot_plane(1) = N_filter(2) * N_vec_norm(3) - N_filter(3) * N_vec_norm(2)
+!    norm_vec_N_rot_plane(2) = N_filter(3) * N_vec_norm(1) - N_filter(1) * N_vec_norm(3)
+!    norm_vec_N_rot_plane(3) = N_filter(1) * N_vec_norm(2) - N_filter(2) * N_vec_norm(1)
+!    norm_vec_N_rot_plane(:) = norm_vec_N_rot_plane / sqrt(sum(norm_vec_N_rot_plane**2))
+!    if(debug) print*, "Axis of rotation", norm_vec_N_rot_plane
+!    ! First index selects column second index row
+!    pol_perp_rot_mat(1,1) = norm_vec_N_rot_plane(1)**2 + (norm_vec_N_rot_plane(2)**2 + &
+!                            norm_vec_N_rot_plane(3)**2)*Cos(sigma)
+!    pol_perp_rot_mat(2,1) = norm_vec_N_rot_plane(1)*norm_vec_N_rot_plane(2) - &
+!                            norm_vec_N_rot_plane(1)*norm_vec_N_rot_plane(2)*Cos(sigma) - &
+!                            norm_vec_N_rot_plane(3)*Sin(sigma)
+!    pol_perp_rot_mat(3,1) = norm_vec_N_rot_plane(1)*norm_vec_N_rot_plane(3) - &
+!                            norm_vec_N_rot_plane(1)*norm_vec_N_rot_plane(3)*Cos(sigma) + &
+!                            norm_vec_N_rot_plane(2)*Sin(sigma)
+!    pol_perp_rot_mat(1,2) = norm_vec_N_rot_plane(1)*norm_vec_N_rot_plane(2) - &
+!                            norm_vec_N_rot_plane(1)*norm_vec_N_rot_plane(2)*Cos(sigma) + &
+!                            norm_vec_N_rot_plane(3)*Sin(sigma)
+!    pol_perp_rot_mat(2,2) = norm_vec_N_rot_plane(2)**2*(1 - Cos(sigma)) + Cos(sigma)
+!    pol_perp_rot_mat(3,2) = norm_vec_N_rot_plane(2)*norm_vec_N_rot_plane(3) - &
+!                            norm_vec_N_rot_plane(2)*norm_vec_N_rot_plane(3)*Cos(sigma) - &
+!                            norm_vec_N_rot_plane(1)*Sin(sigma)
+!    pol_perp_rot_mat(1,3) = norm_vec_N_rot_plane(1)*norm_vec_N_rot_plane(3) - &
+!                            norm_vec_N_rot_plane(1)*norm_vec_N_rot_plane(3)*Cos(sigma) - &
+!                            norm_vec_N_rot_plane(2)*Sin(sigma)
+!    pol_perp_rot_mat(2,3) = norm_vec_N_rot_plane(2)*norm_vec_N_rot_plane(3) - &
+!                            norm_vec_N_rot_plane(2)*norm_vec_N_rot_plane(3)*Cos(sigma) + &
+!                            norm_vec_N_rot_plane(1)*Sin(sigma)
+!    pol_perp_rot_mat(3,3) = norm_vec_N_rot_plane(3)**2*(1 - Cos(sigma)) + Cos(sigma)
+!    if(debug) print*, "Polarizer rotation matrix"
+!    do i = 1,3
+!      pol_vec_perp(i) = sum(pol_perp_rot_mat(:,i) * pol_vector_lab(:))
+!      if(debug) print*, pol_perp_rot_mat(:,i)
+!    end do
+!    do i = 1,3
+!      N_vec_perp_test(i) = sum(pol_perp_rot_mat(:,i) * N_vec_norm(:))
+!    end do
+!    if(debug) print*, "pol vec perp filter", pol_vec_perp
+!    if(debug) print*, "dot product rotated N_vec and N_filter vec - should be one", sum(N_vec_perp_test * N_filter)
+!    if(debug) print*, "dot product rotated polarization vector and N_filter vec - should be 0", sum(pol_vec_perp * N_filter)
+!    call sub_remap_coords(x_vec, R_vec)
+!    cos_phi = cos(R_vec(2))
+!    sin_phi = sin(R_vec(2))
+!    Jones_vector(1) = sin_phi * pol_vec_perp(1) + cos_phi *  pol_vec_perp(2)
+!    Jones_vector(2) = pol_vec_perp(3)
+!    if(debug) print*, "Jones_vector:" , Jones_vector
+!    filter_mat(:,:) = 0.d0
+!    filter_mat(2,2) = 1.d0
+!    do i = 1,2
+!      filtered_Jones_vector(i) = sum(filter_mat(i,:) * Jones_vector(:))
+!    end do
+!    if(debug) print*, "filtered Jones_vector:" , filtered_Jones_vector
+!    get_filter_transmittance = sum(filtered_Jones_vector)**2
+!    if(debug) print*, "Transmittance", get_filter_transmittance
+!    if(get_filter_transmittance /= get_filter_transmittance .or. get_filter_transmittance < 0.0 .or. &
+!       get_filter_transmittance > 1.d0) then
+!      print*, "pol_vec in original coordinates", pol_vec
+!      print*, "pol_vec in carth. coordinates", pol_vec
+!      print*, "phi", R_vec(2)
+!      print*, "cos_theta", cos_theta
+!      print*, "X", X
+!      print*, "Y", Y
+!      print*, "N_abs", N_abs
+!      print*, "Transmittance", get_filter_transmittance
+!      stop "Bad value in calculation of polarization filter rejection"
+!    end if
+!  end function get_filter_transmittance_wrong!
+
+! mod mod_ecfm_refr_dist
+
+
+function radiation_dist_f_beta(beta, beta_perp, Te, omega_bar, N_par, const)
+    use constants,                  only: pi, e0
+    use mod_ecfm_refr_types,        only: dstf
+    implicit none
+    real(rkind), intent(in)            :: beta, beta_perp,Te, omega_bar, N_par, const
+    real(rkind)                        :: radiation_dist_f_beta
+    real(rkind)                        :: mu, gamma, beta_total
+    !real(rkind)     :: du_dbeta, du_dbeta_perp, int_beta_add, beta_perp_u, jacobian
+    if(dstf == "maxwell") then
+      radiation_dist_f_beta =  Exp(-const * (beta**2 + beta_perp**2))
+    else if(dstf == "relamax" .or. dstf == "numeric") then
+      !beta_total = sqrt(beta**2 + beta_perp**2)
+      gamma = 1 / sqrt(1 - beta**2 - beta_perp**2)
+      mu = 2 * const
+      !radiation_f =  beta_perp* exp( mu * (1 - 1 / (sqrt(1 - beta**2 - beta_perp**2)) )) * gamma**0
+      radiation_dist_f_beta =  exp( mu* (1 - gamma))*gamma**5
+      !if(abs(radiation_f) > 1.d-2) then
+      !  print*,mu, beta, f_rel, N_par
+      !  stop "value"
+      !end if
+    !else if (dstf == "numeric") then
+    !  stop "not implemented"
+    end if
+  end function radiation_dist_f_beta
+
+function radiation_dist_f_norm_beta(const,Te)
+    use constants,                  only:  pi, e0, mass_e, c0
+    use mod_ecfm_refr_types,        only: dstf
+    implicit none
+    real(rkind), intent(in)        :: const, Te
+    real(rkind)                    :: radiation_dist_f_norm_beta
+    real(rkind)                    :: a, mu
+    radiation_dist_f_norm_beta = -1.d0
+    if(dstf == "maxwell") then
+      radiation_dist_f_norm_beta = sqrt(const/(pi*c0**2))**3
+    else if(dstf == "relamax" .or. dstf == "numeric") then
+      mu = const*2
+      a = 1.0d0/(1.0d0 + 105.0d0/(128.0d0 * mu**2) + 15.0d0/(8.0d0 * mu))
+      radiation_dist_f_norm_beta = a * (sqrt(mu / (2.0d0 * pi))**3) ! *c0**2c0)
+    else
+      stop "the distribution defined in globals does not exist"
+    end if
+  end function radiation_dist_f_norm_beta
+
+

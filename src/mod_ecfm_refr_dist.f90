@@ -5,15 +5,12 @@ module mod_ecfm_radiation_dist
   !$OMP THREADPRIVATE(fall_back_thermal)
   public :: radiation_dist_f_u, &
             radiation_dist_f_norm, &
-            radiation_dist_Rf, &
-            radiation_dist_f_beta, &
-            radiation_dist_f_norm_beta
+            radiation_dist_Rf
   private :: fall_back_thermal
   contains
 
 subroutine prepare_dist(svec, Int_absz_many, Int_weights_many, f_spl, dist_params)
-    use mod_ecfm_refr_types,            only: ant, rad, non_maxwellian, dstf, &
-                                             rad_diag_ch_mode_ray_freq_svec_type, dstf_comp, min_level_log_ne, &
+    use mod_ecfm_refr_types,            only: dstf, rad_diag_ch_mode_ray_freq_svec_type, min_level_log_ne, &
                                              bi_max, drift_m, Spitzer, multi_slope, runaway, ffp, fgene, Spitzer, &
                                              spl_type_2d, non_therm_params_type
     use constants,                      only: pi, e0, mass_e, eps0, c0
@@ -25,9 +22,12 @@ subroutine prepare_dist(svec, Int_absz_many, Int_weights_many, f_spl, dist_param
     real(rkind), dimension(:), intent(in) :: Int_absz_many, Int_weights_many
     type(spl_type_2d), intent(inout) :: f_spl
     type(non_therm_params_type), intent(out)               :: dist_params
-    integer(ikind)                                    ::  irhop_TDiff, irhop, m, l_omega
-    real(rkind)                                       :: mu, temp_norm
+    real(rkind)                                       :: mu
     fall_back_thermal = .true.
+    if(dstf == "Th") then
+      print*, "Called prepare_dist for a thermal distribution function"
+      call abort()
+    end if
     if (dstf == "numeric") then
       if(svec%rhop >= ffp%rhop_max) return
     else if (trim(dstf) == "gene" .or. trim(dstf) == "gcomp" ) then
@@ -52,9 +52,6 @@ subroutine prepare_dist(svec, Int_absz_many, Int_weights_many, f_spl, dist_param
     else if(trim(dstf) == "gene" .or. trim(dstf) == "gcomp") then
       call make_g_inter(svec, f_spl)
       if(trim(dstf) == "gcomp") then
-!        irhop = minloc(abs(fgene%rhop - svec%rhop), dim=1)
-!        fgene%Te_perp = fgene%Te_perp_vec(irhop)
-!        fgene%Te_par = fgene%Te_par_vec(irhop)
 #ifdef NAG
         call spline_1d(fgene%Te_perp_spl, svec%rhop, dist_params%Te_perp, nag_spline = fgene%Te_perp_nag_spl)
         call spline_1d(fgene%Te_par_spl, svec%rhop, dist_params%Te_par, nag_spline = fgene%Te_perp_nag_spl)
@@ -63,7 +60,6 @@ subroutine prepare_dist(svec, Int_absz_many, Int_weights_many, f_spl, dist_param
         call spline_1d(fgene%Te_par_spl, svec%rhop, dist_params%Te_par)
 #endif
       end if
-      ! print*, fgene%Te_perp, fgene%Te_par
       return
     else if(dstf == "Bi_Maxw" .or. dstf == "Bi_MaxJ") then
       if(svec%rhop < Bi_max%rhop_max) then
@@ -141,7 +137,7 @@ end subroutine prepare_dist
 
 subroutine make_norm_multi_slope(svec, mu, Int_absz_many, Int_weights_many, dist_params) !
     use mod_ecfm_refr_types,        only: rad_diag_ch_mode_ray_freq_svec_type, &
-                                          k_int,multi_slope, non_therm_params_type
+                                          non_therm_params_type
     use constants,                  only: pi
     implicit none
 
@@ -183,34 +179,19 @@ subroutine make_norm_multi_slope(svec, mu, Int_absz_many, Int_weights_many, dist
     enddo
     dist_params%total_norm  = 1.d0 / Integral
     !
-    !if(make_norm_multi_slope < 0.87) then
-    !  do k = 1, size(Int_weights_many)
-    !    u_par(k) = Int_absz_many(k) * du_dalpha + (b + a) / 2.d0
-    !    u_perp(k) = 0.001
-    !    gamma(k) = sqrt(1 + u_par(k)**2 + u_perp(k)**2)
-    !   print*, u_par(k),log10(exp(mu*(1- gamma(k))))&
-    !     ,log10(radiation_dist_f_u(u_par(k), u_perp(k), gamma(k), mu, svec) * make_norm_multi_slope)
-    !  end do
-    !  stop "enuff testing"
-    !end if
     if(dist_params%total_norm /= dist_params%total_norm) then
       print*,dist_params%total_norm
       stop "nan in norm"
     else if (dist_params%total_norm < 0.0) then
       print*,dist_params%total_norm
       stop "- in norm"
-    !else if(make_norm_multi_slope < 1.0) then
-    !  print*,make_norm_multi_slope
-    !  stop "norm smaller than 1"
     end if
 
   end subroutine make_norm_multi_slope
 
   subroutine make_f_and_Rf_along_line(u_par, u_perp, gamma, m_omega_bar, N_par, mu, svec, f_spl, dist_params, dstf, f, Rf)
     use constants,                   only: pi, e0,c0, mass_e
-    use mod_ecfm_refr_types,         only: bi_max, drift_m,fgene, spl_type_2d, &
-                                           rad_diag_ch_mode_ray_freq_svec_type, &
-                                           multi_slope, runaway, ffp, non_therm_params_type
+    use mod_ecfm_refr_types,         only: spl_type_2d, rad_diag_ch_mode_ray_freq_svec_type, non_therm_params_type, multi_slope
     use mod_ecfm_refr_fp_dist_utils, only: make_f_and_f_grad_along_line
     use mod_ecfm_refr_gene_dist_utils, only: make_gene_f_and_gene_f_grad_along_line, &
                                              make_gene_f0_and_gene_f0_grad_along_line
@@ -222,22 +203,18 @@ subroutine make_norm_multi_slope(svec, mu, Int_absz_many, Int_weights_many, dist
     character(*),  intent(in)                         :: dstf
     real(rkind), dimension(:),  intent(out)           :: f, Rf
     type(rad_diag_ch_mode_ray_freq_svec_type), intent(in) :: svec
-    real(rkind)                        :: gamma_bi_max, lnLambda, alpha, cZ, a
     real(rkind), dimension(size(u_par)) :: df_du_par, df_du_perp
-    integer(ikind)                      :: k, i
-    !real(rkind)                        :: f_par_b, f_perp_b
+    real(rkind)                         :: a
     if(dstf == "maxwell") then
       f =  Exp(-mu/2.0 * (u_par**2 + u_perp**2))
       Rf = - mu * f
-    else if(trim(dstf) == "relamax" .or. fall_back_thermal .or. dstf == "Al" .or. dstf == "Hu") then
+    else if(trim(dstf) == "Th" .or. fall_back_thermal) then
       f =  exp( mu* (1 - gamma))
       Rf = - mu * f
     else if (dstf == "numeric") then
       call make_f_and_f_grad_along_line(u_par, u_perp, svec, f_spl, dist_params%B_min, f, df_du_par, df_du_perp)!
       Rf = (m_omega_bar * df_du_perp / u_perp  + &
         N_par *  df_du_par)
-!      if(any(f  > 1.d-5)) call test_interpolate(u_par, u_perp, "uper", svec, "du")
-!      stop "warm restart ok?"
     else if( trim(dstf) == "gene" .or. trim(dstf) == "genef0" .or. trim(dstf) == "gcomp") then
       ! With GENE background
       if(trim(dstf) == "gene".or. trim(dstf) == "gcomp") then
@@ -245,12 +222,8 @@ subroutine make_norm_multi_slope(svec, mu, Int_absz_many, Int_weights_many, dist
       else
         call make_gene_f0_and_gene_f0_grad_along_line(u_par, u_perp, svec, f, df_du_par, df_du_perp)
       end if
-      ! Note that this is only the pertubation of f -> g
-      !call make_g_and_g_grad_along_line(u_par, u_perp, svec, f, df_du_par, df_du_perp)!
       Rf = (m_omega_bar * df_du_perp / u_perp + &
             N_par *  df_du_par)
-!      f = f + radiation_dist_f_u(u_par, u_perp, gamma, mu, svec)
-!      Rf = Rf + radiation_dist_Rf(u_par, u_perp, gamma, m_omega_bar, N_par, mu, svec)
     else if( trim(dstf) == "gcomp0") then
       f = radiation_dist_bi_maxJ(u_par, u_perp, gamma, dist_params%Te_perp, dist_params%Te_par)
       Rf = radiation_dist_bi_maxJ_Rf(u_par, u_perp, gamma, m_omega_bar, N_par, dist_params%Te_par, dist_params%Te_perp)
@@ -274,8 +247,6 @@ subroutine make_norm_multi_slope(svec, mu, Int_absz_many, Int_weights_many, dist
                                                            N_par, dist_params%Te_par, &
                                                            dist_params%Te_perp)
     else if(trim(dstf) == "multi_s") then
-!      print*, "mu, mu_slope, gamma_crit", mu, dist_params%mu_slope, multi_slope%gamma_switch
-!      print*, "gamma", gamma
       f = exp( mu* (1.d0 - gamma))
       where(gamma > multi_slope%gamma_switch) f = exp(dist_params%mu_slope* (1.d0 - gamma)) * dist_params%norm
       f = f * dist_params%total_norm
@@ -286,19 +257,6 @@ subroutine make_norm_multi_slope(svec, mu, Int_absz_many, Int_weights_many, dist
       print*,"Selected distribution is ", dstf
       stop "Unknown distribution flag in make_f_and_Rf_along_line"
     end if
-!    if(any(f  < 0.0)  .and. ( any(abs(f) > 1.d-10) .and. any(abs(u_par) < 1.0)) .or. &
-!      any(f /= f) .or.  any(f  > 1.d6)) then
-!      print*,  "rhop", svec%rhop
-!      print*,  "Te", svec%Te
-!      print*,  "cos(theta)", svec%cos_theta
-!      print*,  "Y * n", 1/ m_omega_bar
-!      print*, "u_perp",  u_perp
-!      print*, "u_par",  u_par
-!      print*, "f", f
-!      print*, "WARNING - Negative distribution in make_f_and_Rf_along_line"
-!      call test_interpolate(u_par, u_perp, "uper", svec)
-!      stop "Bad distribution"
-!    end if
     if(sum(Rf) > 0  .and. sum(Rf) < 1.d-5) then
       f(:) = 0.d0
       Rf(:) = 0.d0
@@ -321,9 +279,8 @@ end subroutine make_f_and_Rf_along_line
 
 function radiation_dist_f_u(u_par, u_perp, gamma, mu, svec, dist_params)
     use constants,                   only: pi, e0, mass_e, c0
-    use mod_ecfm_refr_types,         only: dstf, ffp, bi_max,drift_m, non_therm_params_type, &
+    use mod_ecfm_refr_types,         only: dstf, non_therm_params_type, &
                                           rad_diag_ch_mode_ray_freq_svec_type, multi_slope, runaway
-    !use mod_ecfm_refr_fp_dist_utils, only: interpolate_f_u
     implicit none
     real(rkind), dimension(:),  intent(in)            :: u_par, u_perp, gamma
     real(rkind), intent(in)                           :: mu
@@ -331,11 +288,9 @@ function radiation_dist_f_u(u_par, u_perp, gamma, mu, svec, dist_params)
     type(non_therm_params_type), intent(in)                :: dist_params
     real(rkind), dimension(size(u_par))               :: radiation_dist_f_u
     real(rkind)                        :: a, lnLambda, alpha, cZ! additional gamma to evaluate f_thermal at the boundaries
-    !real(rkind)                        :: f_par_b, f_perp_b ! Forces continuity at the boarders
-    !real(rkind)     :: du_dbeta, du_dbeta_perp, int_beta_add, beta_perp_u, jacobian
     if(dstf == "maxwell") then
       radiation_dist_f_u =  Exp(-mu/2.0 * (u_par**2 + u_perp**2))
-    else if(dstf == "relamax".or. fall_back_thermal .or. dstf == "Al" .or. dstf == "Hu") then
+    else if(dstf == "Th".or. fall_back_thermal) then
       radiation_dist_f_u =  exp( mu* (1 - gamma))
     else if (dstf == "numeric") then
       print*, "Numeric distribution function will be only evaluated along the entire resonance line"
@@ -427,10 +382,9 @@ function radiation_dist_f_u(u_par, u_perp, gamma, mu, svec, dist_params)
     real(rkind), intent(in)        :: Te
     character(*),  intent(in)      :: dstf
     real(rkind)                    :: radiation_dist_f_norm
-    real(rkind)                    :: a, mu, beta,T0
+    real(rkind)                    :: a, mu
     radiation_dist_f_norm = -1.d0
-    if(dstf == "relamax" .or. fall_back_thermal .or. dstf == "Tanalyt" .or. dstf == "maxwell" .or. &
-      dstf == "multi_s" .or. dstf == "Al" .or. dstf == "Hu") then
+    if(dstf == "Th" .or. fall_back_thermal .or. dstf == "multi_s") then
       mu = mass_e *c0**2 / (e0 * Te)
       a = 1.0d0/(1.0d0 + 105.0d0/(128.0d0 * mu**2) + 15.0d0/(8.0d0 * mu))
       radiation_dist_f_norm = a * (sqrt(mu / (2 * pi))**3) ! *c0**2c0)
@@ -448,19 +402,17 @@ function radiation_dist_f_u(u_par, u_perp, gamma, mu, svec, dist_params)
 
   function radiation_dist_Rf(u_par, u_perp, gamma, m_omega_bar, N_par, mu, svec, dist_params)
     use constants,                   only: pi, e0,c0, mass_e
-    use mod_ecfm_refr_types,         only: dstf, bi_max,drift_m, non_therm_params_type, &
-                                          rad_diag_ch_mode_ray_freq_svec_type, multi_slope, runaway, ffp
-    !use mod_ecfm_refr_fp_dist_utils, only: f_deriv_u_par,f_deriv_u_perp, test_interpolate
+    use mod_ecfm_refr_types,         only: dstf, non_therm_params_type, &
+                                          rad_diag_ch_mode_ray_freq_svec_type, multi_slope, runaway
     implicit none
     real(rkind), dimension(:),  intent(in)  :: u_par, u_perp, gamma
     real(rkind), intent(in)            :: m_omega_bar, N_par, mu
     type(rad_diag_ch_mode_ray_freq_svec_type), intent(in):: svec
     type(non_therm_params_type), intent(in)                :: dist_params
     real(rkind), dimension(size(u_par)) :: radiation_dist_Rf
-    real(rkind)                        :: gamma_bi_max, lnLambda, alpha, cZ, a
-    !real(rkind)                        :: f_par_b, f_perp_b
+    real(rkind)                        :: lnLambda, alpha, cZ, a
     a = 1.0d0/(1.0d0 + 105.0d0/(128.0d0 * mu**2) + 15.0d0/(8.0d0 * mu))
-    if (dstf =="relamax" .or. fall_back_thermal  .or. dstf == "Al" .or. dstf == "Hu") then
+    if (dstf =="Th" .or. fall_back_thermal) then
        radiation_dist_Rf = -radiation_dist_f_u(u_par, u_perp, gamma, mu, svec, dist_params) * mu
     else if(dstf == "Bi_Maxw") then
        radiation_dist_Rf = -(1.0 - dist_params%ne) * a * (sqrt(mu / (2 * pi))**3) * &
@@ -502,21 +454,8 @@ function radiation_dist_f_u(u_par, u_perp, gamma, mu, svec, dist_params)
        radiation_dist_Rf = radiation_dist_f_u(u_par, u_perp, gamma, mu, svec, dist_params) * ( -mu + &
                             radiation_dist_Spitzer_Rf(u_par, mu, gamma, u_perp, dist_params%vd) * N_par)
     else if (dstf == "numeric") then
-      !call radiation_dist_handle_ffp_boundaries(u_par, u_perp, const, f_par_b, f_perp_b)
-!      radiation_dist_Rf = (m_omega_bar * f_deriv_u_perp(u_par, u_perp, svec)/ u_perp  + &
-!        N_par * f_deriv_u_par(u_par, u_perp, svec))
       print*, "Numeric distribution function will be only evaluated along the entire resonance line"
       stop "bad usage of radiation_dist_f_u"
-!      if(radiation_dist_Rf > 0) then
-!        radiation_dist_Rf = 0.d0
-!        if(radiation_dist_Rf > 100.d0) then
-!          print*, "Warning a positive R[f] = ", radiation_dist_Rf, "  was set to zero"
-!          call test_interpolate(u_par, u_perp, "uper", svec)
-!          call test_interpolate(u_par, u_perp, "uper", svec, "du")
-!          call test_interpolate(u_par, u_perp, "uper", svec, "dpitch")
-!          stop "inverse damping"
-!        end if
-!      end if
     else
       print*,"Selected distribution is ", dstf
       stop "the distribution defined in globals does not exist"
@@ -561,12 +500,11 @@ function radiation_dist_bi_maxw(u_par, u_perp, gamma, Te_par, Te_perp)
 ! By I. Pastor, J. Guasp, R.F., et al.
 ! Published in Nuclear Fusion 52 (2012)
     use constants,                  only: pi, e0, mass_e, eps0, c0
-    use mod_ecfm_refr_types,        only: bi_max
     implicit none
     real(rkind), dimension(:),  intent(in)            :: u_par, u_perp, gamma
     real(rkind), intent(in)                           :: Te_perp, Te_par
     real(rkind), dimension(size(u_par)) :: radiation_dist_bi_maxw
-    real(rkind)                        :: r,s, T0, mu_perp, mu_par, gamma_bi, a
+    real(rkind)                        ::mu_perp, mu_par
     mu_perp =(mass_e * c0**2.d0) / (e0 * Te_perp)
     mu_par =(mass_e * c0**2.d0) / (e0 * Te_par)
     radiation_dist_bi_maxw =(mu_perp / (2.d0 * pi)) *sqrt(mu_par/ (2.d0 * pi))* Exp(-mu_perp/2.d0 * u_perp **2 - mu_par/2.d0 * u_par**2)
@@ -590,7 +528,6 @@ end function radiation_dist_drift_m
 function radiation_dist_Spitzer(u, mu, gamma, u_perp, vd) ! u = u_par here
 ! This function computes the non-thermal Spitzer-Deformation Term
     use constants,                  only: pi, e0, mass_e, eps0, c0
-    use mod_ecfm_refr_types,        only: Spitzer
     implicit none
     real(rkind), dimension(:),  intent(in) :: u, u_perp, gamma
     real(rkind), intent(in)            :: mu
@@ -668,12 +605,11 @@ end function radiation_dist_bi_maxJ_Rf
 
 function radiation_dist_bi_maxw_Rf(u_par, u_perp,gamma,n_omega_bar, N_par, Te_par, Te_perp)
     use constants,                  only: pi, e0, mass_e, eps0, c0
-    use mod_ecfm_refr_types,        only: bi_max
     implicit none
     real(rkind), dimension(:),  intent(in) :: u_par, u_perp, gamma
     real(rkind), intent(in)            :: n_omega_bar, N_par, Te_perp, Te_par
     real(rkind), dimension(size(u_par))   :: radiation_dist_bi_maxw_Rf
-    real(rkind)                        :: r,s, T0, mu_perp, mu_par, gamma_bi_max
+    real(rkind)                        :: mu_perp, mu_par
     mu_perp = (mass_e * c0**2.d0) / (e0 * Te_perp)
     mu_par = (mass_e * c0**2.d0) / (e0 * Te_par)
     radiation_dist_bi_maxw_Rf = -radiation_dist_bi_maxw(u_par,u_perp,gamma, Te_par, Te_perp) * &
@@ -720,7 +656,6 @@ end function radiation_dist_drift_m_Rf
 function radiation_dist_Spitzer_Rf(u, mu, gamma, u_perp, vd) ! u = u_par here
 ! This function computes the non-thermal Spitzer-Deformation Term
     use constants,                  only: pi, e0, mass_e, eps0, c0
-    use mod_ecfm_refr_types,        only: Spitzer
     implicit none
     real(rkind), dimension(:),  intent(in) :: u, u_perp, gamma
     real(rkind), intent(in)            :: mu
@@ -739,50 +674,4 @@ function radiation_dist_Spitzer_Rf(u, mu, gamma, u_perp, vd) ! u = u_par here
         chain_rule * 0.7619 * (4.d0 * 0.09476232*v**3 -3.d0 * 0.08852586*v**3 + &
           2.d0 * 1.32003051*v - 0.19511956)
 end function radiation_dist_Spitzer_Rf
-
-
-function radiation_dist_f_beta(beta, beta_perp, Te, omega_bar, N_par, const)
-    use constants,                  only: pi, e0
-    use mod_ecfm_refr_types,        only: dstf
-    implicit none
-    real(rkind), intent(in)            :: beta, beta_perp,Te, omega_bar, N_par, const
-    real(rkind)                        :: radiation_dist_f_beta
-    real(rkind)                        :: mu, gamma, beta_total
-    !real(rkind)     :: du_dbeta, du_dbeta_perp, int_beta_add, beta_perp_u, jacobian
-    if(dstf == "maxwell") then
-      radiation_dist_f_beta =  Exp(-const * (beta**2 + beta_perp**2))
-    else if(dstf == "relamax" .or. dstf == "numeric") then
-      !beta_total = sqrt(beta**2 + beta_perp**2)
-      gamma = 1 / sqrt(1 - beta**2 - beta_perp**2)
-      mu = 2 * const
-      !radiation_f =  beta_perp* exp( mu * (1 - 1 / (sqrt(1 - beta**2 - beta_perp**2)) )) * gamma**0
-      radiation_dist_f_beta =  exp( mu* (1 - gamma))*gamma**5
-      !if(abs(radiation_f) > 1.d-2) then
-      !  print*,mu, beta, f_rel, N_par
-      !  stop "value"
-      !end if
-    !else if (dstf == "numeric") then
-    !  stop "not implemented"
-    end if
-  end function radiation_dist_f_beta
-
-function radiation_dist_f_norm_beta(const,Te)
-    use constants,                  only:  pi, e0, mass_e, c0
-    use mod_ecfm_refr_types,        only: dstf
-    implicit none
-    real(rkind), intent(in)        :: const, Te
-    real(rkind)                    :: radiation_dist_f_norm_beta
-    real(rkind)                    :: a, mu, beta
-    radiation_dist_f_norm_beta = -1.d0
-    if(dstf == "maxwell") then
-      radiation_dist_f_norm_beta = sqrt(const/(pi*c0**2))**3
-    else if(dstf == "relamax" .or. dstf == "numeric") then
-      mu = const*2
-      a = 1.0d0/(1.0d0 + 105.0d0/(128.0d0 * mu**2) + 15.0d0/(8.0d0 * mu))
-      radiation_dist_f_norm_beta = a * (sqrt(mu / (2.0d0 * pi))**3) ! *c0**2c0)
-    else
-      stop "the distribution defined in globals does not exist"
-    end if
-  end function radiation_dist_f_norm_beta
-
 end module mod_ecfm_radiation_dist

@@ -1,8 +1,8 @@
-program ecfm_model
+program ECRad
     use f90_kind
     use mod_ecfm_refr_types,        only: rad, data_folder, output_level, &
                                           ant, stand_alone, eval, not_eval, &
-                                          data_name, data_secondary_name, ffp, modes
+                                          data_name, modes
     use mod_ecfm_refr, only : initialize_stand_alone, make_ece_rad_temp!, simulate_ida
     use mod_ecfm_refr_utils, only : export_all_ece_data
 #ifdef OMP
@@ -116,5 +116,5 @@ program ecfm_model
 !      close(66)
 !      !close(67)
 !    end if
-    if(output_level) print*,"ECFM Model successful"
-end program ecfm_model
+    if(output_level) print*,"ECRad successful"
+end program ECRad

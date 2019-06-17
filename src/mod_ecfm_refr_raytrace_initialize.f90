@@ -55,8 +55,8 @@ module mod_ecfm_refr_raytrace_initialize
       real(rkind), dimension(:,:), allocatable, intent(out) ::  rhop
       integer(ikind), intent(in), optional                  :: itime
       character(250) :: filename
-      integer(ikind) :: i, j, k, i_ax, j_ax
-      real(rkind) :: radin, radout, sgn, pf_sxp, pf_mag
+      integer(ikind) :: i, j, i_ax, j_ax
+      real(rkind) :: radin, radout, pf_sxp, pf_mag
       character(70) :: line
       if(present(itime)) then
         write(filename, fmt = "(A7I5.5)") "topfile",  itime
@@ -137,7 +137,7 @@ module mod_ecfm_refr_raytrace_initialize
       real(rkind), dimension(size(R))                       :: R_check
       real(rkind), dimension(size(z))                       :: z_check
       character(250) :: filename
-      integer(ikind) :: m_check, n_check, i,j,k
+      integer(ikind) :: m_check, n_check, i,j
       character(70) :: line
       filename =  trim(data_folder) // "Te_ne_matfile"
       open(71,status='unknown',file=filename)
@@ -199,10 +199,7 @@ module mod_ecfm_refr_raytrace_initialize
     real(rkind), dimension(:,:), allocatable, intent(in) ::  rhop
     integer(ikind), intent(in), optional                  ::  itime
     character(250) :: filename
-    integer(ikind) :: i,j,k
-    real(rkind) :: radin,radout,psi_sep,sgn, psi_ax
-    character(70) :: line
-    character(12) :: format_str
+    integer(ikind) :: i,j
     if(present(itime)) then
       write(filename, fmt = "(A7I5.5)") "topfile",  itime
       filename = trim(data_folder) // trim(filename)
@@ -234,8 +231,13 @@ module mod_ecfm_refr_raytrace_initialize
 
   subroutine setup_plasma_params(plasma_params, R_in, z_in, rhop_in, B_r_in, B_t_in, B_z_in, R_ax, z_ax)
     use f90_kind
-    use mod_ecfm_refr_types,        only: plasma_params_type, h_x_glob, h_check, output_level, double_check_splines, &
-                                          stand_alone, output_level, vessel_bd_filename, max_points_svec
+#ifdef NAG
+    use mod_ecfm_refr_types,        only: double_check_splines, plasma_params_type, h_x_glob, h_check, &
+                                          stand_alone, vessel_bd_filename
+#else
+    use mod_ecfm_refr_types,        only: plasma_params_type, h_x_glob, h_check, &
+                                          stand_alone, vessel_bd_filename
+#endif
     use mod_ecfm_refr_interpol,     only: make_rect_spline, make_1d_spline, rect_spline
     use constants,                  only: pi
     use quadrature,                 only: cdgqf
@@ -253,12 +255,8 @@ module mod_ecfm_refr_raytrace_initialize
     real(rkind), intent(in), optional                 :: R_ax, z_ax
     real(rkind), dimension(:,:), allocatable    :: B_r, B_t, B_z, T_e, n_e
     integer(ikind), dimension(:), allocatable   :: R_index_lower, z_index_lower, R_index_upper, z_index_upper
-    real(rkind), dimension(:), allocatable      :: rhop_Te, rhop_ne, ne_ext, Te_ext
-    real(rkind)                                 :: R_mag, z_mag, pf_mag, R_sxp, z_sxp, pf_sxp, rhop_dx_dummy, &
-                                                   rhop_dy_dummy, rhop_dxx_dummy, rhop_dxy_dummy, rhop_dyy_dummy, &
-                                                   rhop_X, B_vac_R, B_last, B_vac_R0
-    integer(ikind)                              :: i, j
-    character(20) :: format_str
+    real(rkind)                                 :: B_last, B_vac_R0
+    integer(ikind)                              :: i
     character(1)  :: sep
     if(.not. present(R_in)) then
       call read_topfile(plasma_params, plasma_params%R, plasma_params%z, plasma_params%rhop, B_r, B_t, B_z)
@@ -390,14 +388,13 @@ module mod_ecfm_refr_raytrace_initialize
   subroutine read_input_lists(plasma_params)
   ! Read the input data n_e, T_e and wall file
     use mod_ecfm_refr_types,       only: plasma_params_type, n_e_filename, T_e_filename, &
-                                          vessel_bd_filename, min_density, min_Te, max_Te
+                                         min_density, min_Te, max_Te
     use f90_kind
     use constants, only               : pi
     implicit none
     type(plasma_params_type), intent(inout)           :: plasma_params
-    integer(ikind)                                    :: i, j
+    integer(ikind)                                    :: i
     character(1)                                      :: sep
-    logical                                           :: new_wg
     real(rkind)                                       :: rhop_max_Te, rhop_max_ne, last_rhop
     if(.not. plasma_params%Te_ne_mat) then
       open(66, file = n_e_filename)
@@ -490,10 +487,11 @@ module mod_ecfm_refr_raytrace_initialize
 
   subroutine dealloc_raytrace(plasma_params)
   use f90_kind
-  use mod_ecfm_refr_types,       only: plasma_params_type, stand_alone, output_level, &
-                                       double_check_splines
 #ifdef NAG
+  use mod_ecfm_refr_types,       only: plasma_params_type, stand_alone, double_check_splines
   USE nag_lib_support,           only : nag_deallocate
+#else
+  use mod_ecfm_refr_types,       only: plasma_params_type, stand_alone
 #endif
   use mod_ecfm_refr_interpol,       only: deallocate_rect_spline, deallocate_1d_spline
   implicit none

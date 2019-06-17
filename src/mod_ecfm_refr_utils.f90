@@ -9,8 +9,7 @@ module mod_ecfm_refr_utils
 use f90_kind
 
 implicit none
-public :: make_ecfm_LOS_grid,      &
-          export_all_ece_data, &        ! Writes all the data needed for the forward modelling into files
+public :: export_all_ece_data, &        ! Writes all the data needed for the forward modelling into files
           read_input_file, &
           prepare_ECE_diag_old_IO, &
           prepare_ECE_diag_new_IO, &
@@ -86,13 +85,12 @@ subroutine read_input_file( working_dir_in)
 use mod_ecfm_refr_types,        only : ant, rad, plasma_params, dstf, diagnostics, output_level, &
                                        n_e_filename, T_e_filename, vessel_bd_filename, ray_launch_file, &
                                        ratio_for_third_harmonic, straight, reflec_X, reflec_O, modes, mode_cnt, working_dir, &
-                                       mode_conv, N_freq, N_ray, CEC_exp, CTC_exp, ECI_exp, IEC_exp, &
-                                       CEC_ed, CTC_ed, ECI_ed, IEC_ed, time_smth, warm_plasma, max_points_svec, &
+                                       mode_conv, N_freq, N_ray, warm_plasma, max_points_svec, &
                                        reflec_model, vessel_plasma_ratio, new_IO
 implicit none
 character(*), intent(in)          :: working_dir_in
 character(50)                     :: diag_str
-integer(ikind)                    :: i,len_diag_str
+integer(ikind)                    :: len_diag_str
 character(200)                    :: input_filename
 ! Temporary structure of input file - something more sophisticated later...
 ! shot number
@@ -272,9 +270,9 @@ subroutine parse_ecfm_settings_from_ida(plasma_params, &
                                         ecrad_z_shift, &    ! Allows shifting the equilbrium - moves entire flux matrix
                                         ecrad_N_ray, ecrad_N_freq, log_flag, parallelization_mode)
 use mod_ecfm_refr_types,        only : plasma_params_type, ant, rad, output_level, &
-                                       N_freq, N_ray, diagnostics, dstf, flag_1O,&
+                                       N_freq, N_ray, diagnostics, dstf,&
                                        straight, ratio_for_third_harmonic, reflec_X, reflec_O, warm_plasma, &
-                                       modes, mode_cnt, mode_conv, CEC_exp, CEC_ed, vessel_bd_filename, &
+                                       modes, mode_cnt, mode_conv, vessel_bd_filename, &
                                        stand_alone, dstf_comp, use_ida_spline_Te, use_ida_spline_ne, &
                                        max_points_svec, reflec_model, data_name, data_secondary_name
 implicit none
@@ -294,7 +292,7 @@ integer(ikind)                             :: istat
   allocate(ant%diag(ant%N_diag), rad%diag(ant%N_diag))
   output_level = ecrad_verbose
   dstf = "relamax"
-  dstf_comp = "TB"
+  dstf_comp = "DF"
   plasma_params%eq_diag = "IDA"
   data_name = "TRadM_therm.dat"
   data_secondary_name = "TRadM_TBeam.dat"
@@ -320,7 +318,6 @@ integer(ikind)                             :: istat
   reflec_X = reflec_X_mode !ida%ece%reflec_X_mode
   reflec_O = reflec_O_mode! ida%ece%reflec_O_mode
   reflec_model = 0 ! Infinite reflection model
-  flag_1O = ece_1O_flag ! ida%ece%ece_1O_flag
   max_points_svec = ecrad_max_points_svec ! ida%ece%ecrad_max_points_svec
   modes =  ecrad_modes ! ida%ece%ecrad_modes ! (modes = 1 -> pure X-mode, 2 -> pure O-mode, 3 both modes and filter
   mode_cnt = 1
@@ -354,13 +351,13 @@ end subroutine parse_ecfm_settings_from_ida
 
 subroutine prepare_ECE_diag_old_IO()
 ! Reads launch information for several diagnostics (old file format) and allocates everything
-  use mod_ecfm_refr_types,            only: plasma_params, ant, rad, &
+  use mod_ecfm_refr_types,            only: ant, rad, &
                                           max_points_svec, mode_cnt, modes, N_ray, N_freq, &
-                                          diagnostics, CEC_exp, CEC_ed, ray_launch_file, &
-                                          output_level, stand_alone, one_sigma_width, new_IO, &
+                                          diagnostics, ray_launch_file, &
+                                          output_level, stand_alone, &
                                           working_dir
   use constants,                      only: pi
-  integer(ikind)                      :: idiag, ich, imode, ir, ifreq, N_ch
+  integer(ikind)                      :: idiag, ich, imode, ir, ifreq
   character(200)                      :: cur_filename
   character(1)                        :: sep
   open(66,file = trim(ray_launch_file))
@@ -451,13 +448,11 @@ end subroutine prepare_ECE_diag_old_IO
 
 subroutine prepare_ECE_diag_new_IO()
 ! Reads f, df from shot files and also prepares the launching positions and angles
-  use mod_ecfm_refr_types,            only: plasma_params, ant, rad, &
+  use mod_ecfm_refr_types,            only: ant, rad, &
                                          	  max_points_svec, mode_cnt, modes, N_ray, N_freq, &
-                                         	  diagnostics, CEC_exp, CEC_ed, ray_launch_file, &
-                                         	  output_level, stand_alone, one_sigma_width
+                                         	  ray_launch_file, output_level
   use constants,                      only: pi
-  integer(ikind)                             :: idiag, ich, imode, ir, ifreq, N_ch
-  real(rkind)                                :: N_abs, temp, temp1, temp2, phi_radial, temp_freq, temp_freq_2
+  integer(ikind)                             :: idiag, ich, imode, ir, ifreq
   character(1)                               :: sep
   idiag = 1 ! Only one diag -> currently still diag array for historical reasons, should be removed eventually
   open(77, file=trim(ray_launch_file))
@@ -517,8 +512,7 @@ subroutine prepare_ECE_diag_IDA(working_dir, f, df, R, phi, z, tor, pol, dist_fo
 ! Reads f, df from shot files and also prepares the launching positions and angles
   use mod_ecfm_refr_types,            only: plasma_params, ant, rad, &
                                             max_points_svec, mode_cnt, modes, N_ray, N_freq, &
-                                            diagnostics, CEC_exp, CEC_ed, &
-                                            output_level, stand_alone, one_sigma_width
+                                            diagnostics, output_level, stand_alone, one_sigma_width
   use constants,                      only: pi
   character(*), intent(in)                   :: working_dir
   real(rkind), dimension(:), optional        :: f, df, R, phi, z, tor, pol, dist_foc, width ! angles in deg.
@@ -615,10 +609,8 @@ end subroutine prepare_ECE_diag_IDA
 !*******************************************************************************
 subroutine make_launch(idiag_in)
 ! Reads f, df from shot files and also prepares the launching positions and angles
-  use mod_ecfm_refr_types,            only: plasma_params, ant, rad, &
-                                            max_points_svec, mode_cnt, modes, N_ray, N_freq, &
-                                            diagnostics, CEC_exp, CEC_ed, ray_launch_file, &
-                                            output_level, stand_alone, one_sigma_width
+  use mod_ecfm_refr_types,            only: ant, rad, &
+                                            mode_cnt, modes, N_ray, N_freq, one_sigma_width
   use constants,                      only: pi, c0
 #ifdef NAG
   use nag_quad_util,                  only: nag_quad_gs_wt_absc
@@ -626,17 +618,16 @@ subroutine make_launch(idiag_in)
 #endif
   use quadrature,                     only: cgqf, cdgqf
   integer(ikind), optional                   :: idiag_in
-  integer(ikind)                             :: idiag, ich, imode, ir, ifreq
+  integer(ikind)                             :: idiag, ich, imode, ir
   integer(ikind)                             :: i, j, N_x
-  real(rkind)                                :: N_abs, temp, temp1, temp2, phi_radial, temp_freq, temp_freq_2
-  real(rkind), dimension(3)                  :: x_0, N_0, x1_orth, x2_orth, x_temp, R_temp, R_focus, x_focus
+  real(rkind)                                :: N_abs, temp, temp1, temp2
+  real(rkind), dimension(3)                  :: x_0, N_0, x1_orth, x2_orth, x_temp, R_temp, x_focus
 #ifdef NAG
   real(rkind), dimension(:), allocatable     :: x, dx, x_check, dx_check, freq_check, freq_weight_check
 #else
   real(rkind), dimension(:), allocatable     :: x, dx
 #endif
-  real(rkind)                                :: w,norm, sum_of_weights, w0, w_focus, dist_waist
-  real(rkind)                                :: phi_tor_add
+  real(rkind)                                :: w,norm, w0, w_focus, dist_waist
 #ifdef NAG
   type(nag_error)                            :: error
 #endif
@@ -884,11 +875,10 @@ end subroutine make_launch
 !*******************************************************************************
 
 subroutine dealloc_ant(ant)
-use mod_ecfm_refr_types,        only :  ant_type, diagnostics, &
-                                       modes, mode_cnt, N_ray, N_freq
+use mod_ecfm_refr_types,        only :  ant_type, diagnostics
 implicit none
   type(ant_type), intent(inout)        :: ant
-  integer(ikind)                       :: idiag, ich, imode
+  integer(ikind)                       :: idiag, ich
   do idiag = 1, ant%N_diag
       do ich = 1, ant%diag(idiag)%N_ch
         deallocate(ant%diag(idiag)%ch(ich)%freq)
@@ -994,7 +984,7 @@ implicit none
   integer(ikind), intent(in)            :: N1, N2
   logical, intent(in), optional         :: debug
   integer(ikind)                        :: binary_search
-  integer(ikind)                        :: i, i_split, i1, i2
+  integer(ikind)                        :: i_split, i1, i2
   logical                               :: extra_output
   if(present(debug)) then
     extra_output = debug
@@ -1220,7 +1210,11 @@ implicit none
 
   subroutine retrieve_T_e_single(plasma_params, rhop, T_e, grad_T_e)
     use f90_kind
+#ifdef IDA
     use mod_ecfm_refr_types,        only: plasma_params_type, use_ida_spline_Te, output_level, SOL_Te
+#else
+    use mod_ecfm_refr_types,        only: plasma_params_type, SOL_Te, output_level
+#endif
     use mod_ecfm_refr_interpol,     only: spline_1d
     implicit none
     type(plasma_params_type), intent(in)    :: plasma_params
@@ -1282,7 +1276,11 @@ implicit none
 
   subroutine retrieve_T_e_vector(plasma_params, rhop, T_e, grad_T_e)
     use f90_kind
+#ifdef IDA
     use mod_ecfm_refr_types,        only: plasma_params_type, use_ida_spline_Te, output_level, SOL_Te
+#else
+    use mod_ecfm_refr_types,        only: plasma_params_type, SOL_Te, output_level
+#endif
     use mod_ecfm_refr_interpol,     only: spline_1d
     implicit none
     type(plasma_params_type), intent(in)    :: plasma_params
@@ -1555,7 +1553,7 @@ implicit none
     real(rkind),              intent(out)   :: n_e
     real(rkind), dimension(:),intent(out), optional   :: spatial_grad_ne
     real(rkind), dimension(3)               :: R_vec
-    real(rkind)                             :: dne_dR, dne_dz, ne_nag
+    real(rkind)                             :: dne_dR, dne_dz
     R_vec(1) = sqrt(x_vec(1)**2 + x_vec(2)**2)
     if(x_vec(2) /= 0.d0) then
       R_vec(2) = 2.d0 * atan((Sqrt(x_vec(1)**2 + x_vec(2)**2) - x_vec(1)) / x_vec(2))
@@ -1619,13 +1617,13 @@ real(rkind), intent(in)                    :: center_freq
 real(rkind), dimension(:), intent(inout)   :: rhop, BPD
 real(rkind), dimension(:), intent(inout), optional   :: BPD_secondary
 integer(ikind)                             :: ir, i, i_start, i_end, root_cnt, i_am_root, &
-                                              i_seg_end, i_seg_start, i_min_rhop, i_max_rhop, &
-                                              useful_N
-real(rkind)                                :: max_rho, rho_cur, max_s_seg, min_s_seg, rhop_min_seg, rhop_max_seg, drhop, BPD_norm, BPD_secondary_norm
+                                              i_seg_end, i_seg_start, useful_N
+real(rkind)                                :: max_s_seg, min_s_seg, rhop_min_seg, rhop_max_seg, &
+                                              BPD_norm, BPD_secondary_norm
 type(spl_type_1d)                          :: rhop_spl, BPD_spl, BPD_secondary_spl
 real(rkind), dimension(100)                :: roots, BPD_step, BPD_secondary_step
 real(rkind), dimension(max_points_svec) :: s_arr, rhop_arr, BPD_arr, BPD_second_arr
-real(rkind), dimension(10) :: s_aux_arr, rhop_aux_arr, BPD_aux_arr, BPD_second_aux_arr ! used to increase points to suffice for root finding
+real(rkind), dimension(10) :: s_aux_arr, rhop_aux_arr! used to increase points to suffice for root finding
 logical                                    :: make_secondary_BPD
   make_secondary_BPD = .false.
   if(present(BPD_secondary)) make_secondary_BPD = .true.
@@ -1851,7 +1849,7 @@ subroutine bin_freq_to_ray(ray_extra_output, freq_weight, rad_freq, total_LOS_po
 use f90_kind
 use mod_ecfm_refr_types,       only: rad_diag_ch_mode_ray_extra_output_type, &
                                      rad_diag_ch_mode_ray_freq_type, &
-                                     max_points_svec, N_freq, spl_type_1d, &
+                                     N_freq, spl_type_1d, &
                                      output_level
 use mod_ecfm_refr_interpol,   only: make_1d_spline, spline_1d, deallocate_1d_spline, spline_1d_integrate
 use constants,                only: c0, e0
@@ -1860,10 +1858,10 @@ type(rad_diag_ch_mode_ray_extra_output_type), intent(inout)  :: ray_extra_output
 real(rkind), dimension(:), intent(in)      :: freq_weight
 type(rad_diag_ch_mode_ray_freq_type), dimension(:),  intent(in) :: rad_freq
 integer(ikind), dimension(:), intent(in)   :: total_LOS_points
-integer(ikind)                             :: ifreq, i
+integer(ikind)                             :: ifreq
 type(spl_type_1d)                          :: spl
 real(rkind), dimension(:), allocatable     :: s_arr, val, s_freq, quant
-real(rkind)                                :: ds, BPD_norm, BPD_secondary_norm
+real(rkind)                                :: BPD_norm, BPD_secondary_norm
   allocate(s_arr(total_LOS_points(1)), quant(maxval(total_LOS_points(:))))
   s_arr(:) = rad_freq(1)%svec(1:total_LOS_points(1))%s
   if(N_freq == 1) then
@@ -1981,19 +1979,17 @@ real(rkind)                                :: ds, BPD_norm, BPD_secondary_norm
   deallocate(s_arr, quant)
 end subroutine bin_freq_to_ray
 
-subroutine make_warm_res_mode(plasma_params, rad_mode, weights, f_ECE, make_secondary)
+subroutine make_warm_res_mode(rad_mode, weights, f_ECE, make_secondary)
 use f90_kind
-use mod_ecfm_refr_types,       only: plasma_params_type, rad_diag_ch_mode_type, N_ray, &
-                                     N_freq, use_maximum_for_warm_res
+use mod_ecfm_refr_types,       only: rad_diag_ch_mode_type, N_ray, use_maximum_for_warm_res
 use constants,                 only: c0, e0
 implicit none
-type(plasma_params_type), intent(in)  :: plasma_params
 type(rad_diag_ch_mode_type), intent(inout) :: rad_mode
 real(rkind), dimension(:), intent(in)      :: weights
 logical, intent(in)                        :: make_secondary
 real(rkind), intent(in)                    :: f_ECE ! ray weights, freq_weights
 integer(ikind)                             :: ir, i, i_max_BDOP, i_max_BDOP_secondary
-real(rkind)                                :: sTrad, Trad, sTrad_secondary, Trad_secondary, max_BDOP, &
+real(rkind)                                :: sTrad, Trad, sTrad_secondary, Trad_secondary, &
                                               BPD_cur, BPD_cur_secondary, ds
   sTrad = 0.d0
   Trad = 0.d0
@@ -2098,124 +2094,6 @@ end subroutine make_warm_res_mode
 
 !*****************************************************************
 
-
-subroutine make_ecfm_LOS_grid(flag, sparse_step, dense_step) ! S. Denk 4. 2013
-! it = current index in the time vector
-! flag = "init" or "terminate " for either allocation or deallocation
-! This subroutine initializes the grid for the integration along los
-! The parameters that remain constant within the optimization are saved in the
-! structure rad_time_ch_ray_svec_type declared in the global params section.
-! This structure is memory intensive, but can replace most calls to interpol_LOS.
-! S.Denk March 2013
-use mod_ecfm_refr_types,                    only: ant,rad,  non_maxwellian, N_ray, N_freq, modes, output_level, &
-                                                  dstf, bi_max, data_folder, pnts_BPD, &
-                                                  largest_svec
-use constants,                              only: e0, c0
-!use ecfm_non_therm_abs,                     only: abs_non_therm_init,abs_non_therm_clean_up
-implicit none
-character(10), intent(in)                   :: flag
-integer(ikind), intent(in), optional        :: sparse_step, dense_step
-integer(ikind)                              :: idiag
-integer(ikind)                              :: ich, imode,ir, iint, ifreq
-real(rkind)                                 :: dense_region_l,&
-                                               dense_region_u
-real(rkind)                                 :: ds1, ds2,s_ow, s_iw
-idiag = 1
-imode = 1
-if(ant%N_diag > 1) then
-  stop "Import of svec not supported for multiple diagnostic"
-end if
-if(modes /= 1) then
-  print*, "Loading rays is not supported for O-mode"
-  print*, "Input Error in initialize_LOS.f90"
-  call abort
-end if
-if(flag == "initialize") then
-  largest_svec = 0
-  do ich = 1, ant%diag(idiag)%N_ch
-    do ir = 1, N_ray
-      do ifreq = 1, N_freq
-        ! FIXME: Inconsistent with forward model by Rathgeber
-        if(largest_svec < rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%total_LOS_points) then
-          largest_svec = rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%total_LOS_points
-        end if
-        do iint = 1, rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%total_LOS_points
-          rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%svec(iint)%Ibb = &
-          ant%diag(idiag)%ch(ich)%freq(ifreq)**2 * e0 * &
-          rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%svec(iint)%Te / c0**2
-          rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%svec(iint)%sin_theta =  &
-              sin(rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%svec(iint)%theta)
-          rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%svec(iint)%cos_theta = &
-              cos(rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%svec(iint)%theta)
-          if(dstf == "numeric" .and. iint < rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%total_LOS_points &
-            .and. iint > 1) then
-            if(rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%svec(iint)%rhop < &
-            rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%svec(iint + 1)%rhop &
-            .and. rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%svec(iint - 1)%rhop > &
-            rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%svec(iint)%rhop) &
-            rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%s_axis = rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%svec(iint)%s
-          end if
-        enddo !iint = 1, rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%total_LOS_points
-        rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%svec(1:rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%total_LOS_points)%plasma = .true.
-        where(rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%svec(:)%rhop == -1.d0) \
-              rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%svec(:)%plasma = .false.
-      enddo ! ifreq = 1, ant%diag(idiag)%ch(ich)%N_freq
-      if(output_level) then
-        allocate(rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%Trad(rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(1)%total_LOS_points), &
-                 rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%Trad_secondary(rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(1)%total_LOS_points), &
-                 rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%em(rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(1)%total_LOS_points), &
-                 rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%em_secondary(rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(1)%total_LOS_points), &
-                 rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%ab(rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(1)%total_LOS_points), &
-                 rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%ab_secondary(rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(1)%total_LOS_points), &
-                 rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%T(rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(1)%total_LOS_points), &
-                 rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%T_secondary(rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(1)%total_LOS_points))
-      end if
-    enddo  ! ir = 1, ant%diag(idiag)%ch(ich)%N_ray
-    if(output_level) then
-      allocate(rad%diag(idiag)%ch(ich)%mode_extra_output(imode)%s(rad%diag(idiag)%ch(ich)%mode(imode)%ray(1)%freq(1)%total_LOS_points))
-      allocate(rad%diag(idiag)%ch(ich)%mode_extra_output(imode)%R(rad%diag(idiag)%ch(ich)%mode(imode)%ray(1)%freq(1)%total_LOS_points))
-      allocate(rad%diag(idiag)%ch(ich)%mode_extra_output(imode)%z(rad%diag(idiag)%ch(ich)%mode(imode)%ray(1)%freq(1)%total_LOS_points))
-      allocate(rad%diag(idiag)%ch(ich)%mode_extra_output(imode)%Trad(rad%diag(idiag)%ch(ich)%mode(imode)%ray(1)%freq(1)%total_LOS_points))
-      allocate(rad%diag(idiag)%ch(ich)%mode_extra_output(imode)%Trad_secondary(rad%diag(idiag)%ch(ich)%mode(imode)%ray(1)%freq(1)%total_LOS_points))
-      allocate(rad%diag(idiag)%ch(ich)%mode_extra_output(imode)%em(rad%diag(idiag)%ch(ich)%mode(imode)%ray(1)%freq(1)%total_LOS_points))
-      allocate(rad%diag(idiag)%ch(ich)%mode_extra_output(imode)%em_secondary(rad%diag(idiag)%ch(ich)%mode(imode)%ray(1)%freq(1)%total_LOS_points))
-      allocate(rad%diag(idiag)%ch(ich)%mode_extra_output(imode)%ab(rad%diag(idiag)%ch(ich)%mode(imode)%ray(1)%freq(1)%total_LOS_points))
-      allocate(rad%diag(idiag)%ch(ich)%mode_extra_output(imode)%ab_secondary(rad%diag(idiag)%ch(ich)%mode(imode)%ray(1)%freq(1)%total_LOS_points))
-      allocate(rad%diag(idiag)%ch(ich)%mode_extra_output(imode)%T(rad%diag(idiag)%ch(ich)%mode(imode)%ray(1)%freq(1)%total_LOS_points))
-      allocate(rad%diag(idiag)%ch(ich)%mode_extra_output(imode)%T_secondary(rad%diag(idiag)%ch(ich)%mode(imode)%ray(1)%freq(1)%total_LOS_points))
-      allocate(rad%diag(idiag)%ch(ich)%mode_extra_output(imode)%Te(rad%diag(idiag)%ch(ich)%mode(imode)%ray(1)%freq(1)%total_LOS_points))
-      allocate(rad%diag(idiag)%ch(ich)%mode_extra_output(imode)%N_cold(rad%diag(idiag)%ch(ich)%mode(imode)%ray(1)%freq(1)%total_LOS_points))
-      allocate(rad%diag(idiag)%ch(ich)%mode_extra_output(imode)%N_cor(rad%diag(idiag)%ch(ich)%mode(imode)%ray(1)%freq(1)%total_LOS_points))
-      allocate(rad%diag(idiag)%ch(ich)%mode_extra_output(imode)%N_warm(rad%diag(idiag)%ch(ich)%mode(imode)%ray(1)%freq(1)%total_LOS_points))
-      allocate(rad%diag(idiag)%ch(ich)%mode_extra_output(imode)%rhop_BPD(pnts_BPD))
-      allocate(rad%diag(idiag)%ch(ich)%mode_extra_output(imode)%BPD(pnts_BPD))
-      allocate(rad%diag(idiag)%ch(ich)%mode_extra_output(imode)%BPD_secondary(pnts_BPD))
-    end if
-  enddo ! ich = 1, ant%diag(idiag)%N_ch
-  rad%diag(idiag)%ch(:)%eval_ch = .true. ! stand_alone => evaluate all channels
-  !call abs_non_therm_init("f_nor")
-else if(flag == "terminate ") then
-  do idiag = 1, ant%N_diag
-    do ich = 1, ant%diag(idiag)%N_ch
-      do ir = 1, N_ray
-        do ifreq = 1, N_freq
-        ! FIXME: lots of stuff still allocated after this - clean up!
-          if(allocated(rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%svec)) then
-            deallocate(rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%svec)
-          end if
-        end do ! ifreq = 1, ant%diag(idiag)%ch(ich)%N_freq
-      end do ! ir = 1, ant%diag(idiag)%ch(ich)%N_ray
-    end do !ich = 1, ant%diag(idiag)%N_ch
-  end do
-  if(dstf == "numeric") call ffp_clean_up()
-  if(trim(dstf) == "gene") call fgene_clean_up()
-else
-  print*, "Flag has to be init or terminate "
-  print*, "It was set to: ", flag
-  print*, "Wrong usage of make_ecfm_LOS_grid"
-  call abort
-end if
-end subroutine make_ecfm_LOS_grid
 
 subroutine init_non_therm()
 use mod_ecfm_refr_types,               only: dstf
@@ -2350,12 +2228,10 @@ subroutine read_ffp_data()
   use mod_ecfm_refr_fp_dist_utils, only: setup_f_rhop_splines, make_rhop_Bmin
   use constants, only: pi
   implicit none
-  integer(ikind)  :: irhop, iu, ipitch, i
+  integer(ikind)  :: irhop, iu, ipitch
   Character(200)  :: cur_filename,filename
   Character(12)  :: irhop_str
   Character(16)  :: format
-  character(1)   :: blank
-  real(rkind)   :: step
   filename = trim(data_folder) // dst_data_folder // "/u.dat"
   open(66, file = trim(filename))
   read(66,"(I5.5)") ffp%N_u
@@ -2410,13 +2286,11 @@ subroutine read_fgene_data()
 #endif
   use constants, only: pi
   implicit none
-  integer(ikind)  :: irhop, ivpar, imu, i
+  integer(ikind)  :: irhop, ivpar, imu
   real(rkind), dimension(:,:), allocatable :: f_0
   Character(200)  :: cur_filename,filename
   Character(12)  :: irhop_str
   Character(16)  :: format
-  character(1)   :: blank
-  real(rkind)   :: step
   filename = trim(data_folder) // dst_data_folder // "/vpar.dat"
   open(66, file = trim(filename))
   read(66,"(I5.5)") fgene%N_vpar
@@ -2486,7 +2360,7 @@ use mod_ecfm_refr_interpol,    only: make_1d_spline
 USE nag_spline_1d,             only: nag_spline_1d_interp
 #endif
 integer(ikind)  :: irhop, N_rhop
-real(rkind), dimension(:), allocatable :: rhop, Te_perp_vec, Te_par_vec
+real(rkind), dimension(:), allocatable :: rhop
 Character(200)  :: cur_filename
 Character(1)    :: blanc
   cur_filename =  trim(data_folder) // "Te_perp.dat"
@@ -2555,157 +2429,6 @@ Character(1)    :: blanc
   deallocate(rhop,j)
 end subroutine read_Spitzer_data
 
-subroutine read_wall_Trad()
-use mod_ecfm_refr_types,       only: reflec_equ, data_folder, modes
-use mod_ecfm_refr_interpol,    only: make_1d_spline
-#ifdef NAG
-USE nag_spline_1d,             only: nag_spline_1d_interp
-#endif
-Character(200)  :: cur_filename
-Character(1)    :: blanc
-integer(ikind)              :: i
-  if(modes == 1 .or. modes == 3) then
-    cur_filename = trim(data_folder) // "X_reflec_Trad.dat"
-    open(67, file = trim(cur_filename))
-    read(67,"(I5.5)") reflec_equ%N_f
-    allocate(reflec_equ%f(reflec_equ%N_f), reflec_equ%X_Trad_equ(reflec_equ%N_f))
-    do i = 1, reflec_equ%N_f
-      read(67,"(E19.12E2A1E19.12E2)") reflec_equ%f(i), blanc, reflec_equ% X_Trad_equ(i)
-    end do
-    close(67)
-    call make_1d_spline(reflec_equ%X_Trad_equ_spl, int(reflec_equ%N_f,4), reflec_equ%f, reflec_equ%X_Trad_equ)
-#ifdef NAG
-    call nag_spline_1d_interp(reflec_equ%f, reflec_equ%X_Trad_equ, reflec_equ%X_Trad_equ_spl_nag)
-#endif
-  end if
-  if(modes == 2 .or. modes == 3) then
-    cur_filename = trim(data_folder) // "O_reflec_Trad.dat"
-    open(67, file = trim(cur_filename))
-    read(67,"(I5.5)") reflec_equ%N_f
-    if(.not. allocated(reflec_equ%f)) allocate(reflec_equ%f(reflec_equ%N_f))
-    allocate(reflec_equ%O_Trad_equ(reflec_equ%N_f))
-    do i = 1, reflec_equ%N_f
-      read(67,"(E19.12E2A1E19.12E2)") reflec_equ%f(i), blanc, reflec_equ%O_Trad_equ(i)
-    end do
-    close(67)
-    call make_1d_spline(reflec_equ%O_Trad_equ_spl, int(reflec_equ%N_f,4), reflec_equ%f, reflec_equ%O_Trad_equ)
-#ifdef NAG
-    call nag_spline_1d_interp(reflec_equ%f, reflec_equ%O_Trad_equ, reflec_equ%O_Trad_equ_spl_nag)
-#endif
-  end if
-    reflec_equ%f_min = minval(reflec_equ%f)
-    reflec_equ%f_max = maxval(reflec_equ%f)
-end subroutine read_wall_Trad
-
-
-
-! Decaprecated to avoid unnecessary usage of kk routines
-!subroutine make_Bmin_los()
-!  USE mod_ecfm_refr_types, only: ant, rad, plasma_params,data_folder, N_freq, N_ray, ffp
-!  use aug_db_routines,     only: aug_kkrzBrzt
-!  use constants,                  only: mass_e, e0, pi
-!  use mod_ecfm_refr_interpol,    only: make_1d_spline
-!#ifdef NAG
-!  USE nag_spline_1d,                only: nag_spline_1d_interp
-!#endif
-!  implicit none
-!  integer(ikind)                :: idiag, ich, imode, ifreq, iint,i, i_last
-!  real(kind=4), dimension(2000) :: Rz
-!  real(rkind), dimension(:,:), allocatable :: Rz_64
-!  real(kind=4), dimension(1001,1001) :: work
-!  real(rkind), dimension(:), allocatable   ::Br, Bz, Bt, Blos
-!  real(rkind), dimension(200) :: rhop_B_min, B_min
-!  real(rkind)                   :: R_mag, z_mag, pf_mag, &
-!                                   R_sxp, z_sxp, pf_sxp,c, B0_int, &
-!                                   dB_min
-!  character(4)                  :: exp
-!  character(3)                  :: diag
-!  character(200)                :: filename
-!  integer(kind=4)   :: error, ed,nout, lRz
-!  real(kind=4)      :: tshf, psi
-!  logical   :: debug       ! debugging mode?
-!  integer(kind=4)   :: debugunit   ! unit number of debug file
-!  logical   :: err_stop            ! T/F ..  stop code after error occured
-!  error = 0
-!  ed = plasma_params%eq_ed
-!  exp = plasma_params%eq_exp
-!  diag = plasma_params%eq_diag
-!  debug     = .false. ! debugging mode?
-!  debugunit = 999    ! unit number of debug file
-!  err_stop  = .true.
-!  lRz = 1000
-!  imode = 1
-!  do iint = 1, size(rhop_B_min)
-!  ! This is both unreliable and slightly inacurrate
-!  ! TODO: Find something precise and reliable
-!    rhop_B_min(iint) = real(iint) /  200.d0
-!    psi = 0.05 + (rhop_B_min(iint)**2 *(plasma_params%pf_sxp - plasma_params%pf_mag)) + plasma_params%pf_mag
-!    !print*, "Psi", Psi, pf_mag,pf_sxp
-!    call kkeqpsp(error, exp, diag, int(plasma_params%shot,4), ed, real(plasma_params%time,4), psi,&
-!                lRz, Rz, nout, work,tshf)
-!    if(error /= 0) then
-!      print*, error
-!      stop "failed to get contour"
-!    end if
-!    if(nout > 15) then
-!      allocate(Rz_64(nout,2),Br(nout), Bz(nout), Bt(nout), Blos(nout))
-!      Rz_64(:,1) = Rz(1:nout)
-!      Rz_64(:,2) = Rz(lRz + 1:lRz + nout)
-!      !do i = 1, nout
-!      !  print*,Rz_64(i,1),Rz_64(i,2)
-!      !end do
-!      call aug_kkrzBrzt(error,                & ! out
-!                        debug, debugunit,     & ! in
-!                        plasma_params%shot, exp, diag, & ! in
-!                        ed,                & ! inout
-!                        plasma_params%time,        & ! in
-!                        R        = Rz_64(:,1),   & ! in
-!                        z        = Rz_64(:,2),   & ! in
-!                        Br       = BR(:),        & ! out
-!                        Bz       = Bz(:),        & ! out
-!                        Bt       = Bt(:),        & ! out
-!                        err_stop = err_stop)
-!      B_min(iint) = minval(sqrt(Br**2 + Bz**2 + Bt**2))
-!      if(B_min(iint) == 0.0) then
-!        print*, Blos
-!        stop "point of zero Bfield encountered"
-!      end if
-!      deallocate(Rz_64, Br, Bz, Bt, Blos)
-!    else
-!      print*, "Error when calculating B_min on flux surface with rho = ", rhop_B_min(iint)
-!      print*, "kk routine only provided", nout, "  < 15 points"
-!      print*, "Skipping this flux surface"
-!      B_min(iint) = 0.d0
-!    end if
-!    !flush(6)
-!  end do
-!  if(B_min(size(rhop_B_min, dim=1)) == 0.d0 .or. B_min(size(rhop_B_min, dim=1) - 1) == 0.d0) then
-!    print*, "Could not find B_min for the outer flux surfaces"
-!    print*, "rhop, B_min:"
-!    do iint = 1, size(rhop_B_min)
-!      print*, rhop_B_min(iint), B_min(iint)
-!    end do
-!    print*, "Cannot continue without outermost B_min"
-!    call abort()
-!  end if
-!  do iint = size(rhop_B_min) - 1, 1, -1
-!    if(B_min(iint) > 0.d0) then
-!      dB_min = B_min(iint + 1) - B_min(iint)
-!    else
-!      B_min(iint) = B_min(iint + 1) - dB_min
-!    end if
-!  end do
-!  open(66, file="B_min.txt")
-!  do iint = 1, size(rhop_B_min)
-!    write(66, fmt=*) rhop_B_min(iint), B_min(iint)
-!  end do
-!  close(66)
-!  call make_1d_spline(ffp%B_min_spl, int(size(rhop_B_min),kind=4), rhop_B_min, B_min)
-!#ifdef NAG
-!  call nag_spline_1d_interp(rhop_B_min, B_min, ffp%B_min_nag_spl)
-!#endif
-!end subroutine make_Bmin_los
-
 subroutine ffp_clean_up()
   use mod_ecfm_refr_types, only: ffp
   implicit none
@@ -2726,86 +2449,6 @@ subroutine fgene_clean_up()
   deallocate(fgene%mu)
   deallocate(fgene%rhop)
 end subroutine fgene_clean_up
-
-!*******************************************************************************
-subroutine import_all_ece_data()
-USE mod_ecfm_refr_types, only: ant, rad, data_folder, dstf,  N_ray, N_freq, plasma_params, ffp
-use mod_ecfm_refr_interpol,    only: make_1d_spline
-#ifdef NAG
-  USE nag_spline_1d,                only: nag_spline_1d_interp
-#endif
-!use constants, only: mass_e, e0
-implicit none
-integer(ikind)  :: idiag
-Integer(ikind)  :: ich,ifreq,iint, imode
-real(rkind)     :: dfreq
-Character(200)  :: cur_filename, filename
-character(12)   :: ich_str
-character(1)    :: sep
-idiag = 1
-imode = 1
-filename = trim(data_folder) // "cnt.dat"
-open(67,file=trim(filename))
-!filename = trim(data_folder) // "rhopres.dat"
-!open(74,file=trim(filename))
-!filename = trim(data_folder) // "sres.dat"
-!open(76,file=trim(filename))
-filename = trim(data_folder) // "f_ECE.dat"
-open(79,file=trim(filename))
-filename = trim(data_folder) // "diag.dat"
-open(84,file=trim(filename))
-print*, "Importing data for a total of",  ant%diag(idiag)%N_ch, "ECE channels"
-read(84,"(A3)") ant%diag(idiag)%diag_name
-filename = trim(data_folder) // "parms.dat"
-open(80,file=trim(filename))
-do ich = 1, ant%diag(idiag)%N_ch
-  read(67,"(I5)") rad%diag(idiag)%ch(ich)%mode(imode)%ray(1)%freq(1)%total_LOS_points
-  do ifreq = 1, N_freq
-    if(allocated(rad%diag(idiag)%ch(ich)%mode(imode)%ray(1)%freq(ifreq)%svec)) &
-       deallocate(rad%diag(idiag)%ch(ich)%mode(imode)%ray(1)%freq(ifreq)%svec)
-    allocate(rad%diag(idiag)%ch(ich)%mode(imode)%ray(1)%freq(ifreq)%svec(rad%diag(idiag)%ch(ich)%mode(imode)%ray(1)%freq(1)%total_LOS_points))
-    write(ich_str, "(I3.3)") ich
-    cur_filename = trim(data_folder) // "chdata" // trim(ich_str) // ".dat"
-    open(66, file=cur_filename)
-    do iint = 1, rad%diag(idiag)%ch(ich)%mode(imode)%ray(1)%freq(1)%total_LOS_points
-      read(66,"(9(E18.10E3A1))") rad%diag(idiag)%ch(ich)%mode(imode)%ray(1)%freq(ifreq)%svec(iint)%s,sep,&
-         rad%diag(idiag)%ch(ich)%mode(imode)%ray(1)%freq(ifreq)%svec(iint)%R,sep,&
-         rad%diag(idiag)%ch(ich)%mode(imode)%ray(1)%freq(ifreq)%svec(iint)%z,sep,&
-         rad%diag(idiag)%ch(ich)%mode(imode)%ray(1)%freq(ifreq)%svec(iint)%rhop,sep,&
-         rad%diag(idiag)%ch(ich)%mode(imode)%ray(1)%freq(ifreq)%svec(iint)%ne,sep,&
-         rad%diag(idiag)%ch(ich)%mode(imode)%ray(1)%freq(ifreq)%svec(iint)%Te,sep,&
-         rad%diag(idiag)%ch(ich)%mode(imode)%ray(1)%freq(ifreq)%svec(iint)%theta,sep, &
-         rad%diag(idiag)%ch(ich)%mode(imode)%ray(1)%freq(ifreq)%svec(iint)%v_g_perp, sep, &
-         rad%diag(idiag)%ch(ich)%mode(imode)%ray(1)%freq(ifreq)%svec(iint)%freq_2x,sep!, &
-    end do
-    close(66)
-  end do
-  close(89)
-  !read(74,"(E18.10E3)") rad%diag(idiag)%ch(ich)%rhop_res
-  !read(76,"(E18.10E3)") rad%diag(idiag)%ch(ich)%s_res
-  read(79,"(E18.10E3)") ant%diag(1)%ch(ich)%f_ECE
-  ant%diag(1)%ch(ich)%freq(1) = ant%diag(1)%ch(ich)%f_ECE
-end do
-read(80,"(E18.10E3)") plasma_params%B_ax
-close(67)
-!close(74)
-!close(76)
-close(79)
-close(80)
-close(84)
-if(dstf == "numeric") then
-  filename = trim(data_folder) // "B_min.dat"
-  open(90, file=filename)
-  do iint = 1, size(ffp%rhop_B_min)
-    read(90, fmt="(E18.10E3A1E18.10E3)") ffp%rhop_B_min(iint), sep, ffp%B_min(iint)
-  end do
-  close(90)
-  call make_1d_spline(ffp%B_min_spl, int(size(ffp%rhop_B_min), kind=4), ffp%rhop_B_min, ffp%B_min)
-#ifdef NAG
-  call nag_spline_1d_interp(ffp%rhop_B_min, ffp%B_min, ffp%B_min_nag_spl)
-#endif
-end if
-end subroutine import_all_ece_data
 
 subroutine export_all_ece_data()
 USE mod_ecfm_refr_types, only: ant, rad, data_folder, dstf, N_ray, N_freq, mode_cnt, plasma_params, ffp

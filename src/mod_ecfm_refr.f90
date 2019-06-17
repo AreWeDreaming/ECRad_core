@@ -24,22 +24,18 @@ subroutine initialize_stand_alone(working_dir, flag)
 ! Simulates the structure used in IDA
 ! While in the stand alone make_ece_rad_temp is only called once it is called many times in IDA
 ! Hence, to keep the structure similiar all initizalization is performed here
-use mod_ecfm_refr_types,        only: dstf, dst_data_folder, Ich_name, ray_out_folder, output_level, data_name, modes, &
-                                      dstf_comp, plasma_params, N_ray, N_freq, warm_plasma, data_secondary_name, &
-                                      rad, ant, data_folder, Ich_name, dstf_comp, straight, stand_alone, ffp, N_absz, &
-                                      N_absz_large, reflec_model, new_IO
-use mod_ecfm_refr_utils,      only: read_input_file, prepare_ECE_diag_new_IO, prepare_ECE_diag_old_IO, &
-                                    import_all_ece_data, make_ecfm_LOS_grid, &
-                                    init_non_therm, read_wall_Trad
+use mod_ecfm_refr_types,        only: dstf, dst_data_folder, Ich_name, ray_out_folder, output_level, data_name, &
+                                      dstf_comp, plasma_params, warm_plasma, data_secondary_name, &
+                                      data_folder, Ich_name, dstf_comp, straight, stand_alone, ffp, N_absz, &
+                                      N_absz_large, new_IO
+use mod_ecfm_refr_utils,      only: read_input_file, prepare_ECE_diag_new_IO, prepare_ECE_diag_old_IO, init_non_therm
 use mod_ecfm_refr_raytrace_initialize,    only: init_raytrace
 use mod_ecfm_refr_raytrace,               only: span_svecs
-use mod_ecfm_refr_em_Hu,                  only: radiation_gauss_init,radiation_gauss_clean_up
 use mod_ecfm_refr_abs_Al,         only: abs_Al_init,abs_Al_clean_up
 use constants,                    only: pi
 implicit none
 character(150), intent(in)    :: working_dir
 character(*),  intent(in)      :: flag
-integer(ikind)                :: idiag, ich
   if(.not. stand_alone) stop "This function may only be called in stand alone"
   if(trim(flag) == "init") then
     call read_input_file(working_dir)
@@ -50,10 +46,10 @@ integer(ikind)                :: idiag, ich
     end if
     dstf_comp = "Th"
     if(trim(dstf) == "Th") then
-      dstf = "relamax"
-      dstf_comp = "Hu"
+      dstf = "Th"
+      dstf_comp = "DF"! Second absorption coefficient according to D. Farina's paper
       data_name = "TRadM_therm.dat"
-      data_secondary_name = "TRadM_thrms.dat"
+      data_secondary_name = "TRadM_Farina.dat"
       Ich_name = "IchTh"
     else if(trim(dstf) == "Re") then
       dstf = "numeric"
@@ -81,58 +77,11 @@ integer(ikind)                :: idiag, ich
       data_name = "TRadM_GENE.dat"
       Ich_name = "IchGB"
       data_secondary_name = "TRadM_GComp.dat"
-    else if(trim(dstf) == "Mx") then
-      dstf = "relamax"
-      data_name = "TRadM_therm.dat"
-      dstf_comp = "Mx"
-      data_secondary_name = "TRadM_Maxwl.dat"
-      Ich_name = "IchMx"
-    else if(trim(dstf) == "TB") then
-      dstf = "relamax"
-      dstf_comp = "TB"
-      data_name = "TRadM_therm.dat"
-      data_secondary_name = "TRadM_TBeam.dat"
-      Ich_name = "IchTB"
-    else if(trim(dstf) == "TO") then
-      dstf = "relamax"
-      dstf_comp = "TO"
-      data_name = "TRadM_thrms.dat"
-      data_secondary_name = "TRadM_TBold.dat"
-      Ich_name = "IchTO"
-    else if(trim(dstf) == "Al") then
-      dstf = "relamax"
-      dstf_comp = "Al"
-      data_name = "TRadM_Maxwl.dat"
-      data_secondary_name = "TRadM_oNBes.dat"
-      Ich_name = "IchAl"
-    else if(trim(dstf) == "OM") then
-      dstf = "Hu_nbes"
-      dstf_comp = "Mx"
-      data_name = "TRadM_noBes.dat"
-      data_secondary_name = "TRadM_olMax.dat"
-      Ich_name = "IchOM"
-    else if(trim(dstf) == "OB") then
-      dstf = "Hu_bess"
-      dstf_comp = "NB"
-      data_name = "TRadM_olBes.dat"
-      data_secondary_name = "TRadM_noBes.dat"
-      Ich_name = "IchOB"
-    else if(trim(dstf) == "O1") then
-      dstf = "relamax"
-      dstf_comp = "O1"
-      data_name = "TRadM_therm.dat"
-      data_secondary_name = "TRadM_O1mod.dat"
-      Ich_name = "IchO1"
     else if(trim(dstf) == "SH") then
       dstf = "Spitzer"
       data_name = "TRadM_SpitH.dat"
       Ich_name = "IchSH"
       data_secondary_name = "TRadM_therm.dat"
-    else if(trim(dstf) == "Pd") then
-      dstf = "numeric"
-      dst_data_folder = "fPd"
-      data_name = "TRadM_Pdstl.dat"
-      Ich_name = "IchPd"
       data_secondary_name = "TRadM_therm.dat"
     else if(trim(dstf) == "BJ") then
       dstf = "Bi_MaxJ"
@@ -179,18 +128,15 @@ integer(ikind)                :: idiag, ich
     if(dstf == "numeric" .or. trim(dstf) == "gene" .or. trim(dstf) == "gcomp") then
       call abs_Al_init(N_absz_large) ! Initializes the weights and abszissae for the gaussian quadrature
     else
-      if(dstf_comp == "Hu" .or. dstf_comp == "TO" .or. dstf_comp == "Al" .or. &
-         trim(dstf) == "Hu_nbes" .or. trim(dstf) == "Hu_bess") call radiation_gauss_init(N_absz)
       call abs_Al_init(N_absz) ! Initializes the weights and abszissae for the gaussian quadrature
     end if
     if(output_level) then
       print*, "Integrated ray tracing enabled"
       print*,"Rays are preinitialized"
     end if
-    ray_out_folder = data_folder // "ray/"
+    ray_out_folder = trim(data_folder) // "ray/"
     call init_raytrace(plasma_params)
     call init_non_therm() ! Reads input data for non-thermal distributions
-    if(reflec_model == 2) call read_wall_Trad()
     if(output_level) then
       print*, "----- Options for raytracing ------"
       print*, "Force straight lines of sight: ", straight
@@ -200,7 +146,6 @@ integer(ikind)                :: idiag, ich
     call span_svecs(plasma_params)
   else if(trim(flag) == "clean") then
     !TODO: Implement clean up routine
-    if(dstf_comp == "Hu" .or. dstf_comp == "Al") call radiation_gauss_clean_up()
     call abs_Al_clean_up()
   else
     print*, "Inappropriate flag in initialize in mod_ecfm_ECE_rad"
@@ -227,9 +172,7 @@ use mod_ecfm_refr_types,      only: dstf, dst_data_folder, Ich_name, ray_out_fol
                                       dstf_comp, plasma_params, N_ray, N_freq, ray_init, working_dir, &
                                       rad, ant, data_folder, Ich_name, dstf_comp, straight, stand_alone
 use mod_ecfm_refr_utils,      only: parse_ecfm_settings_from_ida, &
-                                    prepare_ECE_diag_IDA, dealloc_ant, &
-                                    import_all_ece_data, make_ecfm_LOS_grid
-use mod_ecfm_refr_em_Hu,      only: radiation_gauss_init,radiation_gauss_clean_up
+                                    prepare_ECE_diag_IDA, dealloc_ant
 use mod_ecfm_refr_abs_Al,     only: abs_Al_init,abs_Al_clean_up
 use mod_ecfm_refr_raytrace,   only: dealloc_rad
 implicit none
@@ -282,9 +225,7 @@ if(trim(flag) == "init" .or. trim(flag) == "load") then
   ray_out_folder = trim(working_dir) // "ecfm_data/" // "ray/"
   data_folder = trim(working_dir) // "ecfm_data" // "/"
   if(output_level) print*, "ECFM data will arrive in: ", data_folder
-  if((dstf == "Hu" .or. dstf_comp == "TO" .or. dstf_comp == "Al" .or. &
-     dstf_comp == "Th" .or. trim(dstf) == "Hu_nbes" .or. trim(dstf) == "Hu_bess") .and. trim(dstf) /= "gene") call radiation_gauss_init(32)
-  if(dstf_comp /= "TO" .and. dstf /= "Hu" .and. trim(dstf) /= "Hu_nbes" .and. trim(dstf) /= "Hu_bess") call abs_Al_init(32) ! Initializes the weights and abszissae for the gaussian quadrature
+  if(dstf == "Th") call abs_Al_init(32) ! Initializes the weights and abszissae for the gaussian quadrature
   if(trim(flag) == "init") then
     if(.not. present(f)) then
       print*, "pre_initialize_ecfm must be called with ece_strut present if flag == init"
@@ -299,12 +240,7 @@ if(trim(flag) == "init" .or. trim(flag) == "load") then
     ! load the files the routine 4 lines above creates
   end if
 else if(trim(flag) == "clean") then
-  !TODO: Implement clean up routine
-  if(dstf == "Hu") then
-    call radiation_gauss_clean_up()
-  else
-    call abs_Al_clean_up()
-  end if
+  call abs_Al_clean_up()
   call dealloc_rad(rad)
   call dealloc_ant(ant)
   ray_init = .false.
@@ -403,7 +339,6 @@ if(present(rhop_res)) then
     rhop_res = rad%diag(idiag)%ch(:)%rhop_res
   end do
 end if
-!print*, "resonances from raytracing", rhop
 end subroutine make_rays_ecfm
 
 subroutine make_dat_model_ece_ecfm_refr(rhop_knots_ne, n_e, n_e_dx2, rhop_knots_Te, T_e, T_e_dx2, &
@@ -431,7 +366,6 @@ end if
 if(present(set_grid_dynamic)) then
   if(set_grid_dynamic) then
     static_grid = .false.
-!    print*, "Grid is dynamic for this evaluation"
   else
     static_grid = .true.
   end if
@@ -642,8 +576,8 @@ end subroutine update_svecs
 #endif
 
 subroutine make_ece_rad_temp()
-use mod_ecfm_refr_types,        only: dstf, reflec_X, reflec_O, mode_cnt, modes, N_ray, N_freq, plasma_params, use_maximum_for_warm_res, &
-                                      rad, ant, data_folder, output_level, Ich_name, dstf_comp, max_points_svec, mode_conv, reflec_equ, reflec_model, &
+use mod_ecfm_refr_types,        only: dstf, reflec_X, reflec_O, mode_cnt, N_ray, N_freq, plasma_params, &
+                                      rad, ant, output_level, max_points_svec, mode_conv, reflec_model, &
                                       vessel_plasma_ratio, stand_alone
 use mod_ecfm_refr_rad_transp,   only: calculate_Trad
 use constants,                  only: e0, c0, pi
@@ -652,17 +586,8 @@ use mod_ecfm_refr_raytrace,     only: reinterpolate_svec
 use mod_ecfm_refr_interpol,     only: spline_1d
 implicit none
 
-real(rkind)     :: freq_2X, Trad_1O, rhop_final, sTrad, Trad_comp, max_eff_em
-real(rkind)     :: ab, ab_secondary,  Trad, Trad_secondary, pol_coeff_X, pol_coeff_X_secondary, X_refl, X_refl_secondary
-real(rkind), dimension(max_points_svec) :: em, em_secondary, T, T_secondary
-real(rkind)     :: em_freq, ab_freq, em_secondary_freq, ab_secondary_freq, T_freq, T_secondary_freq, Trad_freq, Trad_secondary_freq, diff
-real(rkind)     :: s_freq, R_freq, z_freq, rhop_freq, s, R, z, rhop, Trad_sum, max_BDOP, &
-                   dummy1, dummy2, dummy3, dummy4 ! for relativsitic resonance positions
-real(rkind), dimension(3) :: normal, ray_vec, x_vec
-real(rkind)     :: s_prime, lin_int_res, denominator, rho_cur, max_rho, &
-                   ds_small, ds_large
+real(rkind)     :: ds_small, ds_large
 integer(ikind)  :: idiag, ich, imode, ifreq, ir, error
-real(rkind), dimension(:,:), allocatable :: x_vec_array
 real(rkind), dimension(max_points_svec) :: tau_array, tau_secondary_array
 real(rkind) :: I0_X, I0_O, I_X, I_O, T_X, T_O
 character(120)  :: out_str
@@ -717,43 +642,8 @@ do idiag = 1, ant%N_diag
           ds_small = plasma_params%dist_small
           do while(error > 0)
             ! initialization
-            if(reflec_model /= 2) then
-              rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%Trad =  0.d0
-              if(output_level) rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%Trad_secondary =  0.d0
-            else
-              if(ant%diag(idiag)%ch(ich)%freq(ifreq) < reflec_equ%f_min .or. &
-                 ant%diag(idiag)%ch(ich)%freq(ifreq) > reflec_equ%f_max) then
-                 print*, "Wall plasma equilibrium wall reflection model selected (reflec_model = 1)"
-                 print*, "ECE frequency not in range of f_min < f_ECE < f_max"
-                 print*, "Extent wall_Trad.dat with the appropriate frequencies"
-                 call abort()
-              end if
-              if(rad%diag(idiag)%ch(ich)%mode(imode)%mode == 1) then
-#ifdef NAG
-                call spline_1d(reflec_equ%X_Trad_equ_spl, &
-                               rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%freq, &
-                               rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%Trad, &
-                               nag_spline = reflec_equ%X_Trad_equ_spl_nag)
-#else
-                call spline_1d(reflec_equ%X_Trad_equ_spl, &
-                               ant%diag(idiag)%ch(ich)%freq(ifreq), &
-                               rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%Trad)
-#endif
-              else
-#ifdef NAG
-                call spline_1d(reflec_equ%O_Trad_equ_spl, &
-                               rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%freq, &
-                               rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%Trad, &
-                               nag_spline = reflec_equ%O_Trad_equ_spl_nag)
-#else
-                call spline_1d(reflec_equ%O_Trad_equ_spl, &
-                               ant%diag(idiag)%ch(ich)%freq(ifreq), &
-                               rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%Trad)
-#endif
-              end if
-              if(output_level) rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%Trad_secondary =  &
-                                rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%Trad
-            end if
+            rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%Trad =  0.d0
+            if(output_level) rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%Trad_secondary =  0.d0
             rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%tau =  0.d0
             if(output_level) rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%tau_secondary  =  0.d0
             if(plasma_params%on_the_fly_raytracing) then
@@ -846,6 +736,7 @@ do idiag = 1, ant%N_diag
                                         (1.d0 - reflec_X * exp(-rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%tau_secondary)))
               end if
             else if(reflec_model == 1) then
+           ! Should not be used!
               if(mode_cnt == 2 .and. mode_conv > 0.d0 .and. imode == mode_cnt) then
                 ! In case of mode conversion we can only hande reflections once Trad of both modes is known.
                 ! First just the terms without mode conversion
@@ -891,6 +782,7 @@ do idiag = 1, ant%N_diag
                                       (1.d0 - reflec_X * exp(-rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%tau)))
             end if
           else if(reflec_model == 1) then
+          ! Should not be used
             if(mode_cnt == 2 .and. mode_conv > 0.d0 .and. imode == mode_cnt) then
               ! In case of mode conversion we can only hande reflections once Trad of both modes is known.
               ! First just the terms without mode conversion
@@ -1149,7 +1041,7 @@ do idiag = 1, ant%N_diag
         rad%diag(idiag)%ch(ich)%mode_extra_output(imode)%em_secondary = rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(1)%em_secondary
         rad%diag(idiag)%ch(ich)%mode_extra_output(imode)%T_secondary = rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(1)%T_secondary
         rad%diag(idiag)%ch(ich)%mode_extra_output(imode)%ab_secondary = rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(1)%ab_secondary
-        call make_warm_res_mode(plasma_params, rad%diag(idiag)%ch(ich)%mode(imode), ant%diag(idiag)%ch(ich)%ray_launch(:)%weight, &
+        call make_warm_res_mode(rad%diag(idiag)%ch(ich)%mode(imode), ant%diag(idiag)%ch(ich)%ray_launch(:)%weight, &
                                 ant%diag(idiag)%ch(ich)%f_ECE, .true.)
         if(mode_cnt == 2) then
         ! warm resonances are always unique for each mode
@@ -1221,15 +1113,15 @@ if( stand_alone) call save_data_to_ASCII() !output_level .and.
 end subroutine make_ece_rad_temp
 
 subroutine make_BPD_and_warm_res(idiag, ich) ! to be used within IDA, calculates all birthplace distribution for one diagnostic
-use mod_ecfm_refr_types,        only: dstf, reflec_X, reflec_O, mode_cnt, modes, N_ray, N_freq, plasma_params, use_maximum_for_warm_res, &
-                                      rad, ant, data_folder, output_level, Ich_name, dstf_comp, max_points_svec, mode_conv, pnts_BPD
+use mod_ecfm_refr_types,        only: plasma_params, rad, ant, mode_cnt, N_ray, &
+                                      N_freq, pnts_BPD, max_points_svec
 use mod_ecfm_refr_rad_transp,   only: calculate_Trad, get_em_T_fast
 use constants,                  only: e0, c0, pi
 use mod_ecfm_refr_utils,        only: binary_search, bin_ray_BPD_to_common_rhop, make_warm_res_mode, bin_freq_to_ray
 use mod_ecfm_refr_raytrace,     only: reinterpolate_svec
 implicit none
 integer(ikind), intent(in) :: idiag, ich
-integer(ikind)  :: imode, ifreq, ir, error
+integer(ikind)  :: imode, ifreq, ir
   allocate(rad%diag(idiag)%ch(ich)%mode_extra_output(mode_cnt))
   do imode = 1, mode_cnt
     allocate(rad%diag(idiag)%ch(ich)%mode_extra_output(imode)%rhop_BPD(pnts_BPD))
@@ -1241,8 +1133,7 @@ integer(ikind)  :: imode, ifreq, ir, error
         call get_em_T_fast(rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq), &
                            ant%diag(idiag)%ch(ich)%freq(ifreq), &
                            ant%diag(idiag)%ch(ich)%ray_launch(ir)%x_vec, &
-                           rad%diag(idiag)%ch(ich)%mode(imode)%mode, &
-                           rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%Trad)
+                           rad%diag(idiag)%ch(ich)%mode(imode)%mode)
       end do
       allocate(rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%Trad(max_points_svec), &
                rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%em(max_points_svec), &
@@ -1270,7 +1161,7 @@ integer(ikind)  :: imode, ifreq, ir, error
                                     ant%diag(idiag)%ch(ich)%ray_launch(:)%weight, &
                                     rad%diag(idiag)%ch(ich)%mode_extra_output(imode)%rhop_BPD,  &
                                     rad%diag(idiag)%ch(ich)%mode_extra_output(imode)%BPD)
-    call make_warm_res_mode(plasma_params, rad%diag(idiag)%ch(ich)%mode(imode), ant%diag(idiag)%ch(ich)%ray_launch(:)%weight, &
+    call make_warm_res_mode(rad%diag(idiag)%ch(ich)%mode(imode), ant%diag(idiag)%ch(ich)%ray_launch(:)%weight, &
                             ant%diag(idiag)%ch(ich)%f_ECE, .false.)
     do ir = 1, N_ray
       deallocate(rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%Trad, &
@@ -1301,7 +1192,7 @@ integer(ikind)  :: imode, ifreq, ir, error
 end subroutine make_BPD_and_warm_res
 
 subroutine save_data_to_ASCII()
-use mod_ecfm_refr_types,        only: dstf, mode_cnt, N_ray, N_freq, plasma_params, data_name, output_level, &
+use mod_ecfm_refr_types,        only: mode_cnt, N_ray, N_freq, data_name, output_level, &
                                       rad, ant, data_folder, Ich_name, dstf_comp, ray_out_folder, data_secondary_name, &
                                       output_all_ray_data, new_IO
 use mod_ecfm_refr_utils,        only: export_all_ece_data
@@ -1309,10 +1200,9 @@ use constants,                  only: c0, e0
 implicit none
 Character(200)               :: filename, ich_filename, Och_filename
 character(120)               :: cur_filename
-character(20)                :: ich_str, ray_str
-integer(ikind)               :: idiag, ich, imode, ifreq, ir, i, ia, ia_start, &
-                                ia_end, ip, ic, i_closest, N_ch_prior, ich_tot, N_ray_output
-real(rkind)                  :: BPD, BPD_second
+character(20)                :: ich_str, ray_str, fmt_string
+integer(ikind)               :: idiag, ich, imode, ifreq, ir, i, &
+                                ich_tot, N_ray_output
 ! usually only called if output_level true
 ! for diagnostic purposes can also be called with output_level = false
 ich_tot = 1
@@ -1378,8 +1268,20 @@ if(mode_cnt > 1 .and. output_level) then
   end do !imode
 end if
 if(output_level) then
+  filename = trim(data_folder) // "ray_weights.dat"
+  open(83, file=filename)
+  filename = trim(data_folder) // "freq_weights.dat"
+  open(84, file=filename)
   do idiag = 1, ant%N_diag
     do ich = 1, ant%diag(idiag)%N_ch
+      write(fmt_string, "(I3)") N_ray
+      fmt_string = "(" // trim(fmt_string) // "(E18.10E3))"
+!      print*,fmt_string
+      write(83, fmt_string) ((ant%diag(idiag)%ch(ich)%ray_launch(ir)%weight), ir =1,N_ray)
+      write(fmt_string, "(I3)") N_freq
+      fmt_string = "(" // trim(fmt_string) // "(E18.10E3))"
+      write(84, fmt_string) ((ant%diag(idiag)%ch(ich)%freq_weight(ifreq)), ifreq =1,N_freq)
+!      print*,fmt_string
       do imode = 1, mode_cnt
         if(rad%diag(idiag)%ch(ich)%mode(imode)%mode == 1 .and. output_level) then
           write(ich_str, "(I3.3)") ich_tot
@@ -1389,7 +1291,7 @@ if(output_level) then
           open(67, file=trim(ich_filename))
           ich_filename = trim(data_folder) // Ich_name // "/BPDX" //  trim(ich_str) // ".dat"
           open(70, file=trim(ich_filename))
-          if(dstf_comp == "TB".or. dstf_comp == "TO") then
+          if(dstf_comp == "DF") then
             cur_filename = trim(data_folder) // Ich_name // "/Nch" // trim(ich_str) // "_X.dat"
             open(75, file=cur_filename)
           end if
@@ -1401,7 +1303,7 @@ if(output_level) then
           open(67, file=trim(Och_filename))
           Och_filename = trim(data_folder) // Ich_name // "/BPDO" //  trim(ich_str) // ".dat"
           open(70, file=trim(Och_filename))
-          if(dstf_comp == "TB".or. dstf_comp == "TO") then
+          if(dstf_comp == "DF") then
             cur_filename = trim(data_folder) // Ich_name // "/Nch" // trim(ich_str) // "_O.dat"
             open(75, file=cur_filename)
           end if
@@ -1527,6 +1429,8 @@ if(output_level) then
       end do ! imode
       ich_tot = ich_tot + 1
     end do ! ich
+    close(83)
+    close(84)
   end do ! idiag
 end if
 call export_all_ECE_data()

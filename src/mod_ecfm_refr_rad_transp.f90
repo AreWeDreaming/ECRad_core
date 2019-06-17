@@ -13,191 +13,16 @@ module mod_ecfm_refr_rad_transp
 
   public :: calculate_Trad
 
-  private :: benchmark_abs_and_N, evaluate_em_ab_single
+  private :: evaluate_em_ab_single
 
 
 contains
 
-
-subroutine benchmark_abs_and_N()
-! produces profiles of both the absorption coefficient and the refractive index
-use mod_ecfm_refr_types,         only: rad_diag_ch_mode_ray_freq_svec_type, straight
-use f90_kind
-use mod_ecfm_refr_abs_Al,             only: abs_Albajar, abs_Al_tor_abs, func_N_cold, func_rel_N, get_upper_limit_tau
-use mod_ecfm_refr_em_Hu,                    only: calculate_em
-use constants,                    only: pi, e0, mass_e, eps0, c0
-#ifdef OMP
-use omp_lib
-#endif
-implicit none
-type(rad_diag_ch_mode_ray_freq_svec_type) :: svec
-real(rkind)                               :: omega
-integer(ikind)                            :: mode
-real(rkind)                               :: c_abs_Alb, c_abs_warm_disp, c_abs_Hutch
-real(rkind)                               :: N_cold, N_cor, N_gray
-real(rkind), dimension(600)               :: Te_prof, ne_prof, freq_2X_prof
-integer(ikind)                            :: i, m
-real(rkind)                               :: ds, dummy_1, dummy_2, abs_crude_approx!, X, Y,
-logical                                   :: warm_plasma
-!Te_prof(1) = 200.d0
-!Te_prof(200) = 25.d3
-!do i  = 2, 199
-!  Te_prof(i) = Te_prof(1) + (Te_prof(200) - Te_prof(1)) / 200.d0 * i
-!end do
-!ne_prof(1) = 0.5d19
-!ne_prof(200) = 2.d20
-!do i  = 2, 199
-!  ne_prof(i) = ne_prof(1) + (ne_prof(200) - ne_prof(1)) / 200.d0 * i
-!end do
-straight = .true.
-m = size(freq_2X_prof)
-freq_2X_prof(1) = 65.d9
-freq_2X_prof(m) = 220.d9
-do i  = 2, m -2
-  freq_2X_prof(i) = freq_2X_prof(1) + (freq_2X_prof(m) - freq_2X_prof(1)) / real(m,8) * i
-end do
-mode = 1
-svec%theta = 85.d0/180.d0 * Pi
-svec%cos_theta = cos(svec%theta)
-svec%sin_theta = sin(svec%theta)
-!svec%ne = 1.d19
-svec%Te = 8.e3
-omega = 140.d9 * 2.d0 * Pi
-!X =  svec%ne * e0**2 / (eps0 * mass_e) / omega**2
-!Y = freq_2X_prof(1) * Pi / omega
-warm_plasma = .true.
-ds = 1.d0
-svec%v_g_perp = svec%sin_theta
-!print*, "X, Y", X, Y
-svec%ne = 10.d19
-open(81, file = "v_high_ne_abs_prof.dat")
-do i = 1, m
-  svec%freq_2X = freq_2X_prof(i)
-  !omega = (100.d9 + 50.d9 / 200.d0 * i) * 2.d0 * pi
-  !Y = svec%freq_2X * Pi / omega
-  N_cor = func_rel_N(omega, svec, mode)
-  svec%N_cold = N_cor
-  N_cold = func_N_cold(omega, svec, mode)
-  N_gray = N_cor
-  call abs_Albajar(svec, omega, mode, ds, c_abs_Alb, dummy_1)
-  call calculate_em(svec, omega, dummy_1, dummy_2, c_abs_Hutch)
-  c_abs_warm_disp = abs_Al_tor_abs(svec, omega, mode, N_gray)
-  abs_crude_approx =  get_upper_limit_tau(svec, omega, 1.d0, 0.5d0)
-  write(81,"(7(E18.10E3,A1),E18.10E3)") &
-          omega / (svec%freq_2X * Pi), " ", c_abs_Alb, " ", c_abs_Hutch, " ",&
-          c_abs_warm_disp, " ", abs_crude_approx, " ", N_cold, " ", N_cor, " ", N_gray
-end do
-close(81)
-svec%ne = 8.d19
-open(81, file = "high_ne_abs_prof.dat")
-do i = 1, m
-  svec%freq_2X = freq_2X_prof(i)
-  !omega = (100.d9 + 50.d9 / 200.d0 * i) * 2.d0 * pi
-  !Y = svec%freq_2X * Pi / omega
-  N_cor = func_rel_N(omega, svec, mode)
-  svec%N_cold = N_cor
-  N_cold = func_N_cold(omega, svec, mode)
-  N_gray = N_cold
-  call abs_Albajar(svec, omega, mode, ds, c_abs_Alb, dummy_1)
-  call calculate_em(svec, omega, dummy_1, dummy_2, c_abs_Hutch)
-  c_abs_warm_disp = abs_Al_tor_abs(svec, omega, mode, N_gray)
-  abs_crude_approx =  get_upper_limit_tau(svec, omega, 1.d0, 0.5d0)
-  write(81,"(7(E18.10E3,A1),E18.10E3)") &
-          omega / (svec%freq_2X * Pi), " ", c_abs_Alb, " ", c_abs_Hutch, " ",&
-          c_abs_warm_disp, " ", abs_crude_approx, " ", N_cold, " ", N_cor, " ", N_gray
-end do
-close(81)
-open(81,  file = "low_ne_abs_prof.dat")
-svec%ne = 6.d19
-do i = 1, m
-  !omega = (100.d9 + 50.d9 / 200.d0 * i) * 2.d0 * pi
-  svec%freq_2X = freq_2X_prof(i)
-  !X =  svec%ne * e0**2 / (eps0 * mass_e) / omega**2
-  !Y = svec%freq_2X * Pi / omega
-  N_cor = func_rel_N(omega, svec, mode)
-  svec%N_cold = N_cor
-  N_cold = func_N_cold(omega, svec, mode)
-  N_gray = N_cold
-  !print*, "X, Y", X, Y
-  call abs_Albajar(svec, omega, mode, ds, c_abs_Alb, dummy_1)
-  call calculate_em(svec, omega, dummy_1, dummy_2, c_abs_Hutch)
-  c_abs_warm_disp = abs_Al_tor_abs(svec, omega, mode, N_gray)
-  abs_crude_approx =  get_upper_limit_tau(svec, omega, 1.d0, 0.5d0)
-  write(81,"(7(E18.10E3,A1),E18.10E3)") &
-          omega / (svec%freq_2X * Pi), " ", c_abs_Alb, " ", c_abs_Hutch, " ",&
-          c_abs_warm_disp, " ", abs_crude_approx, " ", N_cold, " ", N_cor, " ", N_gray
-end do
-close(81)
-omega = 110.d9 * 2.d0 * Pi
-svec%ne = 6.d19
-open(81, file = "v_high_ne_abs_prof_low_f.dat")
-do i = 1, m
-  svec%freq_2X = freq_2X_prof(i)
-  !omega = (100.d9 + 50.d9 / 200.d0 * i) * 2.d0 * pi
-  !Y = svec%freq_2X * Pi / omega
-  N_cor = func_rel_N(omega, svec, mode)
-  svec%N_cold = N_cor
-  N_cold = func_N_cold(omega, svec, mode)
-  N_gray = N_cor
-  call abs_Albajar(svec, omega, mode, ds, c_abs_Alb, dummy_1)
-  call calculate_em(svec, omega, dummy_1, dummy_2, c_abs_Hutch)
-  c_abs_warm_disp = abs_Al_tor_abs(svec, omega, mode, N_gray)
-  abs_crude_approx =  get_upper_limit_tau(svec, omega, 1.d0, 0.5d0)
-  write(81,"(7(E18.10E3,A1),E18.10E3)") &
-          omega / (svec%freq_2X * Pi), " ", c_abs_Alb, " ", c_abs_Hutch, " ",&
-          c_abs_warm_disp, " ", abs_crude_approx, " ", N_cold, " ", N_cor, " ", N_gray
-end do
-close(81)
-svec%ne = 4.d19
-open(81, file = "high_ne_abs_prof_low_f.dat")
-do i = 1, m
-  svec%freq_2X = freq_2X_prof(i)
-  !omega = (100.d9 + 50.d9 / 200.d0 * i) * 2.d0 * pi
-  !Y = svec%freq_2X * Pi / omega
-  N_cor = func_rel_N(omega, svec, mode)
-  svec%N_cold = N_cor
-  N_cold = func_N_cold(omega, svec, mode)
-  N_gray = N_cor
-  call abs_Albajar(svec, omega, mode, ds, c_abs_Alb, dummy_1)
-  call calculate_em(svec, omega, dummy_1, dummy_2, c_abs_Hutch)
-  c_abs_warm_disp = abs_Al_tor_abs(svec, omega, mode, N_gray)
-  abs_crude_approx =  get_upper_limit_tau(svec, omega, 1.d0, 0.5d0)
-  write(81,"(7(E18.10E3,A1),E18.10E3)") &
-          omega / (svec%freq_2X * Pi), " ", c_abs_Alb, " ", c_abs_Hutch, " ",&
-          c_abs_warm_disp, " ", abs_crude_approx, " ", N_cold, " ", N_cor, " ", N_gray
-end do
-close(81)
-open(81,  file = "low_ne_abs_prof_low_f.dat")
-svec%ne = 2.d19
-do i = 1, m
-  !omega = (100.d9 + 50.d9 / 200.d0 * i) * 2.d0 * pi
-  svec%freq_2X = freq_2X_prof(i)
-  !X =  svec%ne * e0**2 / (eps0 * mass_e) / omega**2
-  !Y = svec%freq_2X * Pi / omega
-  N_cor = func_rel_N(omega, svec, mode)
-  svec%N_cold = N_cor
-  N_cold = func_N_cold(omega, svec, mode)
-  N_gray = N_cold
-  !print*, "X, Y", X, Y
-  call abs_Albajar(svec, omega, mode, ds, c_abs_Alb, dummy_1)
-  call calculate_em(svec, omega, dummy_1, dummy_2, c_abs_Hutch)
-  c_abs_warm_disp = abs_Al_tor_abs(svec, omega, mode, N_gray)
-  abs_crude_approx =  get_upper_limit_tau(svec, omega, 1.d0, 0.5d0)
-  write(81,"(7(E18.10E3,A1),E18.10E3)") &
-          omega / (svec%freq_2X * Pi), " ", c_abs_Alb, " ", c_abs_Hutch, " ",&
-          c_abs_warm_disp," ", abs_crude_approx, " ", N_cold, " ", N_cor, " ", N_gray
-end do
-close(81)
-end subroutine benchmark_abs_and_N
-
-
-
-subroutine evaluate_em_ab_single(rad_freq, j, omega, mode, ds2, eval_pol_coeff, x_launch, em, ab, em_secondary, ab_secondary, pol_coeff, pol_coeff_secondary)
+subroutine evaluate_em_ab_single(rad_freq, j, omega, mode, ds2, eval_pol_coeff, x_launch, &
+                                 em, ab, em_secondary, ab_secondary, pol_coeff, pol_coeff_secondary)
 ! Wrapper function for em, ab, .... since a lot of if clauses regarding dstf and dstf_comp are required this subroutine cleans up the code below.
 use mod_ecfm_refr_types,        only: rad_diag_ch_mode_ray_freq_type, &
-                                      output_level, data_folder, Ich_name, &
-                                      dstf, dstf_comp, ffp, SOL_Te, SOL_ne, ne_max
-use mod_ecfm_refr_em_Hu,        only: calculate_em, simple_in_cutoff
+                                      output_level, dstf, SOL_Te, SOL_ne, ne_max
 use constants,                  only: pi, e0, mass_e, eps0, c0
 use mod_ecfm_refr_abs_Al,           only: abs_Albajar, abs_Albajar_fast, abs_Al_tor_abs, func_N_cold, func_rel_N
 implicit none
@@ -210,7 +35,6 @@ real(rkind), dimension(:), intent(in)     :: x_launch
 real(rkind),                intent(out)   :: em, ab
 real(rkind),                intent(out)   :: em_secondary, ab_secondary
 real(rkind),                intent(out)   :: pol_coeff,  pol_coeff_secondary
-real(rkind)                               :: dummy
 !call benchmark_abs_and_N()
 !stop "benchmarking"
 em = 0.d0
@@ -218,130 +42,57 @@ ab = 0.d0
 em_secondary = 0.d0
 ab_secondary = 0.d0
 if((rad_freq%svec(j)%Te > SOL_Te .and. rad_freq%svec(j)%ne > SOL_ne .and. rad_freq%svec(j)%ne < ne_max) .or. eval_pol_coeff) then
-   ! Negative values are possible in the chi^2 calcuation since we use the nag spline in that instance, which may lead to ringing
+   ! Negative values are possible in the chi^2 calcuation of IDA since we use the nag spline in that instance, which may lead to ringing
   rad_freq%svec(j)%N_cold = func_N_cold(omega, rad_freq%svec(j), mode)! note the convention for mode
-  if(output_level .or. (dstf /= "relamax" .and. dstf /= "Hu") .or. eval_pol_coeff) then
+  if(output_level .or. eval_pol_coeff .or. trim(dstf) /= "Th") then
     if(output_level) rad_freq%svec_extra_output(j)%N_cor = func_rel_N(omega, rad_freq%svec(j), mode)
-    if(dstf_comp /= "TO" .and. trim(dstf) /= "Hu_nbes" .and. trim(dstf) /= "Hu_bess" .and. trim(dstf) /= "Hu") then
-      if(eval_pol_coeff) then
-        ! Take last point within the separatrix
-        if(trim(dstf_comp) == "Mx" .or. trim(dstf_comp) == "Al") then
-          call abs_Albajar(rad_freq%svec(j), omega, mode, ds2, ab, em, &
-                           pol_coeff = pol_coeff, c_abs_secondary = ab_secondary, x_launch = x_launch)!
-          if(trim(dstf_comp) == "Al") then
-            ab = ab_secondary
-            em = ab * (omega / ( 2.d0 * pi))**2 * e0 * &
-            rad_freq%svec(j)%Te / c0**2
-          end if
-          pol_coeff_secondary = pol_coeff
-        else if(trim(dstf) == "gene" .or. trim(dstf) == "gcomp") then
-          call abs_Albajar(rad_freq%svec(j), omega, mode, ds2, ab, em, &
-                           pol_coeff = pol_coeff, c_abs_secondary = ab_secondary, &
-                           j_secondary = em_secondary, x_launch = x_launch)!
-          pol_coeff_secondary = pol_coeff
-        else if(trim(dstf_comp) == "Th") then
-          call abs_Albajar(rad_freq%svec(j), omega, mode, ds2, ab, em, &
-                           pol_coeff = pol_coeff, c_abs_secondary = ab_secondary, x_launch = x_launch)!
-          pol_coeff_secondary = pol_coeff
-        else
-          call abs_Albajar(rad_freq%svec(j), omega, mode, ds2, ab, em, &
-                           pol_coeff = pol_coeff, x_launch = x_launch)!
-        end if
-      else
-        if(trim(dstf_comp) == "Mx" .or. trim(dstf_comp) == "Al") then
-          call abs_Albajar(rad_freq%svec(j), omega, mode, ds2, ab, em, &
-                           c_abs_secondary = ab_secondary)!
-          if(trim(dstf_comp) == "Al") then
-            ab = ab_secondary
-            em = ab * (omega / ( 2.d0 * pi))**2 * e0 * &
-            rad_freq%svec(j)%Te / c0**2
-          end if
-        else if(trim(dstf) == "gene" .or. trim(dstf) == "gcomp") then
-          call abs_Albajar(rad_freq%svec(j), omega, mode, ds2, ab, em, &
-                           c_abs_secondary = ab_secondary, &
-                           j_secondary = em_secondary)!
-        else if(trim(dstf_comp) == "Th") then
-          call abs_Albajar(rad_freq%svec(j), omega, mode, ds2, ab, em, &
-                           c_abs_secondary = ab_secondary)
-        else
-          call abs_Albajar(rad_freq%svec(j), omega, mode, ds2, ab, em)!
-        end if
-        !call abs_Albajar_fast(rad_freq%svec(j), omega, mode, ds2, ab)
-        !em = ab * rad_freq%svec(j)%Ibb
+    if(eval_pol_coeff) then
+      if(trim(dstf) == "Th") then
+        call abs_Albajar(rad_freq%svec(j), omega, mode, ds2, ab, em, &
+                         pol_coeff = pol_coeff, x_launch = x_launch)!
+      else  !non-thermal
+        call abs_Albajar(rad_freq%svec(j), omega, mode, ds2, ab, em, &
+                         pol_coeff = pol_coeff, c_abs_secondary = ab_secondary, &
+                         j_secondary = em_secondary, x_launch = x_launch)!
+        pol_coeff_secondary = pol_coeff
       end if
-      if(dstf_comp == "maxwell") em_secondary = ab_secondary * (omega / ( 2.d0 * pi))**2 * e0 * &
-            rad_freq%svec(j)%Te / c0**2
     else
-      if(mode /= -1) then
-        call calculate_em(rad_freq%svec(j), omega, em, em_secondary, ab)                        ! out    [W m^-3 sr^-1 Hz^-1]
-        if(eval_pol_coeff) pol_coeff = 1.d0
-      else
-        if(eval_pol_coeff) pol_coeff = 0.d0
+      if(trim(dstf) == "Th") then
+        call abs_Albajar(rad_freq%svec(j), omega, mode, ds2, ab, em)!
+      else !non-thermal
+        call abs_Albajar(rad_freq%svec(j), omega, mode, ds2, ab, em, &
+                         c_abs_secondary = ab_secondary, &
+                         j_secondary = em_secondary)!
       end if
     end if
   else
-    if(dstf == "relamax") then
-      call abs_Albajar_fast(rad_freq%svec(j), omega, mode, ds2, ab)
-      em = ab * (omega / ( 2.d0 * pi))**2 * e0 * &
-            rad_freq%svec(j)%Te / c0**2
-    else if(dstf == "Hu") then
-      call calculate_em(rad_freq%svec(j), omega, em, em_secondary, ab)                          ! out    [W m^-3 sr^-1 Hz^-1]
-      ab =  em / ((omega / ( 2.d0 * pi))**2 * e0 * &
-            rad_freq%svec(j)%Te / c0**2)
-    else
-      print*, "dstf flag not set correctly - allowed is relamax or Hu"
-      print*, "dstf flag is", dstf
-      stop "mod_ecfm_rad_int calculate_Trad"
-    end if
+    call abs_Albajar_fast(rad_freq%svec(j), omega, mode, ds2, ab)
+    em = ab * (omega / ( 2.d0 * pi))**2 * e0 * &
+          rad_freq%svec(j)%Te / c0**2
   end if
-  if(output_level) then
-    if (dstf_comp == "Al") then
-      if(mode /= -1) then
-          call calculate_em(rad_freq%svec(j), omega, dummy, em_secondary, ab_secondary)                      ! out    [W m^-3 sr^-1 Hz^-1]
-          ab_secondary = em_secondary / ((omega / ( 2.d0 * pi))**2 * e0 * &
-            rad_freq%svec(j)%Te / c0**2)
-        if(eval_pol_coeff) pol_coeff_secondary = 1.d0
-      else
-        if(eval_pol_coeff) pol_coeff_secondary = 0.d0
-      end if
-    else if((dstf_comp == "TB" .or. dstf_comp == "TO")) then
-      if(rad_freq%svec_extra_output(j)%N_warm <= 0 .or. &
-        rad_freq%svec_extra_output(j)%N_warm /= rad_freq%svec_extra_output(j)%N_warm) then
-        rad_freq%svec_extra_output(j)%N_warm = rad_freq%svec(j)%N_cold ! do not reuse last, but start with cold
-      end if
-      if(eval_pol_coeff) then
-        ! last point within the separatrix
-        ab_secondary = abs_Al_tor_abs(rad_freq%svec(j), omega, mode, rad_freq%svec_extra_output(j)%N_warm, &
-                    pol_coeff_secondary = pol_coeff_secondary, x_launch = x_launch)
-      else
-        ab_secondary = abs_Al_tor_abs(rad_freq%svec(j), omega, mode, rad_freq%svec_extra_output(j)%N_warm)
-      end if
-      em_secondary = ab_secondary * (omega / ( 2.d0 * pi))**2 * e0 * &
-            rad_freq%svec(j)%Te / c0**2
-    else if( dstf_comp == "O1") then
-      rad_freq%svec_extra_output(j)%N_warm = rad_freq%svec(j)%N_cold
-      ab_secondary = abs_Al_tor_abs(rad_freq%svec(j), omega, mode, rad_freq%svec_extra_output(j)%N_warm)
-      em_secondary = ab_secondary * (omega / ( 2.d0 * pi))**2 * e0 * &
-            rad_freq%svec(j)%Te / c0**2
-    else if(trim(dstf) == "Hu_nbes" .or. trim(dstf) == "Hu_bess") then
-      ab_secondary = em_secondary / ((omega / ( 2.d0 * pi))**2 * e0 * &
-            rad_freq%svec(j)%Te / c0**2)
-      if(mode /= -1) then
-        if(eval_pol_coeff) pol_coeff_secondary = 1.d0
-      else
-        if(eval_pol_coeff) pol_coeff_secondary = 0.d0
-      end if
-    else if(trim(dstf) /= "gene" .and. trim(dstf) /="gcomp" .and. (dstf_comp == "Th" .or. dstf_comp == "Mx" )) then
-      em_secondary = ab_secondary * (omega / ( 2.d0 * pi))**2 * e0 * &
-                    rad_freq%svec(j)%Te / c0**2
+  if(output_level .and. dstf == "Th") then
+    if(rad_freq%svec_extra_output(j)%N_warm <= 0 .or. &
+      rad_freq%svec_extra_output(j)%N_warm /= rad_freq%svec_extra_output(j)%N_warm) then
+      rad_freq%svec_extra_output(j)%N_warm = rad_freq%svec(j)%N_cold ! do not reuse last, but start with cold
     end if
-    rad_freq%svec_extra_output(j)%em = em
-    rad_freq%svec_extra_output(j)%em_secondary = em_secondary
-    rad_freq%svec_extra_output(j)%ab = ab
-    rad_freq%svec_extra_output(j)%ab_secondary = ab_secondary
+    if(eval_pol_coeff) then
+      ! last point within the separatrix
+      ab_secondary = abs_Al_tor_abs(rad_freq%svec(j), omega, mode, rad_freq%svec_extra_output(j)%N_warm, &
+                  pol_coeff_secondary = pol_coeff_secondary, x_launch = x_launch)
+    else
+      ab_secondary = abs_Al_tor_abs(rad_freq%svec(j), omega, mode, rad_freq%svec_extra_output(j)%N_warm)
+    end if
+    em_secondary = ab_secondary * (omega / ( 2.d0 * pi))**2 * e0 * &
+          rad_freq%svec(j)%Te / c0**2
   end if
 else
   return
+end if
+if(output_level) then
+  rad_freq%svec_extra_output(j)%em = em
+  rad_freq%svec_extra_output(j)%em_secondary = em_secondary
+  rad_freq%svec_extra_output(j)%ab = ab
+  rad_freq%svec_extra_output(j)%ab_secondary = ab_secondary
 end if
 end subroutine evaluate_em_ab_single
 
@@ -357,8 +108,8 @@ subroutine calculate_Trad(rad_ray_freq, freq, x_vec_launch, mode, Trad, Trad_sec
 ! Tau is calculated with the rapezoid method. It is desireable to replace this method by a more sophisticated technique.
 
 
-use mod_ecfm_refr_types,        only: rad_diag_ch_mode_ray_freq_type, output_level, data_folder, Ich_name, straight, &
-                                      dstf, dstf_comp, ffp, mode_cnt, tau_thick, SOL_Te, &
+use mod_ecfm_refr_types,        only: rad_diag_ch_mode_ray_freq_type, output_level, &
+                                      dstf, ffp, mode_cnt, tau_thick, SOL_Te, &
                                       static_grid, plasma_vac_boundary, spl_type_1d
 use constants,                  only: pi, e0, mass_e, eps0, c0
 use mod_ecfm_refr_abs_Al,       only: func_N_cold, func_rel_N
@@ -376,13 +127,10 @@ real(rkind), dimension(rad_ray_freq%total_LOS_points) :: s_cons ! s stored conse
 type(spl_type_1d)                         :: tau_spline
 logical,    intent(in), optional          :: debug
 real(rkind)    :: ds, ds2
-character(120)               :: cur_filename
-character(20)                :: ich_str
 real(rkind), dimension(3) :: em, ab, em_secondary, ab_secondary
-real(rkind)    :: k1, k2, k3, k4, em_diff, dummy, N_cor, smallest_rhop_on_LOS, &
-                  ab_diff,trans_coeff,trans_coeff_secondary,  omega, N_est, delta, Trad_0
-integer(ikind) :: i, j, k, ich_tot, last_index_inside, i_smallest_rhop_on_LOS
-logical        :: first, eval_pol_coeff, debug_internal
+real(rkind)    :: k1, k2, k3, k4, smallest_rhop_on_LOS, omega, delta, Trad_0
+integer(ikind) :: i, j, k, last_index_inside, i_smallest_rhop_on_LOS
+logical        :: first, debug_internal
 !call benchmark_abs_and_N()
 !stop "benchmark"
 error = 0
@@ -675,11 +423,8 @@ end if
 end subroutine calculate_Trad
 
 
-subroutine get_em_T_fast(rad_ray_freq, freq, x_vec_launch, mode, Trad)
-! Routine still work in progress - DO NOT USE!
-use mod_ecfm_refr_types,        only: rad_diag_ch_mode_ray_freq_type, output_level, data_folder, Ich_name, straight, &
-                                      dstf, dstf_comp, ffp, mode_cnt, tau_thick, SOL_Te, &
-                                      static_grid, plasma_vac_boundary, spl_type_1d
+subroutine get_em_T_fast(rad_ray_freq, freq, x_vec_launch, mode)
+use mod_ecfm_refr_types,        only: rad_diag_ch_mode_ray_freq_type, spl_type_1d
 use constants,                  only: pi, e0, mass_e, eps0, c0
 use mod_ecfm_refr_abs_Al,       only: func_N_cold, func_rel_N
 use mod_ecfm_refr_interpol,     only: make_1d_spline, spline_1d_integrate, deallocate_1d_spline
@@ -688,11 +433,8 @@ type(rad_diag_ch_mode_ray_freq_type), intent(inout) :: rad_ray_freq
 real(rkind),                intent(in)    :: freq
 real(rkind), dimension(3),  intent(in)    :: x_vec_launch
 integer(ikind),             intent(in)    :: mode
-real(rkind),                intent(in)    :: Trad
 type(spl_type_1d)                         :: ab_spline
 real(rkind), dimension(rad_ray_freq%total_LOS_points) :: s, ab
-character(120)               :: cur_filename
-character(20)                :: ich_str
 real(rkind)    :: ab_dummy, em_dummy, omega, ds2
 integer(ikind) :: i
 

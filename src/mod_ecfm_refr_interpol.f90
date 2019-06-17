@@ -200,7 +200,11 @@ module mod_ecfm_refr_interpol
   ! Spline evaluation routine for B and Te/ne in 2D mode
   ! WARNING: This routine does not check bounds - out of bounds interpolations are prone to very large errors
     use f90_kind
-    USE mod_ecfm_refr_types , only : plasma_params_type, spl_type_2d, double_check_splines, output_level
+#ifdef NAG
+    USE mod_ecfm_refr_types , only : plasma_params_type, spl_type_2d, double_check_splines
+#else
+    USE mod_ecfm_refr_types , only : plasma_params_type, spl_type_2d
+#endif
 #ifdef NAG
     USE nag_spline_2d             , only: nag_spline_2d_eval, &
                                           nag_spline_2d_comm_wp => nag_spline_2d_comm_dp
@@ -215,9 +219,8 @@ module mod_ecfm_refr_interpol
 #ifdef NAG
     type(nag_spline_2d_comm_wp),    intent(in), optional :: nag_spline
     type(nag_error)                        :: error
-#endif
-    integer(ikind)                          :: i
     real(rkind)                             :: h_x, nag_val
+#endif
     integer*4                               :: nux, nuy, kx, ky, m, ier
     real*8, dimension(spl%lwrk_in_spl)      :: real_work
     integer*4, dimension(spl%kwrk_in_spl)   :: integer_work
@@ -316,11 +319,13 @@ module mod_ecfm_refr_interpol
 #endif
   ! Spline evaluation routine
     use f90_kind
-    USE mod_ecfm_refr_types , only : plasma_params_type, spl_type_2d, double_check_splines, output_level
 #ifdef NAG
     USE nag_spline_2d             , only: nag_spline_2d_eval, &
                                           nag_spline_2d_comm_wp => nag_spline_2d_comm_dp
     USE nag_error_handling
+    USE mod_ecfm_refr_types , only : plasma_params_type, spl_type_2d, double_check_splines, output_level
+#else
+    USE mod_ecfm_refr_types , only : plasma_params_type, spl_type_2d
 #endif
     implicit none
     type(spl_type_2d), intent(in)                 :: spl
@@ -331,12 +336,12 @@ module mod_ecfm_refr_interpol
     type(nag_spline_2d_comm_wp),    intent(in), optional :: nag_spline
     type(nag_error)                        :: error
 #endif
-    integer(ikind)                          :: i
-    real(rkind)                             :: h_x
     integer*4                               :: nux, nuy, kx, ky, m, ier
     real*8, dimension(spl%lwrk_in_spl)      :: real_work
     integer*4, dimension(spl%kwrk_in_spl)   :: integer_work
+#ifdef NAG
     real(rkind), dimension(size(f))          :: nag_vals
+#endif
     m = size(x_vec)
     kx = 3
     ky = 3
@@ -461,7 +466,11 @@ module mod_ecfm_refr_interpol
   ! Spline evaluation routine for B and Te/ne in 2D mode
   ! WARNING: This routine does not check bounds - out of bounds interpolations are prone to very large errors
     use f90_kind
-    USE mod_ecfm_refr_types , only  : spl_type_1d, double_check_splines, output_level
+#ifdef NAG
+    USE mod_ecfm_refr_types , only : spl_type_1d, double_check_splines
+#else
+    USE mod_ecfm_refr_types , only : spl_type_1d
+#endif
 #ifdef NAG
     USE nag_spline_1d        , only : nag_spline_1d_eval, &
                                       nag_spline_1d_comm_wp => nag_spline_1d_comm_dp
@@ -476,11 +485,10 @@ module mod_ecfm_refr_interpol
 #ifdef NAG
     type(nag_spline_1d_comm_wp),    intent(in), optional :: nag_spline
     type(nag_error)                        :: error
+    real(rkind)                             :: nag_val
 #endif
-    integer(ikind)                          :: i
     real*8, dimension(spl%n)                :: real_work
-    real(rkind)                             :: h_x, nag_val
-    integer*4                               :: nx, m, e, ier
+    integer*4                               :: nx, m, ier
     real*8, dimension(1)                    :: x_ar, val_ar
     x_ar(1) = x
     m = 1
@@ -540,11 +548,13 @@ module mod_ecfm_refr_interpol
   ! Spline evaluation routine for B and Te/ne in 2D mode
   ! WARNING: This routine does not check bounds - out of bounds interpolations are prone to very large errors
     use f90_kind
-    USE mod_ecfm_refr_types , only  : plasma_params_type, spl_type_1d, double_check_splines, output_level
 #ifdef NAG
     USE nag_spline_1d        , only : nag_spline_1d_eval, &
                                       nag_spline_1d_comm_wp => nag_spline_1d_comm_dp
     USE nag_error_handling
+    USE mod_ecfm_refr_types , only  : plasma_params_type, spl_type_1d, double_check_splines
+#else
+    USE mod_ecfm_refr_types , only  : plasma_params_type, spl_type_1d
 #endif
     use ifcore,                     only: tracebackqq
     implicit none
@@ -555,12 +565,11 @@ module mod_ecfm_refr_interpol
 #ifdef NAG
     type(nag_spline_1d_comm_wp),    intent(in), optional :: nag_spline
     type(nag_error)                        :: error
+    real(rkind), dimension(size(x))         :: nag_val
 #endif
     real*8, dimension(spl%n)                :: real_work
-    integer(ikind)                          :: i
-    real(rkind)                             :: h_x
-    real(rkind), dimension(size(x))         :: nag_val
-    integer*4                               :: nx, m, e, ier
+
+    integer*4                               :: nx, m, ier
     m = int(size(x), 4)
     if(present(dfdx)) then
       nx = 1

@@ -392,17 +392,6 @@ type ray_element_full_type
   real(rkind)                                       :: sigma
 end type ray_element_full_type
 
-type reflec_equ_type
-! Parameters for wall plasma equilibrium reflection model - reflec_model = 1
-real(rkind), dimension(:), allocatable  :: f, X_Trad_equ, O_Trad_equ
-type(spl_type_1d)                       :: X_Trad_equ_spl, O_Trad_equ_spl
-real(rkind)                             :: f_min, f_max
-integer(ikind)                          :: N_f
-#ifdef NAG
-  type(nag_spline_1d_comm_wp)            :: X_Trad_equ_spl_nag, O_Trad_equ_spl_nag
-#endif
-end type
-
 type plasma_params_type
   logical                                           :: on_the_fly_raytracing = .false.
                                                        ! If .true. raytracing and radiation transport are solved simultaneously
@@ -491,7 +480,6 @@ end type plasma_params_type
   type(rad_type)                     :: rad
   type(plasma_params_type)           :: plasma_params
   type(ripple_params_type)           :: ripple_params
-  type(reflec_equ_type)              :: reflec_equ
   character(5)                       :: ode_integrator = "Rk4" !*
   character(200)                     :: data_folder
   character(200)                     :: ray_out_folder ! folder that saves the result of ray tracing
@@ -515,27 +503,24 @@ end type plasma_params_type
   real(rkind)                        :: ne_max = 1.d21 ! Grid points with densities larger than this will be ignored
   real(rkind)                        :: reflec_X
   real(rkind)                        :: reflec_O
-  integer(ikind)                     :: reflec_model = 0
+  integer(ikind)                     :: reflec_model = 0 ! # mode one is a ppor approximation of an isotropic background
   real(rkind)                        :: vessel_plasma_ratio
   logical                            :: straight
-  logical                            :: Analytical = .False., Lambda_star = .False.,&
-                                        LSODE = .true., old_cutoff = .False. !*
+  logical                            :: Lambda_star = .False. ! Lambda star  = Lambda *  Denominator of dispersion relation = no UH resonacne -> Doesn't seem to work properly!!
   integer(ikind)                     :: pnts_BPD = 2000 !*
   real(rkind)                        :: max_rhop_BPD = 1.05
   logical                            :: use_maximum_for_warm_res = .true.
                                         !* If false uses first moment of BPD
-  integer(ikind)                     :: k_int = 0
-  integer(ikind)                     :: N_freq, N_ray
+  integer(ikind)                     :: N_freq, N_ray ! Number of frequencies in IF, number of rays
   integer(ikind)                     :: max_points_svec! Maximum allowed points on LOS
-  integer(ikind)                     :: largest_svec
+  integer(ikind)                     :: largest_svec ! Stores largest svecs -> currently only computed but not output
   logical                            :: warm_plasma ! Input
-  integer(ikind)                     :: flag_1O
   real(rkind)                        :: mode_conv = -1.d0 ! conversion coefficient from O- to X-mode for wall reflections
   integer(ikind)                     :: modes = 0 ! whichs mode(s) are considered
                                                              ! 1 -> X, 2 -> O, 3 -> O, X
-  integer(ikind)                     :: mode_cnt
+  integer(ikind)                     :: mode_cnt ! 1,2
   real(rkind)                        :: plasma_vac_boundary = 1.05d0 ! boundary at which the polarization of X and O-mode will be calculated
-  character(3), dimension(:), allocatable :: diagnostics
+  character(3), dimension(:), allocatable :: diagnostics ! Separates individual channel bunches into separate diagnostics
   real(rkind)                        :: h_x_glob = 1.d-5 !*
   character(4)                       :: Hamil ="Dani"!"Stix"! !*! !
   logical                            :: UH_stop = .true. !* If true raytracing concludes when approaching the UH resonance (only X-mode affected)
@@ -546,14 +531,12 @@ end type plasma_params_type
   real(rkind)                        :: eps_svec_max_length = 1.d-6 !* svec is shorter than the ray by eps_svec_max_length to avoid interpolation errors
   real(rkind)                        :: eps = 1.d-4!* for minimal substitution in S for Hamil=Stix
   real(rkind)                        :: time_smth = 1.d-3 !* smoothing time for Bt_vac at R0 = 1.65
-  character(200)                     :: n_e_filename, T_e_filename
-  character(200)                     :: Vessel_bd_filename
-  character(200)                     :: ray_launch_file
-  character(200)                     :: working_dir
-  character(200)                     :: data_name, data_secondary_name
-  character(14)                      :: CEC_exp, CTC_exp, ECI_exp, IEC_exp
-  integer(ikind)                     :: CEC_ed, CTC_ed, ECI_ed, IEC_ed
-  logical                            :: ray_init = .false. !*
+  character(200)                     :: n_e_filename, T_e_filename ! ne and Te file
+  character(200)                     :: Vessel_bd_filename! File that provides vessel boundary
+  character(200)                     :: ray_launch_file ! File with launch geomertry
+  character(200)                     :: working_dir ! Working directory
+  character(200)                     :: data_name, data_secondary_name ! Filenames of primary and secondary Trad
+  logical                            :: ray_init = .false. !* Controlls whether rays were computed once -> only relevant for IDA usage
   logical                            :: static_grid = .false. ! Prevents the grid for radiation transport to be recomputed
                                                               ! in the case of numerical instability
   logical                            :: double_check_splines = .false. !*

@@ -84,7 +84,6 @@ OBJECTS += \
 	mod_ecfm_refr_abs_Al$(IDAFLAG)$(DB).o \
 	mod_ripple3d$(IDAFLAG)$(DB).o \
   mod_ecfm_refr_raytrace_initialize$(IDAFLAG)$(DB).o \
-	mod_ecfm_refr_em_Hu$(IDAFLAG)$(DB).o \
 	dlsode$(IDAFLAG)$(DB).o \
 	mod_ecfm_refr_raytrace$(IDAFLAG)$(DB).o \
 	mod_ecfm_refr_rad_transp$(IDAFLAG)$(DB).o \
@@ -183,14 +182,6 @@ $(MODECRad)/mod_ecfm_refr_raytrace_initialize$(IDAFLAG)$(DB).o:   $(SRCP)/mod_ec
 	$(SRCP)/mod_ecfm_refr_interpol.f90 \
 	$(SRCP)/mod_ecfm_refr_utils.f90
 
-$(MODECRad)/mod_ecfm_refr_em_Hu$(IDAFLAG)$(DB).o:   $(SRCP)/mod_ecfm_refr_em_Hu.f90 $(STDPLIB) \
-	$(SRCP)/quadrature.f90 \
-	$(SRCP)/mod_ecfm_refr_types.f90 \
-	$(SRCP)/mod_ecfm_refr_utils.f90 \
-	$(SRCP)/mod_ecfm_refr_fp_dist_utils.f90 \
-	$(SRCP)/mod_ecfm_refr_gene_dist_utils.f90 \
-	$(SRCP)/mod_ecfm_refr_dist.f90
-
 $(MODECRad)/dlsode$(IDAFLAG)$(DB).o:   $(SRCP)/dlsode.f
 	 cd $(MODECRad)&& $(F77) $(FFPFLAGS) $(F77FLAGS) -o dlsode$(IDAFLAG)$(DB).o \
 	 $(SRCP)/dlsode.f
@@ -206,13 +197,11 @@ $(MODECRad)/mod_ecfm_refr_raytrace$(IDAFLAG)$(DB).o:   $(SRCP)/mod_ecfm_refr_ray
 $(MODECRad)/mod_ecfm_refr_rad_transp$(IDAFLAG)$(DB).o:   $(SRCP)/mod_ecfm_refr_rad_transp.f90 $(STDPLIB) \
 	$(SRCP)/mod_ecfm_refr_types.f90 \
 	$(SRCP)/mod_ecfm_refr_utils.f90 \
-	$(SRCP)/mod_ecfm_refr_em_Hu.f90 \
 	$(SRCP)/mod_ecfm_refr_abs_Al.f90 \
 	$(SRCP)/mod_ecfm_refr_raytrace.f90
 
 $(MODECRad)/mod_ecfm_refr$(IDAFLAG)$(DB).o:   $(SRCP)/mod_ecfm_refr.f90 $(STDPLIB) \
 	$(SRCP)/mod_ecfm_refr_types.f90 \
-	$(SRCP)/mod_ecfm_refr_em_Hu.f90 \
 	$(SRCP)/mod_ecfm_refr_rad_transp.f90 \
 	$(SRCP)/mod_ecfm_refr_abs_Al.f90 \
 	$(SRCP)/mod_ecfm_refr_raytrace_initialize.f90 \
