@@ -3062,7 +3062,7 @@ function func_dA_dY(X, Y)
   call spline_1d(spl, flush_svec_s(1:i2 - i1 + 1), flush_svec_y(1:i2 - i1 + 1))
   svec(i1:i2)%rhop = flush_svec_y(1:i2 - i1 + 1)
   if(present(rad_ray_freq)) then
-    if(rad_ray_freq%s_res < 0.d0) then
+    if(rad_ray_freq%s_res < 0.d0 .or. rad_ray_freq%s_res > maxval(flush_ray_s(1:N_plasma))) then
       rad_ray_freq%rhop_res = -1.d0
     else
       call spline_1d(spl, rad_ray_freq%s_res, rad_ray_freq%rhop_res)
