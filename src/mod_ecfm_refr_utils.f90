@@ -291,7 +291,7 @@ integer(ikind)                             :: istat
   ant%N_diag = 1
   allocate(ant%diag(ant%N_diag), rad%diag(ant%N_diag))
   output_level = ecrad_verbose
-  dstf = "relamax"
+  dstf = "Th"
   dstf_comp = "DF"
   plasma_params%eq_diag = "IDA"
   data_name = "TRadM_therm.dat"
