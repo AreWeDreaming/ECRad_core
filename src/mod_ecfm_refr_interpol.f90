@@ -1,7 +1,8 @@
 module mod_ecfm_refr_interpol
     implicit none
 #ifdef IDA
-  public ::   make_rect_spline, &
+  public ::   spline_1d, & ! overloaded function
+              make_rect_spline, &
               make_1d_spline, &
               deallocate_rect_spline, &
               deallocate_1d_spline, &
@@ -9,13 +10,13 @@ module mod_ecfm_refr_interpol
               rect_spline_vec, &
               bispline_1d, &
               bispline_1d_vec, &
-              spline_1d, &
               spline_1d_get_roots, &
               spline_1d_integrate, &
               splint_1d, &
               splint_1d_vec
 #else
-  public ::   make_rect_spline, &
+  public ::   spline_1d, &
+              make_rect_spline, &
               make_1d_spline, &
               deallocate_rect_spline, &
               deallocate_1d_spline, &
@@ -23,10 +24,10 @@ module mod_ecfm_refr_interpol
               rect_spline_vec, &
               bispline_1d, &
               bispline_1d_vec, &
-              spline_1d, &
               spline_1d_get_roots, &
               spline_1d_integrate
 #endif
+  private :: print_2d_spline_params
 
     interface spline_1d
 #ifdef IDA

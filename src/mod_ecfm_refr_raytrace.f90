@@ -1,3 +1,8 @@
+! Possible Upgrades:
+! -> Introduce beam tracing, see function f_Lambda
+! -> Introduce 3D equilibria, see sub_spatial_grad_N_par, sub_grad_N_par
+
+
 module mod_ecfm_refr_raytrace
     use f90_kind
     USE mod_ecfm_refr_types, only : plasma_params_type
@@ -12,7 +17,7 @@ module mod_ecfm_refr_raytrace
     !$OMP THREADPRIVATE(glob_omega, &
     !$OMP               x_loc_vec, N_loc_vec, &
     !$OMP               glob_mode, debug_level)
-    public :: span_svecs, dealloc_rad, reinterpolate_svec
+    public ::  span_svecs, dealloc_rad, reinterpolate_svec
     private :: glob_plasma_params, glob_omega, x_loc_vec, N_loc_vec, &
                func_Delta, func_N_s_2, func_N_s_star_2, &
                func_Lambda, func_Lambda_star, &
@@ -32,7 +37,8 @@ module mod_ecfm_refr_raytrace
                func_Y, sub_spatial_grad_Y2, sub_spatial_grad_Y, &
                sub_grad_H, sub_grad_Lambda, sub_grad_Lambda_star, f_H, f_Lambda, jac, &
                sub_single_step_LSODE, &
-               sub_local_params, make_Snells_refraction, make_H, sub_calculate_initial_N, &
+               sub_local_params, reflect_off_surface, make_Snells_refraction, make_H, &
+               make_H_wrapper, sub_calculate_initial_N, &
                func_within_plasma, find_first_point_in_plasma, make_ray_segment, &
                make_s_grid, interpolate_svec
 
@@ -102,6 +108,8 @@ module mod_ecfm_refr_raytrace
 
   function func_Lambda(N_abs, X, Y, N_par, mode)
   ! Caclulates Lambda which is also the Hamiltonian
+  ! If even somebody wanted to implemented beam tracing this would be the place
+  ! By extending the spline routines and using Mathematica to compute the second derivative of N_s_2 it should be relatively little work
     USE f90_kind
     implicit none
     real(rkind),              intent(in)  :: N_abs, X, Y ,N_par
@@ -450,63 +458,6 @@ function func_dA_dY(X, Y)
     !                          +   func_calc_phi(x, y - 2.d0 * h_x)) / (12.d0 *h_x)
     !stop "derivatives"
   end function func_dphi_dy
-
-
-!  subroutine spline(plasma_params,spl,x,y,f,dfdx,dfdy)
-!  ! Derivatives seem errneous see above for a slow replacement routine
-!  ! Evaluates interpolated value u(x,y) and its derivatives ux,uy
-!  ! using arrays calculated by  s2dcut (in std_lib interpolation routienes
-!  ! see also comments in subroutine s2dcut
-!  !  ierr = 1 - point out of the domain
-!  ! S. S. Denk 1. April removed dxx, dxy, dyy since they are not needed here
-!    use f90_kind
-!    USE mod_ecfm_refr_types , only : plasma_params_type
-!    implicit none
-!    type(plasma_params_type)                :: plasma_params
-!    real(rkind),    dimension(:,:,:), intent(in)  :: spl       !  (6,6,icount)
-!    real(rkind),                      intent(in)  :: x, y
-!    real(rkind),                      intent(out) :: f,dfdx,dfdy
-!    !integer(ikind),                   intent(out) :: ierr
-!
-!    real(rkind), dimension(6) :: a, ax, axx
-!    real(rkind)    :: xk, yk, dx, dy
-!    integer(ikind) :: nx, ny            ! (nx, ny)           - (horizontal, vertical) size of the mesh
-!    integer(ikind) :: l, kx, ky
-!
-!
-!    xk = (x-plasma_params%R(1))/plasma_params%R_step
-!    kx = int(xk)+1
-!    kx = min(plasma_params%m,max(1,kx))
-!    yk = (y-plasma_params%z(1))/plasma_params%z_step
-!    ky = int(yk)+1
-!    ky = min(plasma_params%n,max(1,ky))
-!    !  if( kx.lt.1 .or. kx.gt.plasma_params%m .or. ky.lt.1 .or. ky.gt.plasma_params%n &
-!    !     .or. plasma_params%R_z_ipoint(kx,ky).lt.0 ) then
-!    !   print *,'spline: out of range', x,y
-!    !    ierr=1
-!    !    return
-!    !  endif
-!    !ierr = 0
-!    dx   = x-plasma_params%R(kx)
-!    dy   = y-plasma_params%z(ky)
-!    do l = 1, 6
-!      a(l)   =           spl(1,l,plasma_params%R_z_ipoint(kx,ky)) &
-!             + dx*(      spl(2,l,plasma_params%R_z_ipoint(kx,ky)) &
-!             + dx*(      spl(3,l,plasma_params%R_z_ipoint(kx,ky)) &
-!             + dx*(      spl(4,l,plasma_params%R_z_ipoint(kx,ky)) &
-!             + dx*(      spl(5,l,plasma_params%R_z_ipoint(kx,ky)) &
-!             + dx*       spl(6,l,plasma_params%R_z_ipoint(kx,ky))))))
-!      ax(l)  =           spl(2,l,plasma_params%R_z_ipoint(kx,ky)) &
-!             + dx*( 2.d0*spl(3,l,plasma_params%R_z_ipoint(kx,ky)) &
-!             + dx*( 3.d0*spl(4,l,plasma_params%R_z_ipoint(kx,ky)) &
-!             + dx*( 4.d0*spl(5,l,plasma_params%R_z_ipoint(kx,ky)) &
-!             + dx*  5.d0*spl(6,l,plasma_params%R_z_ipoint(kx,ky)))))
-!    enddo
-!
-!    f   = a(1)  + dy*(a(2) + dy*(a(3) + dy*(a(4) + dy*(a(5) + dy*a(6)))))
-!    dfdx  = ax(1) + dy*(ax(2) + dy*(ax(3) + dy*(ax(4) + dy*(ax(5) + dy*ax(6)))))
-!    dfdy  = a(2)  + dy*(2.d0*a(3) + dy*(3.d0*a(4) + dy*(4.d0*a(5) + dy*5.d0*a(6))))
-!  end subroutine spline
 
 
   subroutine sub_spatial_grad_rhop(plasma_params, x_vec, rhop, spatial_grad_rhop)
@@ -1021,6 +972,7 @@ function func_dA_dY(X, Y)
   ! Gradient of vec(B) along LOS coordinates x ripple not (yet) included => dB_vec/dphi = 0
   ! Also calculates N_par, d N_par(theta)/dN_i, d N_par/dx_i, d|B|dx_i since all information is readily available
   ! (Calculating these quantities here safes interpolations)
+  ! This is the routine that would need to be extended to allow for 3D equilibria
     USE f90_kind
     USE mod_ecfm_refr_types , only : plasma_params_type
     Use ripple3d,         only : grad_type, get_ripple_w_grad
@@ -1062,18 +1014,18 @@ function func_dA_dY(X, Y)
       call get_ripple_w_grad(R_vec, B_ripple, dB_ripple_r, dB_ripple_t, dB_ripple_z)
       B_R_vec = B_R_vec + B_ripple
       dB_r_inter%dR = dB_r_inter%dR  + dB_ripple_r%dR
-      dB_r_inter%dphi = 0.d0  + dB_ripple_r%dphi ! dB_r_inter%dphi
+      dB_r_inter%dphi = 0.d0  + dB_ripple_r%dphi ! dB_r_inter%dphi, replace 0.0 with the derivatives of B in the toroidal direction1
       dB_r_inter%dz = dB_r_inter%dz  + dB_ripple_r%dz
       dB_t_inter%dR = dB_t_inter%dR  + dB_ripple_t%dR
-      dB_t_inter%dphi = 0.d0  + dB_ripple_t%dphi ! dB_t_inter%dphi
+      dB_t_inter%dphi = 0.d0  + dB_ripple_t%dphi ! dB_t_inter%dphi, replace 0.0 with the derivatives of B in the toroidal direction1
       dB_t_inter%dz = dB_t_inter%dz  + dB_ripple_t%dz
       dB_z_inter%dR = dB_z_inter%dR  + dB_ripple_z%dR
-      dB_z_inter%dphi = 0.d0 + dB_ripple_z%dphi ! dB_z_inter%dphi
+      dB_z_inter%dphi = 0.d0 + dB_ripple_z%dphi ! dB_z_inter%dphi, replace 0.0 with the derivatives of B in the toroidal direction1
       dB_z_inter%dz = dB_z_inter%dz  + dB_ripple_z%dz
     else
-      dB_r_inter%dphi = 0.d0
-      dB_t_inter%dphi = 0.d0
-      dB_z_inter%dphi = 0.d0
+      dB_r_inter%dphi = 0.d0 ! replace 0.0 with the derivatives of B in the toroidal direction1
+      dB_t_inter%dphi = 0.d0 ! replace 0.0 with the derivatives of B in the toroidal direction1
+      dB_z_inter%dphi = 0.d0 ! replace 0.0 with the derivatives of B in the toroidal direction1
     end if
     cos_phi_tok = cos(R_vec(2))
     sin_phi_tok = sin(R_vec(2))

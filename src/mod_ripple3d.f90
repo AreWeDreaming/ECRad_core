@@ -16,8 +16,9 @@ end type ripple_params_type
 type grad_type
   real(rkind)               :: dR, dphi, dz
 end type grad_type
-public :: init_ripple, get_ripple, get_ripple_w_grad
 type(ripple_params_type)           :: ripple_params
+public :: init_ripple, get_ripple, get_ripple_w_grad
+private :: ripple_params
 
 contains
   subroutine init_ripple(R0, Btf0)

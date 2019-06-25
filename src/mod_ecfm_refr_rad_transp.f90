@@ -24,7 +24,7 @@ subroutine evaluate_em_ab_single(rad_freq, j, omega, mode, ds2, eval_pol_coeff, 
 use mod_ecfm_refr_types,        only: rad_diag_ch_mode_ray_freq_type, &
                                       output_level, dstf, SOL_Te, SOL_ne, ne_max
 use constants,                  only: pi, e0, mass_e, eps0, c0
-use mod_ecfm_refr_abs_Al,           only: abs_Albajar, abs_Albajar_fast, abs_Al_tor_abs, func_N_cold, func_rel_N
+use mod_ecfm_refr_abs_Al,           only: abs_Albajar, abs_Albajar_fast, abs_Al_Fa_abs, func_N_cold, func_rel_N
 implicit none
 type(rad_diag_ch_mode_ray_freq_type), intent(inout) :: rad_freq
 integer(ikind),             intent(in)    :: j
@@ -77,10 +77,10 @@ if((rad_freq%svec(j)%Te > SOL_Te .and. rad_freq%svec(j)%ne > SOL_ne .and. rad_fr
     end if
     if(eval_pol_coeff) then
       ! last point within the separatrix
-      ab_secondary = abs_Al_tor_abs(rad_freq%svec(j), omega, mode, rad_freq%svec_extra_output(j)%N_warm, &
+      ab_secondary = abs_Al_Fa_abs(rad_freq%svec(j), omega, mode, rad_freq%svec_extra_output(j)%N_warm, &
                   pol_coeff_secondary = pol_coeff_secondary, x_launch = x_launch)
     else
-      ab_secondary = abs_Al_tor_abs(rad_freq%svec(j), omega, mode, rad_freq%svec_extra_output(j)%N_warm)
+      ab_secondary = abs_Al_Fa_abs(rad_freq%svec(j), omega, mode, rad_freq%svec_extra_output(j)%N_warm)
     end if
     em_secondary = ab_secondary * (omega / ( 2.d0 * pi))**2 * e0 * &
           rad_freq%svec(j)%Te / c0**2

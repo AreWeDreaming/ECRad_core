@@ -2,6 +2,15 @@ module mod_ecfm_refr_fp_dist_utils
   use f90_kind
   implicit none
 
+
+  public :: make_rhop_Bmin, &
+            setup_f_rhop_splines, &
+            make_B_min_and_f_inter, &
+            make_f_and_f_grad_along_line
+
+  private :: cyl_to_pol
+
+
 contains
 
 

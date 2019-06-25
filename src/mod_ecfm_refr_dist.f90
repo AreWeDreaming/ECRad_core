@@ -3,10 +3,19 @@ module mod_ecfm_radiation_dist
   implicit none
   logical                            :: fall_back_thermal
   !$OMP THREADPRIVATE(fall_back_thermal)
-  public :: radiation_dist_f_u, &
+  public :: prepare_dist, &
+            make_f_and_Rf_along_line, &
+            radiation_dist_f_u, &
             radiation_dist_f_norm, &
             radiation_dist_Rf
-  private :: fall_back_thermal
+  private :: fall_back_thermal, &
+             make_norm_multi_slope, &
+             radiation_dist_bi_maxJ, &
+             radiation_dist_bi_maxw, &
+             radiation_dist_Spitzer, &
+             radiation_dist_bi_maxJ_Rf, &
+             radiation_dist_bi_Maxw_Rf, &
+             radiation_dist_Spitzer_Rf
   contains
 
 subroutine prepare_dist(svec, Int_absz_many, Int_weights_many, f_spl, dist_params)

@@ -9,19 +9,48 @@ module mod_ecfm_refr_utils
 use f90_kind
 
 implicit none
-public :: export_all_ece_data, &        ! Writes all the data needed for the forward modelling into files
-          read_input_file, &
+public :: read_input_file, &
           prepare_ECE_diag_old_IO, &
           prepare_ECE_diag_new_IO, &
 #ifdef IDA
           prepare_ECE_diag_IDA, &
           parse_ecfm_settings_from_ida, &
 #endif
+          dealloc_ant, &
+          func_in_poly, &
+          distance_to_poly, &
+          binary_search, &
+          BrentRoots, &
+          sub_remap_coords, &
+          func_calc_phi, &
           retrieve_T_e_mat_single, &
           retrieve_T_e_mat_vector, &
           retrieve_n_e_mat_single, &
           retrieve_n_e_mat_vector, &
-          bin_ray_BPD_to_common_rhop
+          bin_ray_BPD_to_common_rhop, &
+          bin_freq_to_ray, &
+          make_warm_res_mode, &
+          init_non_therm, &
+          ffp_clean_up, &
+          fgene_clean_up, &
+          export_all_ece_data ! Writes all the data needed for the forward modelling into files
+
+private :: make_launch, &
+           func_is_left, &
+           RootBracketed, &
+           Minimum, &
+           retrieve_T_e_single, &
+           retrieve_T_e_vector, &
+           retrieve_n_e_single, &
+           retrieve_n_e_vector, &
+           read_bi_max_data, &
+           read_runaway_data, &
+           read_drift_m_data, &
+           read_multi_slope_data, &
+           read_ffp_data, &
+           read_fgene_data, &
+           read_Gene_Bi_max_data, &
+           read_Spitzer_data
 
     interface retrieve_T_e
       module procedure retrieve_T_e_single, retrieve_T_e_vector

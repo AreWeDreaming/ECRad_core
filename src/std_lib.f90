@@ -1,3 +1,7 @@
+! Light version of the std_lib used for IDA and similar programs at ASDEX Upgrade
+! Used to compile ECRad on non IPP infrastructure
+
+
 !     Last change:  Rainer Fischer   19 Feb 98    2:24 pm
 !#######################################################################
 !  f90_kind.f

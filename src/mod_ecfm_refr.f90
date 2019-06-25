@@ -6,13 +6,15 @@ use f90_kind
   use omp_lib
 #endif
 #ifdef IDA
-public :: initialize_ecfm, &
+public :: initialize_stand_alone, &
+          initialize_ecfm, &
           make_rays_ecfm, &
           make_dat_model_ece_ecfm_refr, &
           pre_initialize_ecfm, &
           make_ece_rad_temp
 #else
-public :: make_ece_rad_temp
+public :: initialize_stand_alone, &
+          make_ece_rad_temp
 #endif
 private :: save_data_to_ASCII
 

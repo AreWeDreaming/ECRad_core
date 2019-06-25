@@ -3,8 +3,20 @@ module mod_ecfm_refr_raytrace_initialize
     use mod_ecfm_refr_types,       only: spl_type_2d
     implicit none
     ! Two interfaces to allow interpolation of Te and ne using both single rhop values and vectors of rhop values
-    public :: init_raytrace
     type(spl_type_2d)                       :: Psi_spline
+
+    public :: init_raytrace, dealloc_raytrace
+
+    private :: get_psi_ax, &
+               eval_Psi, &
+               read_topfile, &
+               read_Te_ne_matrix, &
+               make_topfile, &
+               setup_plasma_params, &
+               read_input_lists
+
+
+
     contains
 
   subroutine get_psi_ax(R, z, i_ax, j_ax, R_ax, z_ax)

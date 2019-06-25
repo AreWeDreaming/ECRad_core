@@ -2,6 +2,14 @@ module mod_ecfm_refr_gene_dist_utils
   use f90_kind
   implicit none
 
+  public :: setup_fgene_rhop_splines, &
+            make_g_inter, &
+            make_g_and_g_grad_along_line, &
+            make_gene_f_and_gene_f_grad_along_line, &
+            make_gene_f0_and_gene_f0_grad_along_line
+
+  private :: v_par_mu_to_cyl
+
 contains
 
 subroutine setup_fgene_rhop_splines(fgene)

@@ -1,3 +1,6 @@
+! Possible Upgrades:
+! - Add support for first harmonic emission: -> See subroutine abs_Albajar
+
 module mod_ecfm_refr_abs_Al
 ! This routine calculates the absorption using the formalism from the article [1]:
 ! Electron-cyclotron absorption in high-temperature plasmas:
@@ -11,13 +14,25 @@ module mod_ecfm_refr_abs_Al
   real(rkind), dimension(:), allocatable :: Int_absz
   real(rkind)                            :: m_omega_glob, cos_theta_glob, mu_glob
   integer, parameter :: r8=selected_real_kind(15,300)
-  public :: abs_Albajar, &
-            abs_Al_init, &
-            abs_Al_clean_up
-  private :: abs_Al_integral_nume, &
-    abs_Al_pol_fact, &
-    Int_weights, &
-    Int_absz
+  public :: abs_Al_init, &
+            abs_Al_clean_up, &
+            func_N_cold, &
+            func_rel_N, &
+            abs_Al_Fa_abs, &
+            abs_Albajar, &
+            abs_Albajar_fast
+  private :: Int_weights, &
+             Int_absz, &
+             rotate_vec_around_axis, abs_Al_N_with_pol_vec, &
+             abs_Al_integral_nume, &
+             abs_Al_integral_nume_fast, &
+             abs_Al_pol_fact, &
+             get_E_factors, &
+             BesselJ, &
+             BesselJ_custom, &
+             get_filter_transmittance
+
+
 
 
 contains
@@ -245,7 +260,7 @@ contains
   end subroutine abs_Al_N_with_pol_vec
 
 
-  function abs_Al_tor_abs(svec, omega, mode, Nr, pol_coeff_secondary, pol_vec, x_launch) ! note that this routine uses angular frequency
+  function abs_Al_Fa_abs(svec, omega, mode, Nr, pol_coeff_secondary, pol_vec, x_launch) ! note that this routine uses angular frequency
   ! Calculates the absorption coefficient using Grays warm_disp routine. Note that this always includes both 2nd and 3rd harmonic.
     use mod_ecfm_refr_types,        only: rad_diag_ch_mode_ray_freq_svec_type, &
                                           ratio_for_third_harmonic, dstf, straight, Hamil, &
@@ -260,14 +275,14 @@ contains
     real(rkind), intent(out), optional :: pol_coeff_secondary
     complex(r8), dimension(3), intent(out), optional :: pol_vec
     real(rkind), dimension(:), intent(in), optional :: x_launch
-    real(rkind)                   :: abs_Al_tor_abs
+    real(rkind)                   :: abs_Al_Fa_abs
     real(rkind)                   :: omega_p,omega_c, alpha, beta, omega_p_sq
     real(rkind)                   :: ni_perp_sq
     complex(r8)                   :: N_perp_cmplx, scal_prod
     complex(r8), dimension(3)     :: pol_vec_dummy
     real(rkind), dimension(3)     :: abs_pol_vec
     integer(ikind)                :: max_harmonic
-      abs_Al_tor_abs = 0.d0
+      abs_Al_Fa_abs = 0.d0
       if(svec%Te < SOL_Te .and. .not. present(pol_coeff_secondary)) return ! very low Te => absorption can be ignored
       if(svec%ne < SOL_ne .and. .not. present(pol_coeff_secondary)) return
       ni_perp_sq = 0.d0
@@ -304,24 +319,25 @@ contains
        call warmdamp(alpha, beta, Nr, svec%theta, svec%Te, max_harmonic, mode, N_perp_cmplx)!-1
       end if
       if(straight .or. Hamil /= "Dani") then
-        abs_Al_tor_abs = 2.d0 * aimag(N_perp_cmplx) * omega / c0 * svec%sin_theta
+        abs_Al_Fa_abs = 2.d0 * aimag(N_perp_cmplx) * omega / c0 * svec%sin_theta
       else
-        abs_Al_tor_abs = 2.d0 * aimag(N_perp_cmplx**2) * omega / c0 * svec%v_g_perp
+        abs_Al_Fa_abs = 2.d0 * aimag(N_perp_cmplx**2) * omega / c0 * svec%v_g_perp
       end if
       Nr = real(N_perp_cmplx,8) / svec%sin_theta
-      if(abs_Al_tor_abs .ne. abs_Al_tor_abs .or. Nr <= 0.d0 .or. abs_Al_tor_abs < 0.d0 .or. Nr .ne. Nr .or. &
-        abs_Al_tor_abs > 1.e6) then  ! .or. Nr > 1.d0
+      if(abs_Al_Fa_abs .ne. abs_Al_Fa_abs .or. Nr <= 0.d0 .or. abs_Al_Fa_abs < 0.d0 .or. Nr .ne. Nr .or. &
+        abs_Al_Fa_abs > 1.e6) then  ! .or. Nr > 1.d0
         Nr = 0.d0
-        abs_Al_tor_abs = 0.d0
+        abs_Al_Fa_abs = 0.d0
       end if
-  end function abs_Al_tor_abs
+  end function abs_Al_Fa_abs
 
   function get_upper_limit_tau(svec, omega, ds2)
   ! Gets upper limit of absorption coefficient by evaluating the integral
   ! Int u_perp ^(2 * m) Exp[mu(1-gamma)]
   ! This uses the Expansion of the Besselfunctions (see Hutchinson/ S. Denk Msc. Thesis) and neglects the term gamma(-2n + 2) making it an
   ! estimation for the upper limit
-  ! The integration was carried mathematica
+  ! The integration was carried out with mathematica
+  ! Considers n=2 and n=3
   use mod_ecfm_refr_types,        only: ratio_for_third_harmonic, rad_diag_ch_mode_ray_freq_svec_type
   use constants,                  only: pi, e0, mass_e, eps0, c0
   type(rad_diag_ch_mode_ray_freq_svec_type), intent(in)    :: svec
@@ -391,13 +407,9 @@ contains
 
   subroutine abs_Albajar(svec, omega, mode, ds2,  c_abs, j, pol_coeff, c_abs_secondary, j_secondary, x_launch)
     ! Calculates the absorption coefficient and emissivity
-    ! distribution function dstf:
-    ! "f_rel": Relativistic Maxwellian
-    ! "f_nor": Normal Maxwellian
-    ! "f_bim" Bi-Maxwellians
-    ! "f_num" Distribution function generated by Relax
     ! This algorithm is developed according to F. Albajar et al (2006) [1]
     ! Note that an arbitrary propagation direction and a polarization filter in phi (tokamak) direction is considered.
+    ! Does not support the fundamental
     use mod_ecfm_refr_types,        only: rad_diag_ch_mode_ray_freq_svec_type, dstf, output_level,&
                                           ratio_for_third_harmonic, not_eval, eval, warm_plasma, &
                                           tau_ignore, spl_type_2d, non_therm_params_type, &
@@ -473,6 +485,9 @@ contains
     N_par = svec%cos_theta * N_abs
     N_perp = abs(svec%sin_theta * N_abs)
     m_0 = sqrt(1.d0 - N_par**2) * omega_bar
+    ! Here would be a possible place to add the first harmonic
+    ! A few expressions can be found in Bornatici 1983
+    ! They could be easily benchmarked against the absoprtion routine by D. Farina (see above)
     do m_sum = 2, max_harmonic ! First harmonic needs to be treated seperately (for now ignored)
       if(real(m_sum,8) < m_0 ) cycle
       if(present(c_abs_secondary) .and. present(j_secondary) ) then
@@ -521,7 +536,7 @@ contains
         print*, "harmonic", m_sum
         print*, "j_m*ds/Ibb", j_m * ds2 / svec%Ibb
         print*, "j_m", j_m
-        print*, "fully rel. dispersion c_abs", abs_Al_tor_abs(svec, omega, mode, N_abs)
+        print*, "fully rel. dispersion c_abs", abs_Al_Fa_abs(svec, omega, mode, N_abs)
         stop "Nan in c_abs Albajar"
       end if
     end do
@@ -785,7 +800,7 @@ contains
       ez_sq = E_mat(3,3)
     else
       N_gray = N_abs
-      abs_c =  abs_Al_tor_abs(svec, svec%freq_2X * Pi / Y, mode, N_gray, pol_vec =  pol_vect)
+      abs_c =  abs_Al_Fa_abs(svec, svec%freq_2X * Pi / Y, mode, N_gray, pol_vec =  pol_vect)
     end if
     Axz = e(1) + N_eff * e(3)
     if(debug) print*, "Re_Axz^2 cold", Axz_sq
