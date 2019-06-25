@@ -195,7 +195,6 @@ subroutine make_norm_multi_slope(svec, mu, Int_absz_many, Int_weights_many, dist
       print*,dist_params%total_norm
       stop "- in norm"
     end if
-
   end subroutine make_norm_multi_slope
 
   subroutine make_f_and_Rf_along_line(u_par, u_perp, gamma, m_omega_bar, N_par, mu, svec, f_spl, dist_params, dstf, f, Rf)

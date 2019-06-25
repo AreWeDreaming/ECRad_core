@@ -664,36 +664,26 @@ contains
     gamma(:) = sqrt(1.d0 + u_par(:)**2 + u_perp_sq(:))
     call abs_Al_pol_fact(svec, Int_absz, X, Y, omega_bar, m_0, N_abs, cos_theta, sin_theta, e, mode,  m, pol_fact)
     call make_f_and_Rf_along_line(u_par, sqrt(u_perp_sq), gamma, m_omega_bar, N_par, mu, svec, f_spl, dist_params, dstf, f_dist, Rf_dist)
+    ! primary distribution
     c_abs_int =  Int_weights * pol_fact * Rf_dist
     j_int =  Int_weights * pol_fact * f_dist
-    if(present(c_abs_secondary)) then
+    ! Secondary distribution
+    if(present(c_abs_secondary) .and. present(j_secondary)) then
       if(dstf == "gene") then
-        if(.not. (present(c_abs_secondary) .and. present(j_secondary))) then
-          print*, "For gene it is necessary to have both c_abs_secondary and j_secondary present!"
-          call abort()
-        end if
         call make_f_and_Rf_along_line(u_par, sqrt(u_perp_sq), gamma, m_omega_bar, N_par, mu, svec, f_spl, dist_params, "genef0", f_dist_comp, Rf_dist_comp)
-        c_abs_secondary_int =  Int_weights * pol_fact * Rf_dist_comp
-        j_secondary_int =  Int_weights * pol_fact * f_dist_comp
       else if(dstf == "gcomp") then
-        if(.not. (present(c_abs_secondary) .and. present(j_secondary))) then
-          print*, "For gene it is necessary to have both c_abs_secondary and j_secondary present!"
-          call abort()
-        end if
         call make_f_and_Rf_along_line(u_par, sqrt(u_perp_sq), gamma, m_omega_bar, N_par, mu, svec, f_spl, dist_params, "gcomp0", f_dist_comp, Rf_dist_comp)
-        c_abs_secondary_int =  Int_weights * pol_fact * Rf_dist_comp
-        j_secondary_int =  Int_weights * pol_fact * f_dist_comp
-        dstf = "gcomp"
-      else if(present(c_abs_secondary) .and. .not. present(j_secondary)) then
-      ! Thermal distribution for comparison with non-thermal distributions
-        call make_f_and_Rf_along_line(u_par, sqrt(u_perp_sq), gamma, m_omega_bar, N_par, mu, svec, f_spl, dist_params, "relamax", f_dist_comp, Rf_dist_comp)
-        c_abs_secondary_int =  Int_weights * pol_fact * Rf_dist_comp
       else
-        print*, " Currently it is only sensible to call abs_Albajar with secondary c_abs and j for dstf == gene"
-        print*, dstf
-        call abort()
+      ! Thermal distribution for comparison with non-thermal distributions -> Could also use Kirchhoff's öaw for either secondary j or abs
+        call make_f_and_Rf_along_line(u_par, sqrt(u_perp_sq), gamma, m_omega_bar, N_par, mu, svec, f_spl, dist_params, "Th", f_dist_comp, Rf_dist_comp)
       end if
+    else
+      print*, "Currently it is only sensible to call abs_Albajar with both, secondary c_abs and secondary j"
+      print*, dstf
+      call abort()
     end if
+    c_abs_secondary_int =  Int_weights * pol_fact * Rf_dist_comp
+    j_secondary_int =  Int_weights * pol_fact * f_dist_comp
     do k = 1, size(Int_weights)
       c_abs = c_abs + c_abs_int(k)
       if(present(c_abs_secondary)) c_abs_secondary = c_abs_secondary + c_abs_secondary_int(k)
