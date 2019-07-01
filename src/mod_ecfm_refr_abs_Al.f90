@@ -677,8 +677,9 @@ contains
       ! Thermal distribution for comparison with non-thermal distributions -> Could also use Kirchhoff's öaw for either secondary j or abs
         call make_f_and_Rf_along_line(u_par, sqrt(u_perp_sq), gamma, m_omega_bar, N_par, mu, svec, f_spl, dist_params, "Th", f_dist_comp, Rf_dist_comp)
       end if
-    else
-      print*, "Currently it is only sensible to call abs_Albajar with both, secondary c_abs and secondary j"
+    else if((present(c_abs_secondary) .and. .not. present(j_secondary)) .or. &
+            (.not. present(c_abs_secondary) .and. present(j_secondary))) then
+      print*, "Currently it is only sensible to call abs_Albajar with both, secondary c_abs and secondary j or neither of the two"
       print*, dstf
       call abort()
     end if
