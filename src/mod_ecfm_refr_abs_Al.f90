@@ -694,8 +694,8 @@ contains
     norm = radiation_dist_f_norm(svec%Te, dstf)
     c_abs = c_abs * norm
     j = j * norm
-    if(present(c_abs_secondary)) c_abs_secondary = c_abs_secondary * radiation_dist_f_norm(svec%Te, "Th")
-    if(present(j_secondary)) j_secondary = j_secondary * radiation_dist_f_norm(svec%Te, "Th")
+    if(present(c_abs_secondary) .and. (dstf /= "gene" .and. dstf /= "gcomp")) c_abs_secondary = c_abs_secondary * radiation_dist_f_norm(svec%Te, "Th")
+    if(present(j_secondary) .and. (dstf /= "gene" .and. dstf /= "gcomp")) j_secondary = j_secondary * radiation_dist_f_norm(svec%Te, "Th")
     if(sum(c_abs_int) > 1.d-8 .and. .not. trim(dstf) == 'gene' .and. .not. all(c_abs_int < 4.d-9)) then
       print*, "Error region of significant negative absorption found"
       print*, "u_par u_perp, c_abs"
