@@ -13,6 +13,7 @@ module mod_ecfm_refr_raytrace_initialize
                read_Te_ne_matrix, &
                make_topfile, &
                setup_plasma_params, &
+               read_3D_vessel_file, &
                read_input_lists
 
 
@@ -202,6 +203,38 @@ module mod_ecfm_refr_raytrace_initialize
       end if
   end subroutine read_Te_ne_matrix
   
+  subroutine read_3D_vessel_file(plasma_params)
+  use f90_kind
+    use mod_ecfm_refr_types,       only: Vessel_bd_filename, plasma_params_type
+    implicit none
+    type(plasma_params_type), intent(inout) :: plasma_params
+    integer(ikind) :: i, j
+    character(200) :: dummy1, dummy2, dummy3, dummy4, dummy5, dummy6, dummy7, dummy8
+    open(87, file=Vessel_bd_filename)
+    read(87,*) dummy1
+    read(87,*) plasma_params%Use_3D_vessel%n_phi, plasma_params%Use_3D_vessel%n_contour, &
+               dummy1, dummy2, dummy3, dummy4, dummy5, dummy6, dummy7, dummy8
+    allocate(plasma_params%Use_3D_vessel%vessel_data_R(plasma_params%Use_3D_vessel%n_contour, &
+                                                     plasma_params%Use_3D_vessel%n_phi), &
+             plasma_params%Use_3D_vessel%vessel_data_z(plasma_params%Use_3D_vessel%n_contour, &
+                                                     plasma_params%Use_3D_vessel%n_phi), &
+             plasma_params%Use_3D_vessel%phi(plasma_params%Use_3D_vessel%n_phi))
+    do j = 1, plasma_params%Use_3D_vessel%n_phi
+      read(87,*) plasma_params%Use_3D_vessel%phi(j)
+      do i = 1, plasma_params%Use_3D_vessel%n_contour
+        read(87,*) plasma_params%Use_3D_vessel%vessel_data_R(i,j), &
+                   plasma_params%Use_3D_vessel%vessel_data_z(i,j), &
+                   dummy1
+      end do
+    end do
+    close(87)
+    if(plasma_params%Use_3D_vessel%n_phi == 1) then
+      plasma_params%Use_3D_vessel%phi_max = 361.d0 !
+    else
+      plasma_params%Use_3D_vessel%phi_max = maxval(plasma_params%Use_3D_vessel%phi) ! Necessary to use symmetry
+    end if
+  end subroutine read_3D_vessel_file
+
   subroutine make_topfile(R, z, rhop, Br, Bt, Bz, itime)
     use f90_kind
     use mod_ecfm_refr_types,       only: data_folder
@@ -245,10 +278,10 @@ module mod_ecfm_refr_raytrace_initialize
     use f90_kind
 #ifdef NAG
     use mod_ecfm_refr_types,        only: double_check_splines, plasma_params_type, h_x_glob, h_check, &
-                                          stand_alone, vessel_bd_filename
+                                          stand_alone, vessel_bd_filename, use_3D, working_dir
 #else
     use mod_ecfm_refr_types,        only: plasma_params_type, h_x_glob, h_check, &
-                                          stand_alone, vessel_bd_filename
+                                          stand_alone, vessel_bd_filename, use_3D, working_dir
 #endif
     use mod_ecfm_refr_interpol,     only: make_rect_spline, make_1d_spline, rect_spline
     use constants,                  only: pi
@@ -260,16 +293,103 @@ module mod_ecfm_refr_raytrace_initialize
     USE nag_error_handling
 #endif
     use ripple3d,                   only: init_ripple!, validate_ripple_grad
+#ifdef USE_3D
+    use magconfig3D,                only: MConf3D_Setup_Config, MConf3D_Load_MagConfig, mcClone
+#endif
+#ifdef OMP
+    use omp_lib,                    only: omp_get_max_threads
+#endif
     implicit none
     type(plasma_params_type), intent(inout)     :: plasma_params
-	real(rkind), dimension(:), intent(in), optional :: R_in, z_in
+	  real(rkind), dimension(:), intent(in), optional :: R_in, z_in
     real(rkind), dimension(:,:), intent(in), optional :: rhop_in, B_r_in, B_t_in, B_z_in
     real(rkind), intent(in), optional                 :: R_ax, z_ax
     real(rkind), dimension(:,:), allocatable    :: B_r, B_t, B_z, T_e, n_e
     integer(ikind), dimension(:), allocatable   :: R_index_lower, z_index_lower, R_index_upper, z_index_upper
     real(rkind)                                 :: B_last, B_vac_R0
     integer(ikind)                              :: i
+    integer(ikind)                              :: loaded
     character(1)  :: sep
+    character(200)                              :: filename
+    integer(ikind)                              :: num_threads
+    plasma_params%int_step_cnt = plasma_params%rad_trans_sections * plasma_params%rad_transp_solver_order
+    if(plasma_params%int_step_cnt == 0) then
+        print*, "For some reason plasma_params%int_step_cnt is zero!"
+        print*, "This makes no sense since it would mean that you split the radiation transport into N * 0 steps"
+        print*, "Please check setup_plasma_params in mod_ecfm_refr_raytrace_initialize"
+        print*, plasma_params%rad_trans_sections, plasma_params%rad_transp_solver_order
+        call abort()
+    end if
+    allocate( plasma_params%Int_weights(plasma_params%int_step_cnt),plasma_params%Int_absz(plasma_params%int_step_cnt))
+    if(plasma_params%on_the_fly_raytracing) then
+      call cdgqf( int(plasma_params%int_step_cnt,kind=4), int(1,kind=4), 0.d0, 0.d0, plasma_params%Int_weights, plasma_params%Int_absz)
+    else
+      do i = 1, plasma_params%int_step_cnt
+        plasma_params%Int_absz(i) = real(i ,8) / real(plasma_params%int_step_cnt, 8) ! spans the points in a way so that there is no overlap
+                                                                                     ! Int_absz(1) > 0.d0
+      end do
+    end if
+    if(.not. plasma_params%Te_ne_mat .and. stand_alone) then
+#ifdef NAG
+      if(double_check_splines .and. output_level) then
+        call nag_spline_1d_interp(plasma_params%rhop_vec_ne, plasma_params%n_e_prof, plasma_params%ne_spline_nag)
+        call nag_spline_1d_interp(plasma_params%rhop_vec_Te, plasma_params%T_e_prof, plasma_params%Te_spline_nag)
+      end if
+#endif
+      if(plasma_params%prof_log_flag) then
+        call make_1d_spline( plasma_params%ne_spline, int(size(plasma_params%rhop_vec_ne),4), plasma_params%rhop_vec_ne, log(plasma_params%n_e_prof * 1.e-19))
+        call make_1d_spline( plasma_params%Te_spline, int(size(plasma_params%rhop_vec_Te),4), plasma_params%rhop_vec_Te, log(plasma_params%T_e_prof))
+      else
+        call make_1d_spline( plasma_params%ne_spline, int(size(plasma_params%rhop_vec_ne),4), plasma_params%rhop_vec_ne, plasma_params%n_e_prof)
+        call make_1d_spline( plasma_params%Te_spline, int(size(plasma_params%rhop_vec_Te),4), plasma_params%rhop_vec_Te, plasma_params%T_e_prof)
+      end if
+    end if
+#ifdef USE_3D
+    if(use_3D) then
+        plasma_params%Scenario%work_dir = working_dir
+        call read_3D_vessel_file(plasma_params)
+        filename = trim(working_dir) // "ECRad_data/"  // "equ3D_info"
+        open(77, file=trim(filename))
+        read(77,*) plasma_params%Scenario%name_config
+        read(77,*) plasma_params%Scenario%format_config
+        read(77,*) plasma_params%Scenario%useMesh
+        read(77,*) plasma_params%Scenario%useSymm
+        read(77,*) plasma_params%Scenario%splus
+        read(77,*) plasma_params%Scenario%smax
+        read(77,*) plasma_params%Scenario%accbooz
+        read(77,*) plasma_params%Scenario%tolharm
+        read(77,*) plasma_params%Scenario%hgrid
+        read(77,*) plasma_params%Scenario%dphic ! Degrees
+        close(77)
+        plasma_params%Scenario%dphic =  plasma_params%Scenario%dphic / 180.d0 * Pi
+        plasma_params%Scenario%name_config = trim(working_dir) // "ECRad_data/"  // trim(plasma_params%Scenario%name_config)
+        plasma_params%Scenario%mConfAddr = 0 ! Set our pointer to Null like a good boy
+        call MConf3D_Setup_Config(plasma_params%Scenario)
+        call MConf3D_Load_MagConfig(loaded, plasma_params%Scenario%mConfAddr)
+        if(loaded /= 1) then
+            print*, "Failed to load equilibrium"
+            print*, "Please check that", plasma_params%Scenario%name_config, " exists!"
+            print*, "MConf error code", loaded
+            call abort("Critical error when loading equilibrium")
+        end if
+#ifdef OMP
+      !$omp parallel
+      num_threads = omp_get_max_threads()
+      !$omp end parallel
+#else
+      num_threads = 1
+#endif
+      allocate(plasma_params%mconf_addresses(num_threads))
+      plasma_params%mconf_addresses(1) = plasma_params%Scenario%mConfAddr
+#ifdef OMP
+      do i = 2, num_threads
+        plasma_params%mconf_addresses(i) = mcClone(plasma_params%mconf_addresses(1))
+      end do
+#endif
+      return
+    end if
+#endif
+    ! Equilibrium/Magnetic field splines are set up in the following
     if(.not. present(R_in)) then
       call read_topfile(plasma_params, plasma_params%R, plasma_params%z, plasma_params%rhop, B_r, B_t, B_z)
       if(plasma_params%Te_ne_mat) then
@@ -296,10 +416,6 @@ module mod_ecfm_refr_raytrace_initialize
       plasma_params%R_ax = R_ax
       plasma_params%z_ax = z_ax
     end if
-!    do j = 1, plasma_params%n
-!      print*, B_t(:,j)
-!    end do
-!    stop "B_t weird"
     h_check = h_x_glob * (1.d0 + 1.e-5)
     plasma_params%R_min = plasma_params%R(1)
     plasma_params%R_max = plasma_params%R(plasma_params%m)
@@ -307,21 +423,6 @@ module mod_ecfm_refr_raytrace_initialize
     plasma_params%z_max = plasma_params%z(plasma_params%n)
     plasma_params%R_step = (plasma_params%R_max - plasma_params%R_min) / real(plasma_params%m - 1,8)
     plasma_params%z_step = (plasma_params%z_max - plasma_params%z_min) / real(plasma_params%n - 1,8)
-    if(.not. plasma_params%Te_ne_mat .and. stand_alone) then
-#ifdef NAG
-      if(double_check_splines .and. output_level) then
-        call nag_spline_1d_interp(plasma_params%rhop_vec_ne, plasma_params%n_e_prof, plasma_params%ne_spline_nag)
-        call nag_spline_1d_interp(plasma_params%rhop_vec_Te, plasma_params%T_e_prof, plasma_params%Te_spline_nag)
-      end if
-#endif
-      if(plasma_params%prof_log_flag) then
-        call make_1d_spline( plasma_params%ne_spline, int(size(plasma_params%rhop_vec_ne),4), plasma_params%rhop_vec_ne, log(plasma_params%n_e_prof * 1.e-19))
-        call make_1d_spline( plasma_params%Te_spline, int(size(plasma_params%rhop_vec_Te),4), plasma_params%rhop_vec_Te, log(plasma_params%T_e_prof))
-      else
-        call make_1d_spline( plasma_params%ne_spline, int(size(plasma_params%rhop_vec_ne),4), plasma_params%rhop_vec_ne, plasma_params%n_e_prof)
-        call make_1d_spline( plasma_params%Te_spline, int(size(plasma_params%rhop_vec_Te),4), plasma_params%rhop_vec_Te, plasma_params%T_e_prof)
-      end if
-    end if
     call make_rect_spline(plasma_params%rhop_spline, int(plasma_params%m, 4), int(plasma_params%n, 4), plasma_params%R, plasma_params%z, plasma_params%rhop)
     call make_rect_spline(plasma_params%B_r_spline, int(plasma_params%m, 4), int(plasma_params%n, 4), plasma_params%R, plasma_params%z, B_r)
     call make_rect_spline(plasma_params%B_t_spline, int(plasma_params%m, 4), int(plasma_params%n, 4), plasma_params%R, plasma_params%z, B_t)
@@ -366,35 +467,16 @@ module mod_ecfm_refr_raytrace_initialize
     R_index_upper(:) = plasma_params%m
     z_index_upper(:) = plasma_params%n
     plasma_params%int_step_cnt = plasma_params%rad_trans_sections * plasma_params%rad_transp_solver_order
-    allocate( plasma_params%Int_weights(plasma_params%int_step_cnt),plasma_params%Int_absz(plasma_params%int_step_cnt))
-    if(plasma_params%on_the_fly_raytracing) then
-      call cdgqf( int(plasma_params%int_step_cnt,kind=4), int(1,kind=4), 0.d0, 0.d0, plasma_params%Int_weights, plasma_params%Int_absz)
-    else
-      do i = 1, plasma_params%int_step_cnt
-        plasma_params%Int_absz(i) = real(i ,8) / real(plasma_params%int_step_cnt, 8) ! spans the points in a way so that there is no overlap
-                                                                                     ! Int_absz(1) > 0.d0
-      end do
-    end if
-!    open(80,file = "Te_mat.dat")
-!    write(format_str, fmt = "(A1,I4,A13)"), "(", plasma_params%m, "(E13.6E2,A1))"
-!    !print*, ormat_str
-!    do j = 1,plasma_params%n
-!      write(80, fmt = format_str),(T_e(i,j), " ", i = 1, plasma_params%m)
-!    end do
-!    close(80)
-    !call make_topfile(plasma_params%R, plasma_params%z, plasma_params%rhop, B_r, B_z, B_t)
     deallocate(B_r, B_z, B_t, R_index_lower,z_index_lower,R_index_upper,z_index_upper)!, B_t
     if(plasma_params%Te_ne_mat) deallocate(T_e, n_e)
     ! Load the polygon describing the vessel wall
     open(66, file = vessel_bd_filename)
     read(66, "(I7.7)") plasma_params%m_vessel_bd
-    allocate(plasma_params%vessel_poly(plasma_params%m_vessel_bd))
+    allocate(plasma_params%vessel_poly%x(plasma_params%m_vessel_bd), plasma_params%vessel_poly%y(plasma_params%m_vessel_bd))
     do i = 1, plasma_params%m_vessel_bd
-      read(66,"(E19.12E2A1E19.12E2)") plasma_params%vessel_poly(i)%x, sep,  plasma_params%vessel_poly(i)%y
+      read(66,"(E19.12E2A1E19.12E2)") plasma_params%vessel_poly%x(i), sep,  plasma_params%vessel_poly%y(i)
     end do
     close(66)
-
-!    ! Checks if interpolation values are available for the forward derivatives
   end subroutine setup_plasma_params
 
   subroutine read_input_lists(plasma_params)
@@ -500,10 +582,11 @@ module mod_ecfm_refr_raytrace_initialize
   subroutine dealloc_raytrace(plasma_params)
   use f90_kind
 #ifdef NAG
-  use mod_ecfm_refr_types,       only: plasma_params_type, stand_alone, double_check_splines
+  use mod_ecfm_refr_types,       only: plasma_params_type, stand_alone, double_check_splines, &
+                                       Use_3D
   USE nag_lib_support,           only : nag_deallocate
 #else
-  use mod_ecfm_refr_types,       only: plasma_params_type, stand_alone
+  use mod_ecfm_refr_types,       only: plasma_params_type, stand_alone, Use_3D
 #endif
   use mod_ecfm_refr_interpol,       only: deallocate_rect_spline, deallocate_1d_spline
   implicit none
@@ -522,7 +605,7 @@ module mod_ecfm_refr_raytrace_initialize
       call deallocate_1d_spline(plasma_params%ne_spline)
     end if
     deallocate(plasma_params%Int_absz, plasma_params%Int_weights)
-    deallocate(plasma_params%vessel_poly)
+    deallocate(plasma_params%vessel_poly%x, plasma_params%vessel_poly%y)
     deallocate(plasma_params%R, plasma_params%z, plasma_params%rhop)
     call deallocate_rect_spline(plasma_params%rhop_spline)
     call deallocate_rect_spline(plasma_params%B_R_spline)
@@ -544,6 +627,9 @@ module mod_ecfm_refr_raytrace_initialize
       call nag_deallocate(plasma_params%Te_spline_nag_2D)
     end if
 #endif
+  if(Use_3D) deallocate(plasma_params%Use_3D_vessel%vessel_data_R, &
+                        plasma_params%Use_3D_vessel%vessel_data_z, &
+                        plasma_params%Use_3D_vessel%phi)
   end subroutine dealloc_raytrace
 
 end module mod_ecfm_refr_raytrace_initialize

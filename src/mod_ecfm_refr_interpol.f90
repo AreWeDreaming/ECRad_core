@@ -111,6 +111,7 @@ module mod_ecfm_refr_interpol
     if(ier /= -1) then
       print*, "ier", ier
       print*, "Spline interpolation in make_rect_spline failed"
+      call TRACEBACKQQ()
       call abort
     end if
   end subroutine make_rect_spline
@@ -172,6 +173,7 @@ module mod_ecfm_refr_interpol
       print*, "ier", ier
       print*, "Spline interpolation in make 1d spline failed"
       print*, "m", m, "k", spl%k
+      call TRACEBACKQQ()
       call abort
     end if
   end subroutine make_1d_spline
@@ -248,6 +250,7 @@ module mod_ecfm_refr_interpol
           print*, "x boundary", spl%x_start, spl%x_end
           print*, "y boundary", spl%y_start, spl%y_end
         end if
+        call TRACEBACKQQ()
         call abort
       end if
     end if
@@ -267,6 +270,7 @@ module mod_ecfm_refr_interpol
           print*, "x boundary", spl%x_start, spl%x_end
           print*, "y boundary", spl%y_start, spl%y_end
         end if
+        call TRACEBACKQQ()
         call abort
       end if
     end if
@@ -283,6 +287,7 @@ module mod_ecfm_refr_interpol
           print*, "x boundary", spl%x_start, spl%x_end
           print*, "y boundary", spl%y_start, spl%y_end
         end if
+      call TRACEBACKQQ()
       call abort
     end if
 #ifdef NAG
@@ -294,6 +299,7 @@ module mod_ecfm_refr_interpol
         print*, "Large deviation between the two splines"
         print*, "nag", nag_val
         print*, "spline", f
+        call TRACEBACKQQ()
         call abort
       end if
     end if
@@ -320,6 +326,7 @@ module mod_ecfm_refr_interpol
 #endif
   ! Spline evaluation routine
     use f90_kind
+    use ifcore,                     only: tracebackqq
 #ifdef NAG
     USE nag_spline_2d             , only: nag_spline_2d_eval, &
                                           nag_spline_2d_comm_wp => nag_spline_2d_comm_dp
@@ -363,6 +370,7 @@ module mod_ecfm_refr_interpol
           print*, "y boundary", spl%y_start, spl%y_end
         end if
         call print_2d_spline_params(spl, m)
+        call TRACEBACKQQ()
         call abort
       end if
     end if
@@ -387,6 +395,7 @@ module mod_ecfm_refr_interpol
           if(any(y_vec > spl%y_end)) print*, "some y values smaller than the maximum"
         end if
         call print_2d_spline_params(spl,m)
+        call TRACEBACKQQ()
         call abort
       end if
     end if
@@ -404,6 +413,7 @@ module mod_ecfm_refr_interpol
           print*, "y boundary", spl%y_start, spl%y_end
         end if
       call print_2d_spline_params(spl,m)
+      call TRACEBACKQQ()
       call abort
     end if
 #ifdef NAG
@@ -415,6 +425,7 @@ module mod_ecfm_refr_interpol
         print*, "Large deviation between the two splines"
         print*, "nag", nag_vals
         print*, "spline", f
+        call tracebackqq()
         call abort
       end if
     end if
@@ -506,6 +517,7 @@ module mod_ecfm_refr_interpol
           print*, x_ar
           print*, "x boundary", spl%x_start, spl%x_end
         end if
+        call TRACEBACKQQ()
         call abort
       end if
     end if
@@ -519,6 +531,7 @@ module mod_ecfm_refr_interpol
         print*, x_ar
         print*, "x boundary", spl%x_start, spl%x_end
       end if
+      call tracebackqq()
       call abort
     end if
 #ifdef NAG
@@ -535,6 +548,7 @@ module mod_ecfm_refr_interpol
           print*, x_ar
           print*, "x boundary", spl%x_start, spl%x_end
         end if
+        call tracebackqq()
         call abort
       end if
     end if
@@ -584,6 +598,7 @@ module mod_ecfm_refr_interpol
           print*, x
           print*, "x boundary", spl%x_start, spl%x_end
         end if
+        call tracebackqq()
         call abort
       end if
     end if
@@ -597,6 +612,7 @@ module mod_ecfm_refr_interpol
         print*, x
         print*, "x boundary", spl%x_start, spl%x_end
       end if
+      call tracebackqq()
       call abort
     end if
 #ifdef NAG
@@ -608,6 +624,7 @@ module mod_ecfm_refr_interpol
         print*, "Large deviation between the two splines"
         print*, "nag", nag_val
         print*, "spline", f
+        call tracebackqq()
         call abort
       end if
     end if
@@ -637,6 +654,7 @@ module mod_ecfm_refr_interpol
       print*, ier
       print*, "spline in mod_ecfm_refr_utils failed"
       print*, "t", spl%t
+      call tracebackqq()
       call abort
     end if
   end subroutine spline_1d_get_roots

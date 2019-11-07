@@ -115,12 +115,13 @@ use mod_ecfm_refr_types,        only : ant, rad, plasma_params, dstf, diagnostic
                                        n_e_filename, T_e_filename, vessel_bd_filename, ray_launch_file, &
                                        ratio_for_third_harmonic, straight, reflec_X, reflec_O, modes, mode_cnt, working_dir, &
                                        mode_conv, N_freq, N_ray, warm_plasma, max_points_svec, &
-                                       reflec_model, vessel_plasma_ratio, new_IO
+                                       reflec_model, vessel_plasma_ratio, new_IO, use_3D
 implicit none
 character(*), intent(in)          :: working_dir_in
 character(50)                     :: diag_str
 integer(ikind)                    :: len_diag_str
 character(200)                    :: input_filename
+integer(ikind)                    :: IOstatus
 ! Temporary structure of input file - something more sophisticated later...
 ! shot number
 ! time point
@@ -261,6 +262,14 @@ character(200)                    :: input_filename
   read(66,"(E19.12E2)") plasma_params%R_shift ! Obsolete
   read(66,"(E19.12E2)") plasma_params%z_shift ! Obsolete
   read(66,"(I10)") max_points_svec
+#ifdef USE_3D
+    read(66,"(L1)",IOSTAT=IOstatus) use_3D
+    if(IOstatus /= 0) use_3D = .false.
+    if(use_3D .and. output_level) then
+        print*, "Using 3-dimensional equilibrium"
+    end if
+#endif
+  close(66)
   if(new_IO) then
     n_e_filename = trim(working_dir) // "ECRad_data/" // "ne_file.dat"
     T_e_filename = trim(working_dir) // "ECRad_data/" // "Te_file.dat"
@@ -281,7 +290,7 @@ character(200)                    :: input_filename
       print*, "RAYTRACING ENABLED"
     end if
   end if
-  close(66)
+
 end subroutine read_input_file
 
 #ifdef IDA
@@ -920,42 +929,42 @@ implicit none
   deallocate(diagnostics)
   end subroutine dealloc_ant
 
-  function func_is_left(P1, P2, P3)
-  use mod_ecfm_refr_types, only : point_type
+  function func_is_left(x1, y1, x2, y2, x3, y3)
   use f90_kind
   implicit none
-  type(point_type), intent(in) :: P1, P2, P3
+  real(rkind), intent(in) :: x1, y1, x2, y2, x3, y3
   real(rkind)                  :: func_is_left
-  func_is_left = (P2%x - P1%x) * (P3%y - P1%y) - &
-            (P3%x - P1%x) * (P2%y - P1%y)
+  func_is_left = (x2 - x1) * (y3 - y1) - &
+            (x3 - x1) * (y2 - y1)
   return
   end function func_is_left
 
-  function func_in_poly(poly, x, y)
+  function func_in_poly(x_poly, y_poly, x, y)
   ! Check whether point inside or outside polynome using the winding number test
   ! Algorithm taken from http://geomalgorithms.com/a03-_inclusion.html
   use f90_kind
-  use mod_ecfm_refr_types, only : point_type
   implicit none
-  type(point_type), dimension(:), intent(in) :: poly
+  real(rkind), dimension(:), intent(in)      :: x_poly, y_poly
   real(rkind), intent(in)                    :: x, y
   logical                                    :: func_in_poly
-  type(point_type)                           :: point
+  real(rkind)                                :: point_x, point_y
   integer(ikind)                             :: wn, i
-  point%x = x
-  point%y = y
+  point_x = x
+  point_y = y
   wn = 0
   func_in_poly = .True.
-  do i = 1, size(poly) - 1
-    if(poly(i)%y <= y) then
-        if(poly(i + 1)%y > y) then
-            if (func_is_left(poly(i), poly(i + 1), point) > 0) then
+  do i = 1, size(x_poly) - 1
+    if(y_poly(i) <= y) then
+        if(y_poly(i + 1) > y) then
+            if (func_is_left(x_poly(i), y_poly(i), x_poly(i + 1), y_poly(i + 1), &
+                             point_x, point_y) > 0) then
                 wn = wn + 1
             end if
         end if
     else
-        if(poly(i + 1)%y <= y) then
-            if (func_is_left(poly(i), poly(i + 1), point) < 0) then
+        if(y_poly(i + 1) <= y) then
+            if (func_is_left(x_poly(i), y_poly(i), x_poly(i + 1), y_poly(i + 1), &
+                             point_x, point_y) < 0) then
                 wn = wn - 1
             end if
         end if
@@ -966,29 +975,29 @@ implicit none
   return
   end function func_in_poly
 
-  function distance_to_poly(poly, x, y)
+  function distance_to_poly(x_poly, y_poly, x, y)
   ! Computes the distance of a point to the curve spanned by poly
   ! Uses interpolation -> quite expensive
   use f90_kind
   use mod_ecfm_refr_interpol, only : make_1d_spline, spline_1d, spline_1d_get_roots, deallocate_1d_spline
-  use mod_ecfm_refr_types, only : point_type, spl_type_1d
+  use mod_ecfm_refr_types, only : spl_type_1d
   implicit none
-  type(point_type), dimension(:), intent(in) :: poly
+  real(rkind), dimension(:), intent(in)      :: x_poly, y_poly
   real(rkind), intent(in)                    :: x, y
   real(rkind)                                :: distance_to_poly
   type(spl_type_1d)                          :: spl, d_spl
-  real(rkind), dimension(size(poly))         :: s, f
+  real(rkind), dimension(size(x_poly))       :: s, f
   real(rkind), dimension(500)                :: s_high_res, dummy, df, dist
   real(rkind), dimension(1000)               :: roots
   integer(ikind)                             :: i, root_cnt
-  do i = 1, size(poly)
-    s(i) = real(i - 1) / real(size(poly) - 1)
+  do i = 1, size(x_poly)
+    s(i) = real(i - 1) / real(size(x_poly) - 1)
   end do
   do i = 1, size(s_high_res)
     s_high_res(i) = real(i - 1) / real(size(s_high_res) - 1)
   end do
-  f(:) = Sqrt((poly(:)%x - x)**2 + (poly(:)%y - y)**2)
-  call make_1d_spline(spl, size(poly), s, f)
+  f(:) = Sqrt((x_poly - x)**2 + (y_poly - y)**2)
+  call make_1d_spline(spl, size(x_poly), s, f)
   call spline_1d(spl, s, dummy, df)
   call make_1d_spline(d_spl, size(s_high_res), s_high_res, df)
   root_cnt = size(roots)
@@ -1722,7 +1731,7 @@ logical                                    :: make_secondary_BPD
     where(rad_mode%ray(ir)%freq(1)%svec(i_start:i_end)%freq_2X *  pi * mass_e / e0 > abs(plasma_params%B_ax)) &
         rhop_arr(1:useful_N) = -rhop_arr(1:useful_N)
     ! To get avoid interpolation errors we have to avoid the discontuity from positive to negative rho_pol
-    ! Hence HFS and LFS side have to be treated seperately
+    ! Hence HFS and LFS side have to be treated separately
     i_seg_start = i_start
     i_seg_end = i_seg_start + 1
     do while(i_seg_end < i_end)

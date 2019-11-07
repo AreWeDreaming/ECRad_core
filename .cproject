@@ -1,0 +1,147 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<?fileVersion 4.0.0?><cproject storage_type_id="org.eclipse.cdt.core.XmlProjectDescriptionStorage">
+	<storageModule moduleId="org.eclipse.cdt.core.settings">
+		<cconfiguration id="photran.managedbuild.toolchain.intel.fortran.x86_64.base.1037783082">
+			<storageModule buildSystemId="org.eclipse.cdt.managedbuilder.core.configurationDataProvider" id="photran.managedbuild.toolchain.intel.fortran.x86_64.base.1037783082" moduleId="org.eclipse.cdt.core.settings" name="Default">
+				<externalSettings/>
+				<extensions>
+					<extension id="org.eclipse.cdt.core.ELF" point="org.eclipse.cdt.core.BinaryParser"/>
+					<extension id="org.eclipse.cdt.core.GASErrorParser" point="org.eclipse.cdt.core.ErrorParser"/>
+					<extension id="org.eclipse.cdt.core.GmakeErrorParser" point="org.eclipse.cdt.core.ErrorParser"/>
+					<extension id="org.eclipse.cdt.core.GLDErrorParser" point="org.eclipse.cdt.core.ErrorParser"/>
+					<extension id="org.eclipse.photran.core.intel.IntelCompilerErrorParser" point="org.eclipse.cdt.core.ErrorParser"/>
+					<extension id="org.eclipse.cdt.core.CWDLocator" point="org.eclipse.cdt.core.ErrorParser"/>
+					<extension id="org.eclipse.cdt.core.GCCErrorParser" point="org.eclipse.cdt.core.ErrorParser"/>
+				</extensions>
+			</storageModule>
+			<storageModule moduleId="cdtBuildSystem" version="4.0.0">
+				<configuration artifactName="${ProjName}" buildProperties="" description="" id="photran.managedbuild.toolchain.intel.fortran.x86_64.base.1037783082" name="Default" parent="org.eclipse.cdt.build.core.emptycfg">
+					<folderInfo id="photran.managedbuild.toolchain.intel.fortran.x86_64.base.1037783082.1219698098" name="/" resourcePath="">
+						<toolChain id="photran.managedbuild.toolchain.intel.fortran.x86_64.base.19093008" name="Intel(R) Fortran Toolchain on Intel(R) 64" superClass="photran.managedbuild.toolchain.intel.fortran.x86_64.base">
+							<targetPlatform archList="x86_64" binaryParser="org.eclipse.cdt.core.ELF" id="photran.managedbuild.target.intel.platform.x86_64.base.269575687" name="Intel(R) 64 Platform" osList="linux" superClass="photran.managedbuild.target.intel.platform.x86_64.base"/>
+							<builder arguments="USE_3D=True" autoBuildTarget="all" cleanBuildTarget="clean" command="make" enableAutoBuild="false" enableCleanBuild="true" enabledIncrementalBuild="true" id="photran.managedbuild.target.intel.builder.x86_64.base.999473468" incrementalBuildTarget="all" keepEnvironmentInBuildfile="false" managedBuildOn="false" name="Gnu Make Builder" parallelBuildOn="false" superClass="photran.managedbuild.target.intel.builder.x86_64.base"/>
+							<tool id="photran.managedbuild.tool.intel.gnu.c.compiler.x86_64.base.159144730" name="GCC C Compiler" superClass="photran.managedbuild.tool.intel.gnu.c.compiler.x86_64.base">
+								<inputType id="cdt.managedbuild.tool.gnu.c.compiler.input.1271647737" superClass="cdt.managedbuild.tool.gnu.c.compiler.input"/>
+							</tool>
+							<tool id="photran.managedbuild.tool.intel.fortran.compiler.x86_64.base.1512173514" name="Intel(R) Intel(R) 64 Fortran Compiler" superClass="photran.managedbuild.tool.intel.fortran.compiler.x86_64.base">
+								<inputType id="photran.managedbuild.tool.intel.fortran.compiler.input.1240265633" superClass="photran.managedbuild.tool.intel.fortran.compiler.input"/>
+							</tool>
+							<tool id="photran.managedbuild.tool.intel.fortran.linker.x86_64.base.1061946461" name="Intel(R) Fortran Linker" superClass="photran.managedbuild.tool.intel.fortran.linker.x86_64.base">
+								<inputType id="photran.managedbuild.tool.intel.fortran.linker.input.333503253" superClass="photran.managedbuild.tool.intel.fortran.linker.input">
+									<additionalInput kind="additionalinputdependency" paths="$(USER_OBJS)"/>
+									<additionalInput kind="additionalinput" paths="$(LIBS)"/>
+								</inputType>
+							</tool>
+							<tool id="photran.managedbuild.tool.intel.gnu.assembler.x86_64.base.1392281876" name="GCC Assembler" superClass="photran.managedbuild.tool.intel.gnu.assembler.x86_64.base">
+								<inputType id="cdt.managedbuild.tool.gnu.assembler.input.687011716" superClass="cdt.managedbuild.tool.gnu.assembler.input"/>
+							</tool>
+							<tool id="photran.managedbuild.tool.intel.fortran.archiver.x86_64.base.171678168" name="Archiver" superClass="photran.managedbuild.tool.intel.fortran.archiver.x86_64.base"/>
+						</toolChain>
+					</folderInfo>
+				</configuration>
+			</storageModule>
+			<storageModule moduleId="org.eclipse.cdt.core.externalSettings"/>
+		</cconfiguration>
+		<cconfiguration id="photran.managedbuild.toolchain.intel.fortran.x86_64.base.1037783082.398729267">
+			<storageModule buildSystemId="org.eclipse.cdt.managedbuilder.core.configurationDataProvider" id="photran.managedbuild.toolchain.intel.fortran.x86_64.base.1037783082.398729267" moduleId="org.eclipse.cdt.core.settings" name="Debug">
+				<externalSettings/>
+				<extensions>
+					<extension id="org.eclipse.cdt.core.ELF" point="org.eclipse.cdt.core.BinaryParser"/>
+					<extension id="org.eclipse.cdt.core.GASErrorParser" point="org.eclipse.cdt.core.ErrorParser"/>
+					<extension id="org.eclipse.cdt.core.GmakeErrorParser" point="org.eclipse.cdt.core.ErrorParser"/>
+					<extension id="org.eclipse.cdt.core.GLDErrorParser" point="org.eclipse.cdt.core.ErrorParser"/>
+					<extension id="org.eclipse.photran.core.intel.IntelCompilerErrorParser" point="org.eclipse.cdt.core.ErrorParser"/>
+					<extension id="org.eclipse.cdt.core.CWDLocator" point="org.eclipse.cdt.core.ErrorParser"/>
+					<extension id="org.eclipse.cdt.core.GCCErrorParser" point="org.eclipse.cdt.core.ErrorParser"/>
+				</extensions>
+			</storageModule>
+			<storageModule moduleId="cdtBuildSystem" version="4.0.0">
+				<configuration artifactName="${ProjName}" buildProperties="" description="" id="photran.managedbuild.toolchain.intel.fortran.x86_64.base.1037783082.398729267" name="Debug" parent="org.eclipse.cdt.build.core.emptycfg">
+					<folderInfo id="photran.managedbuild.toolchain.intel.fortran.x86_64.base.1037783082.398729267." name="/" resourcePath="">
+						<toolChain id="photran.managedbuild.toolchain.intel.fortran.x86_64.base.472052869" name="Intel(R) Fortran Toolchain on Intel(R) 64" superClass="photran.managedbuild.toolchain.intel.fortran.x86_64.base">
+							<targetPlatform archList="x86_64" binaryParser="org.eclipse.cdt.core.ELF" id="photran.managedbuild.target.intel.platform.x86_64.base.2117041645" name="Intel(R) 64 Platform" osList="linux" superClass="photran.managedbuild.target.intel.platform.x86_64.base"/>
+							<builder arguments="DEBUG=True USE_3D=True" autoBuildTarget="all" cleanBuildTarget="clean" command="make" enableAutoBuild="false" enableCleanBuild="true" enabledIncrementalBuild="true" id="photran.managedbuild.target.intel.builder.x86_64.base.975043882" incrementalBuildTarget="all" keepEnvironmentInBuildfile="false" managedBuildOn="false" name="Gnu Make Builder" parallelBuildOn="false" superClass="photran.managedbuild.target.intel.builder.x86_64.base"/>
+							<tool id="photran.managedbuild.tool.intel.gnu.c.compiler.x86_64.base.114516487" name="GCC C Compiler" superClass="photran.managedbuild.tool.intel.gnu.c.compiler.x86_64.base">
+								<inputType id="cdt.managedbuild.tool.gnu.c.compiler.input.1604429394" superClass="cdt.managedbuild.tool.gnu.c.compiler.input"/>
+							</tool>
+							<tool id="photran.managedbuild.tool.intel.fortran.compiler.x86_64.base.601145805" name="Intel(R) Intel(R) 64 Fortran Compiler" superClass="photran.managedbuild.tool.intel.fortran.compiler.x86_64.base">
+								<inputType id="photran.managedbuild.tool.intel.fortran.compiler.input.304236703" superClass="photran.managedbuild.tool.intel.fortran.compiler.input"/>
+							</tool>
+							<tool id="photran.managedbuild.tool.intel.fortran.linker.x86_64.base.412842107" name="Intel(R) Fortran Linker" superClass="photran.managedbuild.tool.intel.fortran.linker.x86_64.base">
+								<inputType id="photran.managedbuild.tool.intel.fortran.linker.input.466933364" superClass="photran.managedbuild.tool.intel.fortran.linker.input">
+									<additionalInput kind="additionalinputdependency" paths="$(USER_OBJS)"/>
+									<additionalInput kind="additionalinput" paths="$(LIBS)"/>
+								</inputType>
+							</tool>
+							<tool id="photran.managedbuild.tool.intel.gnu.assembler.x86_64.base.1896159376" name="GCC Assembler" superClass="photran.managedbuild.tool.intel.gnu.assembler.x86_64.base">
+								<inputType id="cdt.managedbuild.tool.gnu.assembler.input.1240301284" superClass="cdt.managedbuild.tool.gnu.assembler.input"/>
+							</tool>
+							<tool id="photran.managedbuild.tool.intel.fortran.archiver.x86_64.base.525394467" name="Archiver" superClass="photran.managedbuild.tool.intel.fortran.archiver.x86_64.base"/>
+						</toolChain>
+					</folderInfo>
+				</configuration>
+			</storageModule>
+			<storageModule moduleId="org.eclipse.cdt.core.externalSettings"/>
+		</cconfiguration>
+		<cconfiguration id="photran.managedbuild.toolchain.intel.fortran.x86_64.base.1037783082.347615485">
+			<storageModule buildSystemId="org.eclipse.cdt.managedbuilder.core.configurationDataProvider" id="photran.managedbuild.toolchain.intel.fortran.x86_64.base.1037783082.347615485" moduleId="org.eclipse.cdt.core.settings" name="3D">
+				<externalSettings/>
+				<extensions>
+					<extension id="org.eclipse.cdt.core.ELF" point="org.eclipse.cdt.core.BinaryParser"/>
+					<extension id="org.eclipse.cdt.core.GASErrorParser" point="org.eclipse.cdt.core.ErrorParser"/>
+					<extension id="org.eclipse.cdt.core.GmakeErrorParser" point="org.eclipse.cdt.core.ErrorParser"/>
+					<extension id="org.eclipse.cdt.core.GLDErrorParser" point="org.eclipse.cdt.core.ErrorParser"/>
+					<extension id="org.eclipse.photran.core.intel.IntelCompilerErrorParser" point="org.eclipse.cdt.core.ErrorParser"/>
+					<extension id="org.eclipse.cdt.core.CWDLocator" point="org.eclipse.cdt.core.ErrorParser"/>
+					<extension id="org.eclipse.cdt.core.GCCErrorParser" point="org.eclipse.cdt.core.ErrorParser"/>
+				</extensions>
+			</storageModule>
+			<storageModule moduleId="cdtBuildSystem" version="4.0.0">
+				<configuration artifactName="${ProjName}" buildProperties="" description="" id="photran.managedbuild.toolchain.intel.fortran.x86_64.base.1037783082.347615485" name="3D" parent="org.eclipse.cdt.build.core.emptycfg">
+					<folderInfo id="photran.managedbuild.toolchain.intel.fortran.x86_64.base.1037783082.347615485." name="/" resourcePath="">
+						<toolChain id="photran.managedbuild.toolchain.intel.fortran.x86_64.base.363947553" name="Intel(R) Fortran Toolchain on Intel(R) 64" superClass="photran.managedbuild.toolchain.intel.fortran.x86_64.base">
+							<targetPlatform archList="x86_64" binaryParser="org.eclipse.cdt.core.ELF" id="photran.managedbuild.target.intel.platform.x86_64.base.853688394" name="Intel(R) 64 Platform" osList="linux" superClass="photran.managedbuild.target.intel.platform.x86_64.base"/>
+							<builder arguments="USE_3D=True DEBUG=True" autoBuildTarget="all" cleanBuildTarget="clean" command="make" enableAutoBuild="false" enableCleanBuild="true" enabledIncrementalBuild="true" id="photran.managedbuild.target.intel.builder.x86_64.base.844303043" incrementalBuildTarget="all" keepEnvironmentInBuildfile="false" managedBuildOn="false" name="Gnu Make Builder" parallelBuildOn="false" superClass="photran.managedbuild.target.intel.builder.x86_64.base"/>
+							<tool id="photran.managedbuild.tool.intel.gnu.c.compiler.x86_64.base.1972413914" name="GCC C Compiler" superClass="photran.managedbuild.tool.intel.gnu.c.compiler.x86_64.base">
+								<inputType id="cdt.managedbuild.tool.gnu.c.compiler.input.1703091408" superClass="cdt.managedbuild.tool.gnu.c.compiler.input"/>
+							</tool>
+							<tool id="photran.managedbuild.tool.intel.fortran.compiler.x86_64.base.806793805" name="Intel(R) Intel(R) 64 Fortran Compiler" superClass="photran.managedbuild.tool.intel.fortran.compiler.x86_64.base">
+								<inputType id="photran.managedbuild.tool.intel.fortran.compiler.input.1113875264" superClass="photran.managedbuild.tool.intel.fortran.compiler.input"/>
+							</tool>
+							<tool id="photran.managedbuild.tool.intel.fortran.linker.x86_64.base.1006876417" name="Intel(R) Fortran Linker" superClass="photran.managedbuild.tool.intel.fortran.linker.x86_64.base">
+								<inputType id="photran.managedbuild.tool.intel.fortran.linker.input.1077201158" superClass="photran.managedbuild.tool.intel.fortran.linker.input">
+									<additionalInput kind="additionalinputdependency" paths="$(USER_OBJS)"/>
+									<additionalInput kind="additionalinput" paths="$(LIBS)"/>
+								</inputType>
+							</tool>
+							<tool id="photran.managedbuild.tool.intel.gnu.assembler.x86_64.base.1632741783" name="GCC Assembler" superClass="photran.managedbuild.tool.intel.gnu.assembler.x86_64.base">
+								<inputType id="cdt.managedbuild.tool.gnu.assembler.input.2032461989" superClass="cdt.managedbuild.tool.gnu.assembler.input"/>
+							</tool>
+							<tool id="photran.managedbuild.tool.intel.fortran.archiver.x86_64.base.1606320958" name="Archiver" superClass="photran.managedbuild.tool.intel.fortran.archiver.x86_64.base"/>
+						</toolChain>
+					</folderInfo>
+				</configuration>
+			</storageModule>
+			<storageModule moduleId="org.eclipse.cdt.core.externalSettings"/>
+		</cconfiguration>
+	</storageModule>
+	<storageModule moduleId="cdtBuildSystem" version="4.0.0">
+		<project id="augd_ecrad.null.1431853689" name="augd_ecrad"/>
+	</storageModule>
+	<storageModule moduleId="org.eclipse.cdt.core.LanguageSettingsProviders"/>
+	<storageModule moduleId="refreshScope" versionNumber="2">
+		<configuration configurationName="3D"/>
+		<configuration configurationName="Default">
+			<resource resourceType="PROJECT" workspacePath="/augd_ecrad"/>
+		</configuration>
+		<configuration configurationName="Debug"/>
+	</storageModule>
+	<storageModule moduleId="org.eclipse.cdt.make.core.buildtargets"/>
+	<storageModule moduleId="scannerConfiguration">
+		<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId=""/>
+		<scannerConfigBuildInfo instanceId="photran.managedbuild.toolchain.intel.fortran.x86_64.base.1037783082.347615485;photran.managedbuild.toolchain.intel.fortran.x86_64.base.1037783082.347615485.;photran.managedbuild.tool.intel.gnu.c.compiler.x86_64.base.1972413914;cdt.managedbuild.tool.gnu.c.compiler.input.1703091408">
+			<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId="org.eclipse.cdt.managedbuilder.core.GCCManagedMakePerProjectProfileC"/>
+		</scannerConfigBuildInfo>
+	</storageModule>
+	<storageModule moduleId="org.eclipse.cdt.internal.ui.text.commentOwnerProjectMappings"/>
+</cproject>

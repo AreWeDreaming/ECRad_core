@@ -7,6 +7,7 @@ module mod_ecfm_refr_types
 ! values marked with a * are hardcoded here
 use f90_kind
 use constants,                  only: pi
+use magconfig3D,                only: Scenario_type
 #ifdef OMP
 use omp_lib
 #endif
@@ -78,15 +79,17 @@ type ant_type
   type(ant_diag_type),               dimension(:), allocatable :: diag   ! ECE channel
 end type ant_type
 
-type(ant_type)                     :: ant
+
+
+type Use_3D_vessel_type
+  real(rkind), dimension(:,:), allocatable :: vessel_data_R
+  real(rkind), dimension(:,:), allocatable :: vessel_data_z
+  real(rkind), dimension(:), allocatable   :: phi
+  integer(ikind)                           :: n_phi, n_contour
+  real(rkind)                              :: phi_max
+end type
 
 ! radiation and LOS parameters (time-dependent)
-
-real(rkind)                        :: Te_min = 1.d0
-
-! Saves the radiation transport data for a specific frequenc
-
-
 type rad_diag_ch_mode_ray_freq_svec_type ! S. Denk 4. 2013
 ! This structure saves all the data neccessary for the integration along LOS
 ! for straight lines this avoids interpolations in the most inner loop of the program
@@ -365,9 +368,9 @@ type grad_type
   real(rkind)               :: dR, dphi, dz
 end type grad_type
 
-type point_type
-  real(rkind)              :: x, y
-end type point_type
+type contour_type
+  real(rkind), dimension(:), allocatable              :: x, y
+end type contour_type
 
 type ripple_params_type
 ! Parametrisation of the field ripple
@@ -409,7 +412,7 @@ type plasma_params_type
                                                        IDA_T_e_dx2, IDA_rhop_knots_ne, IDA_n_e, &
                                                        IDA_n_e_dx2
 #endif
-  type(point_type), dimension(:), allocatable       :: vessel_poly ! polynome describing the vessel (2D)
+  type(contour_type)                                :: vessel_poly ! polynome describing the vessel (2D)
   integer(ikind)                                    :: shot, eq_ed
   integer(ikind)                                    :: ida_time_indx
   real(rkind)                                       :: time
@@ -469,8 +472,13 @@ type plasma_params_type
   logical                                           :: prof_log_flag = .true. ! If True Te and ne interpolated by Exp(Spl) instead of Spl directly
   real(rkind)                                       :: R_shift = 0.d0, z_shift = 0.d0 ! Allows shifting the equilbrium - moves entire flux matrix
   real(rkind)                                       :: theta_pol_cor = 0.0 !-1.0 / 180.0 * pi
+  type(Scenario_type)                               :: Scenario ! Configuration info of the 3D Equilibrium
+  type(Use_3D_vessel_type)                          :: Use_3D_vessel ! Contains 3D Vessel information
+  integer(8), dimension(:), allocatable             :: mconf_addresses
 end type plasma_params_type
 
+  type(ant_type)                     :: ant
+  real(rkind)                        :: Te_min = 1.d0
   type(rad_type)                     :: rad
   type(plasma_params_type)           :: plasma_params
   type(ripple_params_type)           :: ripple_params
@@ -545,5 +553,6 @@ end type plasma_params_type
   real(rkind)                        :: min_level_log_ne = 1.d-15
   integer(ikind)                     :: N_absz = 24, N_absz_large = 128
   logical                            :: new_IO = .false. ! Will be true if the new IO from ECRad_GUI will be used
+  logical                            :: use_3D = .false.
 end module mod_ecfm_refr_types
 

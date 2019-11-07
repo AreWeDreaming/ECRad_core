@@ -1022,6 +1022,7 @@ do idiag = 1, ant%N_diag
         if(rad%diag(idiag)%ch(ich)%mode(imode)%ray(1)%freq(1)%use_external_pol_coeff .and. &
          rad%diag(idiag)%ch(ich)%mode(imode)%ray(1)%freq(1)%pol_coeff == 0.d0) cycle
         do ir = 1, N_ray
+          if(.not. rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%contributes) cycle
           call bin_freq_to_ray(rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir), &
                                ant%diag(idiag)%ch(ich)%freq_weight, &
                                rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(:), &
@@ -1110,7 +1111,7 @@ do idiag = 1, ant%N_diag
   !$omp end parallel
 #endif
 end do ! N_diag
-if( stand_alone) call save_data_to_ASCII() !output_level .and.
+if( stand_alone .and. output_level) call save_data_to_ASCII() !output_level .and.
 !if(stand_alone .and. .not. output_level) call make_BPD_and_warm_res(1, 20)
 end subroutine make_ece_rad_temp
 
