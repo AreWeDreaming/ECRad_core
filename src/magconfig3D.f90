@@ -1,6 +1,6 @@
 !########################################################################
 
- MODULE magconfig3D
+ MODULE magconfig
 
 !########################################################################
 !-------
@@ -14,6 +14,7 @@
  REAL(8),   PRIVATE :: hgrid, dR, dZ, dphi ! [m], [rad]
  REAL(8),   PRIVATE :: accbooz, tolharm
  real(8),  PRIVATE  :: comp_eps = 1.d-12
+ real(8),  PRIVATE  :: B_ref
 !
  INTEGER,    PRIVATE :: Nsym
  REAL(8), PRIVATE :: SSplus,SSmax
@@ -25,7 +26,7 @@ TYPE Scenario_type
  CHARACTER(Len=120) :: format_config
  logical :: useMesh, useSymm
 
- real(8) :: splus, smax, hgrid, dphic, accbooz, tolharm
+ real(8) :: B_ref, splus, smax, hgrid, dphic, accbooz, tolharm
  integer(8) :: mConfAddr = 0
 END TYPE Scenario_type
 #ifdef USE_3D
@@ -97,63 +98,12 @@ END TYPE Scenario_type
      CHARACTER(*) :: name
    END FUNCTION mcWriteMesh
    !
-   INTEGER(4) FUNCTION mcNperiods(mconf) 
-     INTEGER(8) :: mconf
-   END FUNCTION mcNperiods
-   !
-   REAL(8) FUNCTION mcrminor(mconf) 
-     INTEGER(8) :: mconf
-   END FUNCTION mcrminor
-   !
-   REAL(8) FUNCTION mcR0(mconf) 
-     INTEGER(8) :: mconf
-   END FUNCTION mcR0
-   !
-   REAL(8) FUNCTION mcTorFlux(mconf,S) 
-     INTEGER(8) :: mconf
-     REAL(8)    :: S
-   END FUNCTION mcTorFlux
-   !
-   REAL(8) FUNCTION mcVprime(mconf,S) 
-     INTEGER(8) :: mconf
-     REAL(8)    :: S
-   END FUNCTION mcVprime
-   !
-   REAL(8) FUNCTION mcVolume(mconf,S) 
-     INTEGER(8) :: mconf
-     REAL(8)    :: S
-   END FUNCTION mcVolume
-   !
-   REAL(8) FUNCTION mcAverageCrosssectionArea(mconf,S) 
-     INTEGER(8) :: mconf
-     REAL(8)    :: S
-   END FUNCTION mcAverageCrosssectionArea
-   !   !
-   REAL(8) FUNCTION mcIota(mconf,S) 
-     INTEGER(8) :: mconf
-     REAL(8)    :: S
-   END FUNCTION mcIota
-   !
-   REAL(8) FUNCTION mcIotaPrime(mconf,S) 
-     INTEGER(8) :: mconf
-     REAL(8)    :: S
-   END FUNCTION mcIotaPrime
-   !
    REAL(8) FUNCTION mcRaxis(mconf,phi) 
      INTEGER(8) :: mconf
      REAL(8)    :: phi
    END FUNCTION mcRaxis
    !
-   SUBROUTINE mcgetGradSxyz(mconf,XYZ,gradS) 
-     INTEGER(8) :: mconf
-     REAL(8)    :: XYZ(3),gradS(3)
-   END SUBROUTINE mcgetGradSxyz
-   !
-   SUBROUTINE mcM3DgetGradSxyz(mconf,XYZ,gradS) 
-     INTEGER(8) :: mconf
-     REAL(8)    :: XYZ(3),gradS(3)
-   END SUBROUTINE mcM3DgetGradSxyz
-   !
+
    SUBROUTINE mcM3DgetSBxyz(mconf,xyz,S,B) 
      INTEGER(8) :: mconf
      REAL(8)    :: xyz(3),S,B(3)
@@ -164,10 +114,6 @@ END TYPE Scenario_type
      REAL(8)    :: xyz(3),S,B(3)
    END SUBROUTINE mcgetSBxyz
    !
-   SUBROUTINE mcGetGradB(mconf,magCoord,gradB) 
-     INTEGER(8) :: mconf
-     REAL(8)    :: magCoord(3),gradB(3)
-   END SUBROUTINE mcGetGradB
    !
    SUBROUTINE MCgetAllxyz(mconf,xyz,S,B,gradS,gradBi)
      INTEGER(8) :: mconf
@@ -189,11 +135,6 @@ END TYPE Scenario_type
    REAL(8) FUNCTION mcM3DGetSmax(mConf) 
      INTEGER(8) :: mConf
    END FUNCTION mcM3DGetSmax
-   !
-   REAL(8) FUNCTION mcTorFlux2PolFlux(mconf,Stor) 
-     INTEGER(8) :: mconf
-     REAL(8)    :: Stor
-   END FUNCTION mcTorFlux2PolFlux
    !
    SUBROUTINE mcTruncate(mConf,r) 
      INTEGER(8) :: mConf
@@ -230,10 +171,11 @@ END TYPE Scenario_type
      REAL(8)    :: B0, angle
    END SUBROUTINE mcSetB0
    !
-   REAL(8) FUNCTION mcGetB00(mConf) 
-     INTEGER(8) :: mConf
-   END FUNCTION mcGetB00
-   !
+   REAL(8) FUNCTION mcGetB0(mconf,phi) ! rad
+     INTEGER(8) :: mconf
+     REAL(8)    :: phi
+   END FUNCTION mcGetB0
+
    REAL(8) FUNCTION mcBmn(mConf,m,n,S) 
      INTEGER(8) :: mConf
      INTEGER(4) :: m,n
@@ -272,7 +214,7 @@ END TYPE Scenario_type
 
 !########################################################################
 
- SUBROUTINE MConf3D_Setup_Config(Scen)
+ SUBROUTINE MConf_Setup_Config(Scen)
 !========================================================================
  IMPLICIT NONE
  TYPE(Scenario_type) :: Scen
@@ -284,6 +226,7 @@ END TYPE Scenario_type
  useMesh     = Scen%useMesh
  useSymm     = Scen%useSymm
 !
+ B_ref       = Scen%B_ref
  ssplus      = Scen%splus
  ssmax       = Scen%smax
  hgrid       = Scen%hgrid;    dR = hgrid;   dZ = hgrid
@@ -294,13 +237,13 @@ END TYPE Scenario_type
  tolharm     = Scen%tolharm
 !
 !========================================================================
- END SUBROUTINE MConf3D_Setup_Config
+ END SUBROUTINE MConf_Setup_Config
 
 !########################################################################
 !########################################################################
 !########################################################################
 
- subroutine MConf3D_load_magconf_file(loaded, mcAddr)
+ subroutine MConf_load_magconf_file(loaded, mcAddr)
 !========================================================================
   INTEGER(8), intent(out) :: mcAddr
   INTEGER, intent(out)    :: loaded
@@ -309,13 +252,13 @@ END TYPE Scenario_type
   fmt = format_conf(1:4)
   loaded = mcLoad(mcAddr,name_conf)
 !========================================================================
- END subroutine MConf3D_load_magconf_file
+ END subroutine MConf_load_magconf_file
 
 !########################################################################
 !########################################################################
 !########################################################################
 
- SUBROUTINE MConf3D_Load_MagConfig(loaded, mConfAddr)
+ SUBROUTINE MConf_Load_MagConfig(loaded, mConfAddr)
 !========================================================================
  IMPLICIT NONE
  integer, intent(out)      :: loaded
@@ -323,10 +266,11 @@ END TYPE Scenario_type
  INTEGER :: i
 !========================================================================
  IF(mConfAddr==0) THEN
-   call MConf3D_load_magconf_file(loaded, mConfAddr)
+   call MConf_load_magconf_file(loaded, mConfAddr)
  ENDIF
  CALL mcTruncate   (mConfAddr,tolharm)
  CALL mcSetAccuracy(mConfAddr,accbooz)
+ CALL mcScaleB(mConfAddr,B_ref)
 !---
  IF (useMesh) THEN
    IF(mcIsMeshOK(mConfAddr) /= 1) THEN ! test whether mConfAddr contains mesh
@@ -346,13 +290,13 @@ END TYPE Scenario_type
    ENDIF
  ENDIF
 !========================================================================
- END SUBROUTINE MConf3D_Load_MagConfig
+ END SUBROUTINE MConf_Load_MagConfig
 
 
 
 !########################################################################
 
- FUNCTION isInsideLCMS(mConfAddr, coord, XYZ) RESULT(isInside)
+ FUNCTION MConf_isInsideLCMS(mConfAddr, coord, XYZ) RESULT(isInside)
 !========================================================================
 !  function returns 'true' if the point lies inside LCMS
 !========================================================================
@@ -360,26 +304,24 @@ END TYPE Scenario_type
  Integer(8), Intent(in)        :: mConfAddr
  CHARACTER(Len=2), INTENT(in) :: coord
  REAL(8),        INTENT(in) :: XYZ(3)
- REAL(8) :: XYZ1(3)
  LOGICAL    :: isInside
 !========================================================================
-   XYZ1 = XYZ
    isInside=.FALSE.
    IF (coord == 'cy') THEN
-     isInside = MCCYLISINSIDE(mConfAddr,XYZ1) /= 0
+     isInside = MCCYLISINSIDE(mConfAddr,XYZ) /= 0
    ELSEIF (coord == 'ca') THEN
-     isInside = MCXYZISINSIDE(mConfAddr,XYZ1) /= 0
+     isInside = MCXYZISINSIDE(mConfAddr,XYZ) /= 0
    ELSE
      CALL abort('magconfig3D.f90, isInsideLCMS: called with wrong coordinates system.')
    ENDIF
 !========================================================================
- END FUNCTION isInsideLCMS
+ END FUNCTION MConf_isInsideLCMS
 
 !########################################################################
 !########################################################################
 !########################################################################
 
- SUBROUTINE MConf3D_SBgradSgradBi(mConfAddr, XYZ, SS,Bi,gradS,gradBi)
+ SUBROUTINE MConf_SBgradSgradBi(mConfAddr, XYZ, SS,Bi,gradS,gradBi)
 !========================================================================
 ! Retuns S, B(:), gradS, grad(B(:)) in cartesian coordinates
 ! gradBi(9) = ( dBx/dx, dBy/dx, dBz/dx,
@@ -408,14 +350,14 @@ END TYPE Scenario_type
  gradBi(:,2) = (/gradBi1(2),gradBi1(2+3),gradBi1(2+6)/)   ! <- grad(By)
  gradBi(:,3) = (/gradBi1(3),gradBi1(3+3),gradBi1(3+6)/)   ! <- grad(Bz)
 !========================================================================
- END SUBROUTINE MConf3D_SBgradSgradBi
+ END SUBROUTINE MConf_SBgradSgradBi
 
 
 !########################################################################
 !########################################################################
 !########################################################################
 
- SUBROUTINE MConf3D_FluxLabel_Bfield(mConfAddr, XYZ, S,B)
+ SUBROUTINE MConf_FluxLabel_Bfield(mConfAddr, XYZ, S,B)
 !========================================================================
 ! Function retuns the flux surface label S and the 
 ! magnetic field vector B for the given point XYZ
@@ -444,13 +386,13 @@ END TYPE Scenario_type
  S = S1
  IF(present(B)) B(:) = B1(:)
 !========================================================================
- END SUBROUTINE MConf3D_FluxLabel_Bfield
+ END SUBROUTINE MConf_FluxLabel_Bfield
 
 !########################################################################
 !########################################################################
 !########################################################################
 
- FUNCTION MConf3D_Raxis(mConfAddr, phi) RESULT(Raxi)
+ FUNCTION MConf_Raxis(mConfAddr, phi) RESULT(Raxi)
 !========================================================================
 ! For the given toroidal angle calculates the radial position of axis.
 !========================================================================
@@ -461,7 +403,7 @@ END TYPE Scenario_type
 !========================================================================
  Raxi = mcRaxis(mConfAddr,phi)
 !========================================================================
- END FUNCTION MConf3D_Raxis
+ END FUNCTION MConf_Raxis
 
 !########################################################################
 !########################################################################
@@ -470,6 +412,6 @@ END TYPE Scenario_type
 
 !########################################################################
 #endif
- END MODULE magconfig3D
+ END MODULE magconfig
 
 !########################################################################

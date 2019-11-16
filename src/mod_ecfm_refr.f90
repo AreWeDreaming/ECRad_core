@@ -29,7 +29,7 @@ subroutine initialize_stand_alone(working_dir, flag)
 use mod_ecfm_refr_types,        only: dstf, dst_data_folder, Ich_name, ray_out_folder, output_level, data_name, &
                                       dstf_comp, plasma_params, warm_plasma, data_secondary_name, &
                                       data_folder, Ich_name, dstf_comp, straight, stand_alone, ffp, N_absz, &
-                                      N_absz_large, new_IO
+                                      N_absz_large, new_IO, ray_init
 use mod_ecfm_refr_utils,      only: read_input_file, prepare_ECE_diag_new_IO, prepare_ECE_diag_old_IO, init_non_therm
 use mod_ecfm_refr_raytrace_initialize,    only: init_raytrace
 use mod_ecfm_refr_raytrace,               only: span_svecs
@@ -146,6 +146,7 @@ character(*),  intent(in)      :: flag
       print*, "Use weakly relativistic cut off correction for ray tracing: ", warm_plasma
     end if
     call span_svecs(plasma_params)
+    ray_init = .true.
   else if(trim(flag) == "clean") then
     !TODO: Implement clean up routine
     call abs_Al_clean_up()
@@ -177,6 +178,7 @@ use mod_ecfm_refr_utils,      only: parse_ecfm_settings_from_ida, &
                                     prepare_ECE_diag_IDA, dealloc_ant
 use mod_ecfm_refr_abs_Al,     only: abs_Al_init,abs_Al_clean_up
 use mod_ecfm_refr_raytrace,   only: dealloc_rad
+use mod_ecfm_refr_raytrace_initialize, only: dealloc_raytrace
 implicit none
 character(*), intent(in)      :: working_dir_in, flag
 real(rkind), intent(in)       :: rhopol_max_spline_knot, ecrad_ratio_for_third_harmonic, &
@@ -245,12 +247,27 @@ else if(trim(flag) == "clean") then
   call abs_Al_clean_up()
   call dealloc_rad(rad)
   call dealloc_ant(ant)
+  call dealloc_raytrace(plasma_params)
   ray_init = .false.
 else
   print*, "Inappropriate flag in initialize in mod_ecfm_ECE_rad"
   stop "Internal error"
 end if
 end subroutine pre_initialize_ecfm
+
+subroutine clean_up_ecfm()
+use mod_ecfm_refr_types,      only: plasma_params,rad, ant, ray_init
+use mod_ecfm_refr_utils,      only: dealloc_ant
+use mod_ecfm_refr_abs_Al,     only: abs_Al_clean_up
+use mod_ecfm_refr_raytrace,   only: dealloc_rad
+use mod_ecfm_refr_raytrace_initialize, only: dealloc_raytrace
+implicit None
+  call abs_Al_clean_up()
+  call dealloc_rad(rad)
+  call dealloc_ant(ant)
+  call dealloc_raytrace(plasma_params)
+  ray_init = .false.
+end subroutine clean_up_ecfm
 
 subroutine initialize_ecfm(flag, N_Te_spline_knots, N_ne_spline_knots, &
                            R, z, rhop, Br, Bt, Bz, R_ax, z_ax, rhopol_out)
@@ -407,6 +424,8 @@ if(any(ece_fm_flag_ch)) then
   call make_ece_rad_temp()
   if(any(rad%diag(1)%ch(:)%Trad /= rad%diag(1)%ch(:)%Trad)) then
     print*, "Nan in ECE forward model with forward modeled Trad"
+    print*, rad%diag(1)%ch(:)%Trad
+    call save_data_to_ASCII()
     call abort
   end if
 end if
@@ -488,7 +507,7 @@ use f90_kind
     ! Remove any zeros
       ne_dummy(:) = n_e(:)
       where(ne_dummy < SOL_ne) ne_dummy = SOL_ne
-      call make_1d_spline( plasma_params%ne_spline, int(size(rhop_knots_ne),4), rhop_knots_ne, log(ne_dummy))
+      call make_1d_spline( plasma_params%ne_spline, int(size(rhop_knots_ne),4), rhop_knots_ne, log(ne_dummy * 1.d-19))
     else
       call make_1d_spline( plasma_params%ne_spline, int(size(rhop_knots_ne),4), rhop_knots_ne, n_e)
     end if
@@ -531,10 +550,10 @@ subroutine update_svecs(rad, rhop_knots_ne, n_e, n_e_dx2, rhop_knots_Te, T_e, T_
   integer(ikind)                                  :: idiag, last_N, grid_size, ich, ir, &
                                                      ifreq, imode, i
   real(rkind), dimension(max_points_svec)         :: x_temp, y_temp
-  if(stand_alone) then
-    print*, "There is no reason to call update_svecs in mod_raytrace.f90 in stand_alone mode"
-    stop "stand_alone = T in update_svecs"
-  end if
+!  if(stand_alone) then
+!    print*, "There is no reason to call update_svecs in mod_raytrace.f90 in stand_alone mode"
+!    stop "stand_alone = T in update_svecs"
+!  end if
   if(plasma_params%Te_ne_mat) then
     print*, "The routine update_svecs does not support Te/ne matrices"
     stop "Te_ne_mat = T in update_svecs"
@@ -775,11 +794,11 @@ do idiag = 1, ant%N_diag
             endif
           end if
           if(reflec_model == 0) then
-          ! Mode conversion
-            if(rad%diag(idiag)%ch(ich)%mode(imode)%mode == -1  .and. reflec_O /= 0.d0) then
+          ! Mode specific wall reflections
+            if(rad%diag(idiag)%ch(ich)%mode(imode)%mode == -1  .and. reflec_O /= 0.d0 .and. rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%Trad /= 0.d0 ) then
               rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%Trad = rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%Trad * (1.d0 /  &
                     (1.d0 - reflec_O * exp(-rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%tau)))
-            else if(rad%diag(idiag)%ch(ich)%mode(imode)%mode == 1  .and. reflec_X /= 0.d0) then
+            else if(rad%diag(idiag)%ch(ich)%mode(imode)%mode == 1  .and. reflec_X /= 0.d0 .and. rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%Trad /= 0.d0 ) then
               rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%Trad = rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%Trad * ( 1.d0 / &
                                       (1.d0 - reflec_X * exp(-rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%tau)))
             end if

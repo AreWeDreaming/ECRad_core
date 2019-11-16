@@ -294,7 +294,7 @@ module mod_ecfm_refr_raytrace_initialize
 #endif
     use ripple3d,                   only: init_ripple!, validate_ripple_grad
 #ifdef USE_3D
-    use magconfig3D,                only: MConf3D_Setup_Config, MConf3D_Load_MagConfig, mcClone
+    use magconfig,                only: MConf_Setup_Config, MConf_Load_MagConfig, mcClone
 #endif
 #ifdef OMP
     use omp_lib,                    only: omp_get_max_threads
@@ -337,7 +337,7 @@ module mod_ecfm_refr_raytrace_initialize
       end if
 #endif
       if(plasma_params%prof_log_flag) then
-        call make_1d_spline( plasma_params%ne_spline, int(size(plasma_params%rhop_vec_ne),4), plasma_params%rhop_vec_ne, log(plasma_params%n_e_prof * 1.e-19))
+        call make_1d_spline( plasma_params%ne_spline, int(size(plasma_params%rhop_vec_ne),4), plasma_params%rhop_vec_ne, log(plasma_params%n_e_prof * 1.d-19))
         call make_1d_spline( plasma_params%Te_spline, int(size(plasma_params%rhop_vec_Te),4), plasma_params%rhop_vec_Te, log(plasma_params%T_e_prof))
       else
         call make_1d_spline( plasma_params%ne_spline, int(size(plasma_params%rhop_vec_ne),4), plasma_params%rhop_vec_ne, plasma_params%n_e_prof)
@@ -354,6 +354,7 @@ module mod_ecfm_refr_raytrace_initialize
         read(77,*) plasma_params%Scenario%format_config
         read(77,*) plasma_params%Scenario%useMesh
         read(77,*) plasma_params%Scenario%useSymm
+        read(77,*) plasma_params%Scenario%B_ref
         read(77,*) plasma_params%Scenario%splus
         read(77,*) plasma_params%Scenario%smax
         read(77,*) plasma_params%Scenario%accbooz
@@ -364,8 +365,8 @@ module mod_ecfm_refr_raytrace_initialize
         plasma_params%Scenario%dphic =  plasma_params%Scenario%dphic / 180.d0 * Pi
         plasma_params%Scenario%name_config = trim(working_dir) // "ECRad_data/"  // trim(plasma_params%Scenario%name_config)
         plasma_params%Scenario%mConfAddr = 0 ! Set our pointer to Null like a good boy
-        call MConf3D_Setup_Config(plasma_params%Scenario)
-        call MConf3D_Load_MagConfig(loaded, plasma_params%Scenario%mConfAddr)
+        call MConf_Setup_Config(plasma_params%Scenario)
+        call MConf_Load_MagConfig(loaded, plasma_params%Scenario%mConfAddr)
         if(loaded /= 1) then
             print*, "Failed to load equilibrium"
             print*, "Please check that", plasma_params%Scenario%name_config, " exists!"

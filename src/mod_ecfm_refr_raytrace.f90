@@ -496,7 +496,7 @@ function func_dA_dY(X, Y)
     USE mod_ecfm_refr_utils,        only: sub_remap_coords
     use mod_ecfm_refr_interpol,      only: rect_spline
 #ifdef USE_3D
-    use magconfig3D,                 only: MConf3D_FluxLabel_Bfield, isInsideLCMS
+    use magconfig,                 only: MConf_FluxLabel_Bfield, MConf_isInsideLCMS
 #endif
     type(plasma_params_type)                  :: plasma_params
     real(rkind), dimension(:)  , intent(in)   :: x_vec
@@ -505,10 +505,10 @@ function func_dA_dY(X, Y)
     real(rkind)                               :: S
 #ifdef USE_3D
     if(use_3D) then
-      if(.not. isInsideLCMS(plasma_params%mconf_addresses(thread_num), 'ca', x_vec) ) then
+      if(.not. MConf_isInsideLCMS(plasma_params%mconf_addresses(thread_num), 'ca', x_vec) ) then
         func_rhop = -1.d0
       else
-        call MConf3D_FluxLabel_Bfield(plasma_params%mconf_addresses(thread_num), x_vec, S)
+        call MConf_FluxLabel_Bfield(plasma_params%mconf_addresses(thread_num), x_vec, S)
         if(S < 0.d0 .or. S >= plasma_params%rhop_max**2 .or. S /= S) then
           func_rhop = -1.d0
         else
@@ -564,7 +564,7 @@ function func_dA_dY(X, Y)
     USE mod_ecfm_refr_utils,      only: sub_remap_coords
     use mod_ecfm_refr_interpol,      only: rect_spline
 #ifdef USE_3D
-    use magconfig3D,                 only: MConf3D_FluxLabel_Bfield, isInsideLCMS
+    use magconfig,                 only: MConf_FluxLabel_Bfield, MConf_isInsideLCMS
 #endif
     implicit none
     type(plasma_params_type)                  :: plasma_params
@@ -574,10 +574,10 @@ function func_dA_dY(X, Y)
     real(rkind)                               :: cos_phi, sin_phi, rhop_check ! for MConf
 #ifdef USE_3D
     if(use_3D) then
-      if(.not. isInsideLCMS(plasma_params%mconf_addresses(thread_num), 'ca', x_vec) ) then
+      if(.not. MConf_isInsideLCMS(plasma_params%mconf_addresses(thread_num), 'ca', x_vec) ) then
         B_vec(:) = 0.d0
       else
-        call MConf3D_FluxLabel_Bfield(plasma_params%mconf_addresses(thread_num), x_vec, rhop_check, B_vec)
+        call MConf_FluxLabel_Bfield(plasma_params%mconf_addresses(thread_num), x_vec, rhop_check, B_vec)
         if(rhop_check < 0.d0 .or. rhop_check >= plasma_params%rhop_max**2 .or. rhop_check /= rhop_check) then
 !                print*, "Flux surface label larger than 1, despite being inside LCMS"
 !                call sub_remap_coords(x_vec, R_vec)
@@ -1131,7 +1131,7 @@ function func_dA_dY(X, Y)
     USE mod_ecfm_refr_types, only : plasma_params_type, use_3D
     USE mod_ecfm_refr_utils, only: sub_remap_coords
 #ifdef USE_3D
-    use magconfig3D,                 only: MConf3D_SBgradSgradBi, isInsideLCMS
+    use magconfig,                 only: MConf_SBgradSgradBi, MConf_isInsideLCMS
 #endif
     implicit None
     type(plasma_params_type),        intent(in)   :: plasma_params
@@ -1146,7 +1146,7 @@ function func_dA_dY(X, Y)
     real(rkind)                                   :: h_x, S
 #ifdef USE_3D
     if(use_3D) then
-      if(.not. isInsideLCMS(plasma_params%mconf_addresses(thread_num), &
+      if(.not. MConf_isInsideLCMS(plasma_params%mconf_addresses(thread_num), &
                             'ca', x_vec) ) then
         rhop_out = -1.d0
         B_vec(:) = 0.d0
@@ -1155,7 +1155,7 @@ function func_dA_dY(X, Y)
             grad_B_vec(i,:) = 0.d0
         end do
       else
-        call MConf3D_SBgradSgradBi(plasma_params%mconf_addresses(thread_num), x_vec, S, B_vec, &
+        call MConf_SBgradSgradBi(plasma_params%mconf_addresses(thread_num), x_vec, S, B_vec, &
                                    grad_S, grad_B_vec)
         grad_B_vec = transpose(grad_B_vec) ! Different convetion used here!
         if(S < 0.d0 .or. S >= plasma_params%rhop_max**2 .or. S /= S) then
@@ -1266,7 +1266,7 @@ function func_dA_dY(X, Y)
   subroutine sub_spatial_grad_X(plasma_params, omega, x_vec, rhop, grad_rhop, X, spatial_grad_X)
   ! dX/ dx
     USE f90_kind
-    USE mod_ecfm_refr_types, only : plasma_params_type, warm_plasma
+    USE mod_ecfm_refr_types, only : plasma_params_type, warm_plasma, SOL_ne, SOL_Te
     USE ripple3d,                 only: grad_type
     use constants,                 only : pi, e0, mass_e, eps0, c0
     use mod_ecfm_refr_utils, only: retrieve_n_e, retrieve_T_e, retrieve_n_e_mat_single, retrieve_T_e_mat_single
@@ -1281,6 +1281,11 @@ function func_dA_dY(X, Y)
     real(rkind), dimension(:),   intent(out)  :: spatial_grad_X
     real(rkind)                               :: n_e, grad_n_e, T_e, grad_T_e
     real(rkind), dimension(3)                 :: spatial_grad_rhop_ne, spatial_grad_rhop_Te
+    if(rhop < 0.d0 .or. rhop > plasma_params%rhop_max) then
+      X  =  func_X(plasma_params, omega, SOL_ne, SOL_Te)
+      spatial_grad_X(:) = 0.d0
+      return
+    end if
     if(.not. plasma_params%Te_ne_mat) then
       call retrieve_n_e(plasma_params, rhop, n_e, grad_n_e)
       if(warm_plasma) then
@@ -1359,7 +1364,7 @@ function func_dA_dY(X, Y)
   subroutine sub_spatial_grad_Y(plasma_params, omega, x_vec, B_abs, spatial_grad_B_abs, rhop, grad_rhop, Y, spatial_grad_Y)
   ! dY^2 / dx
     USE f90_kind
-    USE mod_ecfm_refr_types, only : plasma_params_type, warm_plasma
+    USE mod_ecfm_refr_types, only : plasma_params_type, warm_plasma, SOL_ne, SOL_Te
     use constants,            only: pi, e0, mass_e, eps0, c0
     use mod_ecfm_refr_utils, only: retrieve_T_e, retrieve_T_e_mat_single
     ! corresponds to flux coordinates
@@ -1375,6 +1380,11 @@ function func_dA_dY(X, Y)
     real(rkind), dimension(:),   intent(out)  :: spatial_grad_Y
     real(rkind), dimension(3)                 :: spatial_grad_rhop ! grad_x(B^2)
     real(rkind)                               :: T_e, grad_T_e
+    if(rhop < 0.d0 .or. rhop > plasma_params%rhop_max) then
+      Y  =  func_X(plasma_params, omega, SOL_ne, SOL_Te)
+      spatial_grad_Y(:) = 0.d0
+      return
+    end if
     if(warm_plasma) then
       if(.not. plasma_params%Te_ne_mat) then
         spatial_grad_rhop = grad_rhop * plasma_params%rhop_scale_Te
@@ -1425,7 +1435,12 @@ function func_dA_dY(X, Y)
     N_abs = sqrt(x_vec(4)**2 + x_vec(5)**2 + x_vec(6)**2)
     call sub_get_grad_rhop_and_grad_B_vec(plasma_params, x_vec(1:3), in_plasma, rhop_out, B_vec, grad_rhop, grad_B_vec)
     if(.not. in_plasma) then
-        dx_dsigma(:) = 0.d0
+        ! This routine is only called by DLSODE or for debugging purposes
+        ! If we walk out of the plasma during an DLSODE call we need to smoothly exit
+        ! Straight propagation
+        dx_dsigma(1:3) = x_vec(4:6)
+        ! No change in wave vector
+        dx_dsigma(4:6) = 0.d0
         return
     end if
     call sub_spatial_grad_X(plasma_params, omega, x_vec(1:3),rhop_out, grad_rhop, X, spatial_grad_X)
@@ -1830,7 +1845,12 @@ function func_dA_dY(X, Y)
     N_vec = x_vec(4:6)
     call sub_get_grad_rhop_and_grad_B_vec(plasma_params, x_vec(1:3), in_plasma, rhop_out, B_vec, grad_rhop, grad_B_vec)
     if(.not. in_plasma) then
-        dxds(:) = 0.d0
+        ! This routine is only called by DLSODE or for debugging purposes
+        ! If we walk out of the plasma during an DLSODE call we need to smoothly exit
+        ! Straight propagation
+        dxds(1:3) = N_vec
+        ! No change in wave vector
+        dxds(4:6) = 0.d0
         return
     end if
     call sub_spatial_grad_X(plasma_params, omega, x_vec(1:3),rhop_out, grad_rhop, X, spatial_grad_X)
@@ -1953,6 +1973,15 @@ function func_dA_dY(X, Y)
     real(rkind),  dimension(m), intent(in)  :: x_vec
     real(rkind),  dimension(m), intent(inout) :: dx_dsigma
     call sub_grad_H(glob_plasma_params, glob_omega, glob_mode, x_vec, dx_dsigma)
+    if(any(dx_dsigma/=dx_dsigma)) then
+      ! This routine is only called by DLSODE or for debugging purposes
+      ! If we walk out of the plasma during an DLSODE call we need to smoothly exit
+      ! Straight propagation
+      dx_dsigma(1:3) = x_vec(4:6)
+      ! No change in wave vector
+      dx_dsigma(4:6) = 0.d0
+      return
+    end if
   end subroutine f_H
 
   subroutine f_Lambda(m, s, x_vec, dxds)
@@ -1969,6 +1998,15 @@ function func_dA_dY(X, Y)
       call sub_grad_Lambda_star(glob_plasma_params, glob_omega, glob_mode, x_vec, dxds)
     else
       call sub_grad_Lambda(glob_plasma_params, glob_omega, glob_mode, x_vec, dxds)
+    end if
+    if(any(dxds/=dxds)) then
+        ! This routine is only called by DLSODE or for debugging purposes
+        ! If we walk out of the plasma during an DLSODE call we need to smoothly exit
+        ! Straight propagation
+        dxds(1:3) = x_vec(4:6)
+        ! No change in wave vector
+        dxds(4:6) = 0.d0
+        return
     end if
     dxds_abs = sqrt(dxds(1)**2 + dxds(2)**2 + dxds(3)**2)
     dxds(1:3) = dxds(1:3) / dxds_abs
@@ -2495,7 +2533,6 @@ function func_dA_dY(X, Y)
     end if
 #endif
     call sub_remap_coords(x_vec, R_vec)
-    rhop = func_rhop(plasma_params, x_vec)
     ! Check if inside flux matrix
     if(R_vec(1) - plasma_params%h < plasma_Params%R_min .or. &
        R_vec(1) + plasma_params%h > plasma_Params%R_max .or. &
@@ -2504,22 +2541,31 @@ function func_dA_dY(X, Y)
        if(wall_hits == 1) wall_hits =  2
        if(debug_level > 0 .and. output_level .and. wall_hits > 0) print*, "Left the domain on which the flux matrix is given"
        if(debug_level > 0 .and. output_level .and. wall_hits > 0) print*, "Position",  R_vec(1), R_vec(3)
-    else if(.not. func_in_poly(plasma_params%vessel_poly%x, plasma_params%vessel_poly%y, R_vec(1), R_vec(3))) then
-      if(wall_hits /= 1) then ! entered/left machine
-        wall_hits =  wall_hits + 1
-        if(debug_level > 0 .and. output_level .and. wall_hits == 2) print*, "Passed through port out of the plasma"
-         if(debug_level > 0 .and. output_level .and. wall_hits == 1) print*, "Entered the plasma through port"
+    end if
+    if(func_in_poly(plasma_params%vessel_poly%x, plasma_params%vessel_poly%y, R_vec(1), R_vec(3))) then
+      if(wall_hits == 0) then ! entered/left machine
+        wall_hits =  1
+        if(debug_level > 0 .and. output_level) print*, "Entered the plasma through port"
         if(debug_level > 0 .and. output_level) print*, "Position",  R_vec(1), R_vec(3)
       end if
+    else
+      if(wall_hits == 1) then ! entered/left machine
+        wall_hits =  2
+        if(debug_level > 0 .and. output_level) print*, "Passed through port out of the vessel"
+        if(debug_level > 0 .and. output_level) print*, "Position",  R_vec(1), R_vec(3)
+      end if
+    end if
+    if(wall_hits > 1) return
+    rhop = func_rhop(plasma_params, x_vec)
     ! Check if rhop good -> should be if the above is true
-    else if(rhop == -1.d0) then
-      if(debug_level > 0 .and. output_level .and. wall_hits > 0) print*, "Rhop not useful anymore stopping propagation"
-      if(debug_level > 0 .and. output_level .and. wall_hits > 0) print*, "Position",  R_vec(1), R_vec(3)
-      if(wall_hits == 1) wall_hits =  2 ! Pretend a second wall hit when already propagating to pass consistency test at end of raytracing
+    if(rhop == -1.d0 .and. wall_hits == 1) then
+      if(debug_level > 0 .and. output_level) print*, "Rhop not useful anymore stopping propagation"
+      if(debug_level > 0 .and. output_level) print*, "Position",  R_vec(1), R_vec(3)
+      wall_hits =  2 ! Pretend a second wall hit when already propagating to pass consistency test at end of raytracing
     ! Check if rhop small enough to be useful for provided profiles
-    else if (rhop < plasma_params%rhop_entry) then
+    else if (rhop < plasma_params%rhop_entry .and. rhop >= 0.d0) then
       func_within_plasma  = .true.
-      if(rhop <  plasma_params%rhop_inside .and. rhop /= -1.d0) been_in_plasma = .true. ! Inside closed flux surfaces rhop < 0.99d0
+      if(rhop <  plasma_params%rhop_inside) been_in_plasma = .true. ! Inside closed flux surfaces rhop < 0.99d
     else if (been_in_plasma .and. rhop > plasma_params%rhop_exit) then
       if(debug_level > 0 .and. output_level) print*, "Rhop now larger than rhop_exit after pass through plasma"
       if(debug_level > 0 .and. output_level) print*, "Position",  R_vec(1), R_vec(3)

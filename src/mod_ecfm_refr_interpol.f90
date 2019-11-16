@@ -1,6 +1,6 @@
 module mod_ecfm_refr_interpol
     implicit none
-#ifdef IDA
+#if(defined(IDA) .and. .not. defined(USE_3D))
   public ::   spline_1d, & ! overloaded function
               make_rect_spline, &
               make_1d_spline, &
@@ -30,7 +30,7 @@ module mod_ecfm_refr_interpol
   private :: print_2d_spline_params
 
     interface spline_1d
-#ifdef IDA
+#if(defined(IDA) .and. .not. defined(USE_3D))
       module procedure bispline_1d, bispline_1d_vec, splint_1d, splint_1d_vec
 #else
       module procedure bispline_1d, bispline_1d_vec
@@ -432,7 +432,7 @@ module mod_ecfm_refr_interpol
 #endif
   end subroutine rect_spline_vec
 
-#ifdef IDA
+#if(defined(IDA) .and. .not. defined(USE_3D))
   subroutine splint_1d(knot_pos, val, deriv2, x, y, dydx)
   ! Spline evaluation routine for B and Te/ne in 2D mode
   ! WARNING: This routine does not check bounds - out of bounds interpolations are prone to very large errors

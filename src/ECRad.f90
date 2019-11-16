@@ -11,26 +11,8 @@ program ECRad
     implicit none
     Character(len=200) :: filename
     Character(len=200) :: working_dir
-    !Character(len=2)   :: dstf_str
-    !real(rkind), dimension(:), allocatable :: TRad
     integer(ikind) :: idiag, ich!, ifreq, ir
-    !real(rkind)   :: reflec
-    !reflec = 0.92d0 ! 31569 0.97227031967906d0!0.90d0!9d0 ! Todo : Make this an input variable <- done
     call getarg(1, working_dir)
-    !call getarg(2, time_str)
-    !call getarg(4, N_ch_str)
-    !call getarg(5, output_str)
-    !call getarg(5, flag_1O_str)
-    !call getarg(6, dstf_str)
-    !read(N_ch_str,*) ant%N_ch
-    !if(ant%N_ch < 1) then
-     ! print*, "0 or less total ECE channels - aborting"
-     ! stop "Input Error"
-    !end if
-    !read(output_str,*) output_level
-    !read(flag_1O_str,*) flag_1O
-    !read(shotnr_str,*) shot
-    !read(time_str,*) time
     ! To test the ecfm integration into ida
     ! For stand alone usage comment out the following line
     stand_alone = .True.

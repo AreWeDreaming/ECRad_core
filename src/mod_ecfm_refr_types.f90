@@ -7,7 +7,7 @@ module mod_ecfm_refr_types
 ! values marked with a * are hardcoded here
 use f90_kind
 use constants,                  only: pi
-use magconfig3D,                only: Scenario_type
+use magconfig,                only: Scenario_type
 #ifdef OMP
 use omp_lib
 #endif
