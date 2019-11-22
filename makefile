@@ -6,13 +6,9 @@ ECRadLIBDir=$(ROOTDIR)/$(SYS)
 ECRadLIB=$(APPLICATION)
 SRCP=$(ROOTDIR)/src
 ifeq ($(IDA),True)
-	ifneq ($(USE_3D),True)
-		STDP=/afs/ipp/cips/ipp/data_analysis/lib_std/$(SYS)
-		MODSTDP=$(STDP)/mod$(COMPILER)
-		STDPLIB=$(STDP)/libstd$(COMPILER).a
-	else
-		STDPLIB = $(SRCP)/std_lib.f90
-	endif
+	STDP=/afs/ipp/cips/ipp/data_analysis/lib_std/$(SYS)
+	MODSTDP=$(STDP)/mod$(COMPILER)
+	STDPLIB=$(STDP)/libstd$(COMPILER).a
 	IDAFLAG = IDA
 else
 	STDPLIB = $(SRCP)/std_lib.f90
@@ -56,7 +52,7 @@ endif
 # F90FLAGS = -c -g -O0 -shared-libgcc -traceback -check bounds  -check all -u -warn all -diag-disable 7712 -check uninit -fp-model source -gen-interfaces -warn interfaces -fpe3 -openmp -openmp-report -DTBB_USE_DEBUG
 F77FLAGS = $(F90FLAGS) -C
 # Libraries
-FITPACK = $(ROOTDIR)/../netlib/fitpack/lib.a
+FITPACK = -lfit -L$(ROOTDIR)/../netlib/fitpack 
 LIBS = -L$(ECRadLIBDir) -l$(ECRadLIB)$(OMPFLAG)$(USE3DFLAG)$(DB) $(NAGF90LIB) $(NAGFLIB) $(FITPACK) $(MAGCONF)
 ifeq ($(USE_3D),True)
  	LIBS += $(ROOTDIR)/../Mconf/lib/libmconf64.a
