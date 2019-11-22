@@ -6,13 +6,9 @@ ECRadLIBDir=$(ROOTDIR)/$(SYS)
 ECRadLIB=$(APPLICATION)
 SRCP=$(ROOTDIR)/src
 ifeq ($(IDA),True)
-	ifneq ($(USE_3D),True)
-		STDP=/afs/ipp/cips/ipp/data_analysis/lib_std/$(SYS)
-		MODSTDP=$(STDP)/mod$(COMPILER)
-		STDPLIB=$(STDP)/libstd$(COMPILER).a
-	else
-		STDPLIB = $(SRCP)/std_lib.f90
-	endif
+	STDP=/afs/ipp/cips/ipp/data_analysis/lib_std/$(SYS)
+	MODSTDP=$(STDP)/mod$(COMPILER)
+	STDPLIB=$(STDP)/libstd$(COMPILER).a
 	IDAFLAG = IDA
 else
 	STDPLIB = $(SRCP)/std_lib.f90

@@ -1,6 +1,6 @@
 module mod_ecfm_refr_interpol
     implicit none
-#if(defined(IDA) .and. .not. defined(USE_3D))
+#ifdef IDA
   public ::   spline_1d, & ! overloaded function
               make_rect_spline, &
               make_1d_spline, &
@@ -30,7 +30,7 @@ module mod_ecfm_refr_interpol
   private :: print_2d_spline_params
 
     interface spline_1d
-#if(defined(IDA) .and. .not. defined(USE_3D))
+#ifdef IDA
       module procedure bispline_1d, bispline_1d_vec, splint_1d, splint_1d_vec
 #else
       module procedure bispline_1d, bispline_1d_vec
@@ -432,7 +432,7 @@ module mod_ecfm_refr_interpol
 #endif
   end subroutine rect_spline_vec
 
-#if(defined(IDA) .and. .not. defined(USE_3D))
+#ifdef IDA
   subroutine splint_1d(knot_pos, val, deriv2, x, y, dydx)
   ! Spline evaluation routine for B and Te/ne in 2D mode
   ! WARNING: This routine does not check bounds - out of bounds interpolations are prone to very large errors
@@ -664,18 +664,11 @@ module mod_ecfm_refr_interpol
     use f90_kind
     USE mod_ecfm_refr_types , only  : spl_type_1d
     implicit none
-!    interface
-!      real(rkind) function splint(t, n, c, k, a, b, wrk)
-!        real(rkind),          intent(in)          :: a, b
-!        integer(4),           intent(in)          :: n,k
-!        real(rkind), dimension(:), intent(in)     :: t, c, k, wrk
-!      end function splint
-!    end interface
     type(spl_type_1d)                     :: spl
     real(rkind),           intent(in)     :: a, b
     real(rkind),           intent(out)    :: int_val
     real(rkind), dimension(spl%n)         :: wrk
-    real(rkind), external :: splint
-    int_val = splint(spl%t,spl%n,spl%c, spl%k, a, b, wrk)
+    real(rkind), external :: splint_fitpack
+    int_val = splint_fitpack(spl%t,spl%n,spl%c, spl%k, a, b, wrk)
   end subroutine spline_1d_integrate
 end module mod_ecfm_refr_interpol
