@@ -56,7 +56,7 @@ endif
 # F90FLAGS = -c -g -O0 -shared-libgcc -traceback -check bounds  -check all -u -warn all -diag-disable 7712 -check uninit -fp-model source -gen-interfaces -warn interfaces -fpe3 -openmp -openmp-report -DTBB_USE_DEBUG
 F77FLAGS = $(F90FLAGS) -C
 # Libraries
-FITPACK = $(ROOTDIR)/../netlib/fitpack/lib.a
+FITPACK = -L$(ROOTDIR)/../netlib/fitpack/ -lfit
 LIBS = -L$(ECRadLIBDir) -l$(ECRadLIB)$(OMPFLAG)$(USE3DFLAG)$(DB) $(NAGF90LIB) $(NAGFLIB) $(FITPACK) $(MAGCONF)
 ifeq ($(USE_3D),True)
  	LIBS += $(ROOTDIR)/../Mconf/lib/libmconf64.a
