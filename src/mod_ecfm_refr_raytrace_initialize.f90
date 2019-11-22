@@ -127,7 +127,7 @@ module mod_ecfm_refr_raytrace_initialize
         print*, "Check if psi matrix dimensions correct: R, z", plasma_params%m, plasma_params%n
         stop "Input error - check topfile"
       end if
-      print*, "Retrieving magn axis"
+      if(output_level) print*, "Retrieving magn axis"
      ! ECRad wants normalized psi for which rhop = sqrt(Psi)!!!
       call make_rect_spline(Psi_spline, int(plasma_params%m, 4), int(plasma_params%n, 4), R, z, rhop)
       call get_psi_ax(R, z, i_ax, j_ax, plasma_params%R_ax, plasma_params%z_ax)

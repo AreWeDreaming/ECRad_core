@@ -444,7 +444,7 @@ type plasma_params_type
   real(rkind)                                       :: h_min = 5.e-5, h_max = 4.e-3 !* for the adaptive step size we need boundaries
   real(rkind)                                       :: R_ax, z_ax, B_ax ! for HFS, LFS distinction
   real(rkind)                                       :: rhop_entry = 1.2d0 !*
-  real(rkind)                                       :: rhop_inside = 0.99d0, rhop_exit = 1.05d0 !* Stop if rhop < rhop exit
+  real(rkind)                                       :: rhop_inside = 0.99d0, rhop_exit = 1.05d0 !* Stop if rhop > rhop exit
                                                                                                 !  and rhop_inside was reached before
   real(rkind)                                       :: X_entry = 0.04 !*
   real(rkind)                                       :: rhop_emit = 1.03 !* Specifies upper limit for the fine grid
@@ -500,8 +500,10 @@ end type plasma_params_type
   type(runaway_type)                 :: runaway
   real(rkind)                        :: ratio_for_third_harmonic = -1.d0! When to include third harmonic
   integer(ikind)                     :: m_eq = 65,n_eq = 129
-  real(rkind)                        :: min_density = 1.e18, min_Te = 10.d0, max_Te=1.e6 ! Used to double check the input
-  real(rkind)                        :: SOL_ne = 1.e17, SOL_Te = 1.0d0 ! should be smaller than min_density and min_Te
+  real(rkind)                        :: min_density = 1.e18, min_Te = 100.d0, max_Te=1.e6 ! Used to double check the input
+  real(rkind)                        :: SOL_ne = 1.e14, SOL_Te = 20.0d-3 ! should be smaller than min_density and min_Te
+  real(rkind)                        :: ignore_Te = 10.0, ignore_ne = 1.e16 ! Radiation transport ignores points below this threshhold
+                                                                            ! Should be decently larger than the SOL values
   real(rkind)                        :: ne_max = 1.d21 ! Grid points with densities larger than this will be ignored
   real(rkind)                        :: reflec_X
   real(rkind)                        :: reflec_O

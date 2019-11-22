@@ -22,7 +22,7 @@ subroutine evaluate_em_ab_single(rad_freq, j, omega, mode, ds2, eval_pol_coeff, 
                                  em, ab, em_secondary, ab_secondary, pol_coeff, pol_coeff_secondary)
 ! Wrapper function for em, ab, .... since a lot of if clauses regarding dstf and dstf_comp are required this subroutine cleans up the code below.
 use mod_ecfm_refr_types,        only: rad_diag_ch_mode_ray_freq_type, &
-                                      output_level, dstf, SOL_Te, SOL_ne, ne_max
+                                      output_level, dstf, ignore_Te, ignore_ne, ne_max
 use constants,                  only: pi, e0, mass_e, eps0, c0
 use mod_ecfm_refr_abs_Al,           only: abs_Albajar, abs_Albajar_fast, abs_Al_Fa_abs, func_N_cold, func_rel_N
 implicit none
@@ -41,52 +41,50 @@ em = 0.d0
 ab = 0.d0
 em_secondary = 0.d0
 ab_secondary = 0.d0
-if((rad_freq%svec(j)%Te > SOL_Te .and. rad_freq%svec(j)%ne > SOL_ne .and. rad_freq%svec(j)%ne < ne_max) .or. eval_pol_coeff) then
-   ! Negative values are possible in the chi^2 calcuation of IDA since we use the nag spline in that instance, which may lead to ringing
-  rad_freq%svec(j)%N_cold = func_N_cold(omega, rad_freq%svec(j), mode)! note the convention for mode
-  if(output_level .or. eval_pol_coeff .or. trim(dstf) /= "Th") then
-    if(output_level) rad_freq%svec_extra_output(j)%N_cor = func_rel_N(omega, rad_freq%svec(j), mode)
-    if(eval_pol_coeff) then
-      if(trim(dstf) == "Th") then
-        call abs_Albajar(rad_freq%svec(j), omega, mode, ds2, ab, em, &
-                         pol_coeff = pol_coeff, x_launch = x_launch)!
-      else  !non-thermal
-        call abs_Albajar(rad_freq%svec(j), omega, mode, ds2, ab, em, &
-                         pol_coeff = pol_coeff, c_abs_secondary = ab_secondary, &
-                         j_secondary = em_secondary, x_launch = x_launch)!
-        pol_coeff_secondary = pol_coeff
-      end if
-    else
-      if(trim(dstf) == "Th") then
-        call abs_Albajar(rad_freq%svec(j), omega, mode, ds2, ab, em)!
-      else !non-thermal
-        call abs_Albajar(rad_freq%svec(j), omega, mode, ds2, ab, em, &
-                         c_abs_secondary = ab_secondary, &
-                         j_secondary = em_secondary)!
-      end if
+! Negative values are possible in the chi^2 calcuation of IDA since we use the nag spline in that instance, which may lead to ringing
+! Hence, we only evaluate the absorption coefficient for decent densities, Te > Te_sol or if the polarization coefficient is needed
+if((rad_freq%svec(j)%Te <= ignore_Te .or. rad_freq%svec(j)%ne <= ignore_ne .or. rad_freq%svec(j)%ne > ne_max) .and. .not. eval_pol_coeff) return
+rad_freq%svec(j)%N_cold = func_N_cold(omega, rad_freq%svec(j), mode)! note the convention for mode
+if(output_level .or. eval_pol_coeff .or. trim(dstf) /= "Th") then
+  if(output_level) rad_freq%svec_extra_output(j)%N_cor = func_rel_N(omega, rad_freq%svec(j), mode)
+  if(eval_pol_coeff) then
+    if(trim(dstf) == "Th") then
+      call abs_Albajar(rad_freq%svec(j), omega, mode, ds2, ab, em, &
+                       pol_coeff = pol_coeff, x_launch = x_launch)!
+    else  !non-thermal
+      call abs_Albajar(rad_freq%svec(j), omega, mode, ds2, ab, em, &
+                       pol_coeff = pol_coeff, c_abs_secondary = ab_secondary, &
+                       j_secondary = em_secondary, x_launch = x_launch)!
+      pol_coeff_secondary = pol_coeff
     end if
   else
-    call abs_Albajar_fast(rad_freq%svec(j), omega, mode, ds2, ab)
-    em = ab * (omega / ( 2.d0 * pi))**2 * e0 * &
-          rad_freq%svec(j)%Te / c0**2
-  end if
-  if(output_level .and. dstf == "Th") then
-    if(rad_freq%svec_extra_output(j)%N_warm <= 0 .or. &
-      rad_freq%svec_extra_output(j)%N_warm /= rad_freq%svec_extra_output(j)%N_warm) then
-      rad_freq%svec_extra_output(j)%N_warm = rad_freq%svec(j)%N_cold ! do not reuse last, but start with cold
+    if(trim(dstf) == "Th") then
+      call abs_Albajar(rad_freq%svec(j), omega, mode, ds2, ab, em)!
+    else !non-thermal
+      call abs_Albajar(rad_freq%svec(j), omega, mode, ds2, ab, em, &
+                       c_abs_secondary = ab_secondary, &
+                       j_secondary = em_secondary)!
     end if
-    if(eval_pol_coeff) then
-      ! last point within the separatrix
-      ab_secondary = abs_Al_Fa_abs(rad_freq%svec(j), omega, mode, rad_freq%svec_extra_output(j)%N_warm, &
-                  pol_coeff_secondary = pol_coeff_secondary, x_launch = x_launch)
-    else
-      ab_secondary = abs_Al_Fa_abs(rad_freq%svec(j), omega, mode, rad_freq%svec_extra_output(j)%N_warm)
-    end if
-    em_secondary = ab_secondary * (omega / ( 2.d0 * pi))**2 * e0 * &
-          rad_freq%svec(j)%Te / c0**2
   end if
 else
-  return
+  call abs_Albajar_fast(rad_freq%svec(j), omega, mode, ds2, ab)
+  em = ab * (omega / ( 2.d0 * pi))**2 * e0 * &
+        rad_freq%svec(j)%Te / c0**2
+end if
+if(output_level .and. dstf == "Th") then
+  if(rad_freq%svec_extra_output(j)%N_warm <= 0 .or. &
+    rad_freq%svec_extra_output(j)%N_warm /= rad_freq%svec_extra_output(j)%N_warm) then
+    rad_freq%svec_extra_output(j)%N_warm = rad_freq%svec(j)%N_cold ! do not reuse last, but start with cold
+  end if
+  if(eval_pol_coeff) then
+    ! last point within the separatrix
+    ab_secondary = abs_Al_Fa_abs(rad_freq%svec(j), omega, mode, rad_freq%svec_extra_output(j)%N_warm, &
+                pol_coeff_secondary = pol_coeff_secondary, x_launch = x_launch)
+  else
+    ab_secondary = abs_Al_Fa_abs(rad_freq%svec(j), omega, mode, rad_freq%svec_extra_output(j)%N_warm)
+  end if
+  em_secondary = ab_secondary * (omega / ( 2.d0 * pi))**2 * e0 * &
+        rad_freq%svec(j)%Te / c0**2
 end if
 if(output_level) then
   rad_freq%svec_extra_output(j)%em = em
@@ -109,7 +107,7 @@ subroutine calculate_Trad(rad_ray_freq, freq, x_vec_launch, mode, Trad, Trad_sec
 
 
 use mod_ecfm_refr_types,        only: rad_diag_ch_mode_ray_freq_type, output_level, &
-                                      dstf, ffp, mode_cnt, tau_thick, SOL_Te, &
+                                      dstf, ffp, mode_cnt, tau_thick, ignore_Te, &
                                       static_grid, plasma_vac_boundary, spl_type_1d
 use constants,                  only: pi, e0, mass_e, eps0, c0
 use mod_ecfm_refr_abs_Al,       only: func_N_cold, func_rel_N
@@ -164,7 +162,7 @@ if(output_level) tau_secondary_array(1) = 0.5d0 * ab_secondary(k) * ds2
 do i = 1, rad_ray_freq%total_LOS_points-2, 2           ! integration over every second point on LOS
   ! step size
   !----------
-  if(.not. all(rad_ray_freq%svec(i + 1:i + 2)%plasma) .or. all(rad_ray_freq%svec(i + 1:i + 2)%Te < SOL_Te)) then
+  if(.not. all(rad_ray_freq%svec(i + 1:i + 2)%plasma) .or. all(rad_ray_freq%svec(i + 1:i + 2)%Te <= ignore_Te)) then
     em(1) = 0.d0
     ab(1) = 0.d0
     tau_array(i + 1) = 0.d0
@@ -187,7 +185,7 @@ do i = 1, rad_ray_freq%total_LOS_points-2, 2           ! integration over every 
     end if
     cycle
   end if
-  if(output_level .and. mod(i,50) ==0 ) print*, i, rad_ray_freq%svec(i)%rhop, rad_ray_freq%svec(i)%Te, Trad
+  !if(output_level .and. mod(i,50) ==0 ) print*, i, rad_ray_freq%svec(i)%rhop, rad_ray_freq%svec(i)%Te, Trad
   ds2  = abs(rad_ray_freq%svec(i+1)%s - rad_ray_freq%svec(i)%s)   ! ds for all but last point
   ds = ds2 * 2.d0
   !------------------------------------------------
@@ -229,7 +227,7 @@ do i = 1, rad_ray_freq%total_LOS_points-2, 2           ! integration over every 
         Trad = rad_ray_freq%svec(j)%Te
       end if
   else
-    if(Trad > SOL_Te .and. .not. (rad_ray_freq%max_points_svec_reached .or. static_grid) ) then
+    if(Trad > ignore_Te .and. .not. (rad_ray_freq%max_points_svec_reached .or. static_grid) ) then
       ! If last step not optically think double check if current step size is adequate
       delta = Trad + ds2 * (em(2) - ab(2) * Trad)
       delta = delta + ds2 * (em(3) - ab(3) * delta)
