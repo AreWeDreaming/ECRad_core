@@ -264,7 +264,7 @@ contains
   ! Calculates the absorption coefficient using Grays warm_disp routine. Note that this always includes both 2nd and 3rd harmonic.
     use mod_ecfm_refr_types,        only: rad_diag_ch_mode_ray_freq_svec_type, &
                                           ratio_for_third_harmonic, dstf, straight, Hamil, &
-                                          SOL_Te, SOL_ne
+                                          ignore_Te, ignore_ne
     use constants,                  only: pi, e0, mass_e, eps0, c0
     use mod_ecfm_refr_abs_Fa,       only: warmdamp
     implicit none
@@ -283,8 +283,8 @@ contains
     real(rkind), dimension(3)     :: abs_pol_vec
     integer(ikind)                :: max_harmonic
       abs_Al_Fa_abs = 0.d0
-      if(svec%Te < SOL_Te .and. .not. present(pol_coeff_secondary)) return ! very low Te => absorption can be ignored
-      if(svec%ne < SOL_ne .and. .not. present(pol_coeff_secondary)) return
+      if(svec%Te < ignore_Te .and. .not. present(pol_coeff_secondary)) return ! very low Te => absorption can be ignored
+      if(svec%ne < ignore_ne .and. .not. present(pol_coeff_secondary)) return
       ni_perp_sq = 0.d0
       omega_c        = svec%freq_2X * Pi
       omega_p_sq     = (svec%ne * e0**2.d0)/(eps0 * mass_e)
@@ -413,7 +413,7 @@ contains
     use mod_ecfm_refr_types,        only: rad_diag_ch_mode_ray_freq_svec_type, dstf, output_level,&
                                           ratio_for_third_harmonic, not_eval, eval, warm_plasma, &
                                           tau_ignore, spl_type_2d, non_therm_params_type, &
-                                          SOL_Te, SOL_ne
+                                          ignore_Te, ignore_ne
     use constants,                  only: pi, e0, mass_e, eps0, c0
     use mod_ecfm_radiation_dist,    only: prepare_dist
     implicit none
@@ -435,8 +435,8 @@ contains
     if(present(c_abs_secondary)) c_abs_secondary = 0.d0
     if(present(j_secondary)) j_secondary = 0.d0
     j = 0.d0
-    if(svec%Te < SOL_Te.and. .not. present(pol_coeff)) return ! very low Te => absorption can be ignored
-    if(svec%ne < SOL_ne .and. .not. present(pol_coeff)) return
+    if(svec%Te < ignore_Te .and. .not. present(pol_coeff)) return ! very low Te => absorption can be ignored
+    if(svec%ne < ignore_ne .and. .not. present(pol_coeff)) return
     if(svec%ne < 0.d0) then
       print*, "Negative density!", svec%ne
       call abort()
@@ -458,11 +458,7 @@ contains
     if(N_abs /= N_abs .or. N_abs <= 0.0 .or. N_abs > 1.0) return
     if(dstf /= "Th") then
       call prepare_dist(svec, Int_absz, Int_weights, f_spl, dist_params)
-      if(dstf == "Th") then
-        if((Y * w_mass_e / mass_e) < ratio_for_third_harmonic) max_harmonic = 3
-      else
-        max_harmonic = 5
-      end if
+      max_harmonic = 5
     else
       if((Y * w_mass_e / mass_e) < ratio_for_third_harmonic) max_harmonic = 3
       if(get_upper_limit_tau(svec, omega, ds2) < tau_ignore .and. .not. present(pol_coeff)) then
@@ -476,7 +472,7 @@ contains
       pol_coeff = get_filter_transmittance(omega, X, Y, svec%cos_theta, svec%sin_theta, mode, &
         svec%x_vec, svec%N_vec, svec%B_vec, x_launch)
     end if
-    if(present(pol_coeff) .and. svec%Te < SOL_Te) then
+    if(present(pol_coeff) .and. svec%Te < ignore_Te) then
       c_abs = 0.d0
       if(present(c_abs_secondary)) c_abs_secondary = 0.d0
       if(present(j_secondary)) j_secondary = 0.d0
