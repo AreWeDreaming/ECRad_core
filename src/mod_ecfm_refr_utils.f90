@@ -12,10 +12,8 @@ implicit none
 public :: read_input_file, &
           prepare_ECE_diag_old_IO, &
           prepare_ECE_diag_new_IO, &
-#ifdef IDA
           prepare_ECE_diag_IDA, &
           parse_ecfm_settings_from_ida, &
-#endif
           dealloc_ant, &
           func_in_poly, &
           distance_to_poly, &
@@ -293,7 +291,6 @@ integer(ikind)                    :: IOstatus
 
 end subroutine read_input_file
 
-#ifdef IDA
 subroutine parse_ecfm_settings_from_ida(plasma_params, &
                                         ecrad_verbose, ray_tracing, ecrad_Bt_ripple, &
                                         rhopol_max_spline_knot, ecrad_weak_rel, &
@@ -385,7 +382,6 @@ integer(ikind)                             :: istat
   ! Files used to intersect LOS with vessel wall
   vessel_bd_filename = "vessel_bd.txt"
 end subroutine parse_ecfm_settings_from_ida
-#endif
 
 subroutine prepare_ECE_diag_old_IO()
 ! Reads launch information for several diagnostics (old file format) and allocates everything
@@ -545,7 +541,6 @@ end subroutine prepare_ECE_diag_new_IO
 
 !*******************************************************************************
 
-#ifdef IDA
 subroutine prepare_ECE_diag_IDA(working_dir, f, df, R, phi, z, tor, pol, dist_foc, width)
 ! Reads f, df from shot files and also prepares the launching positions and angles
   use mod_ecfm_refr_types,            only: plasma_params, ant, rad, &
@@ -642,7 +637,6 @@ subroutine prepare_ECE_diag_IDA(working_dir, f, df, R, phi, z, tor, pol, dist_fo
   close(77)
   call make_launch()
 end subroutine prepare_ECE_diag_IDA
-#endif
 
 !*******************************************************************************
 subroutine make_launch(idiag_in)

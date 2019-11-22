@@ -407,11 +407,9 @@ type plasma_params_type
 #ifdef NAG
   type(nag_spline_1d_comm_wp)                       :: ne_spline_nag, Te_spline_nag
 #endif
-#ifdef IDA
  real(rkind), dimension(:), allocatable             :: IDA_rhop_knots_Te, IDA_T_e, &
                                                        IDA_T_e_dx2, IDA_rhop_knots_ne, IDA_n_e, &
                                                        IDA_n_e_dx2
-#endif
   type(contour_type)                                :: vessel_poly ! polynome describing the vessel (2D)
   integer(ikind)                                    :: shot, eq_ed
   integer(ikind)                                    :: ida_time_indx

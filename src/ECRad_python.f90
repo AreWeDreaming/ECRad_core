@@ -6,13 +6,11 @@ subroutine pre_initialize_ECRad(working_dir_in, flag, ecrad_verbose, ray_tracing
                                rhopol_max_spline_knot, ecrad_weak_rel, &
                                ecrad_ratio_for_third_harmonic, &
                                ecrad_modes, reflec_X_mode, reflec_O_mode, ece_1O_flag, &
-                               ecrad_max_points_svec, & ! (modes = 1 -> pure X-mode, 2 -> pure O-mode, 3 both modes and filter
-                               ecrad_O2X_mode_conversion, & ! mode conversion ratio from O-X due to wall reflections
-                               ! Scaling of rhop axis for shifting on ne or Te
-                               ! Every rhop value obtained in ray tracing will be multiplied by the corresponding scaling value when evaluating Te/ne
+                               ecrad_max_points_svec, &
+                               ecrad_O2X_mode_conversion, &
                                rhopol_scal_te, rhopol_scal_ne, btf_corr_fact_ext, &
-                               ecrad_ds_large, ecrad_ds_small, ecrad_R_shift, &    ! Allows shifting the equilbrium - moves entire flux matrix
-                               ecrad_z_shift, &    ! Allows shifting the equilbrium - moves entire flux matrix
+                               ecrad_ds_large, ecrad_ds_small, ecrad_R_shift, &
+                               ecrad_z_shift, &
                                ecrad_N_ray, ecrad_N_freq, log_flag, parallelization_mode, &
                                f, df, R, phi, z, tor, pol, dist_foc, width)
 ! Everything that is absolutely static in time is done over here
@@ -72,7 +70,7 @@ call make_rays_ecfm(rhop_knots_ne, n_e, n_e_dx2, rhop_knots_Te, T_e, T_e_dx2, rh
 end subroutine make_rays_ECRad
 
 subroutine make_dat_model_ECRad(N_ch, rhop_knots_ne, n_e, n_e_dx2, rhop_knots_Te, T_e, T_e_dx2, &
-                                        ne_rhop_scal, reflec_X_new, & ! in
+                                        ne_rhop_scal, reflec_X_new, &
                                         reflec_O_new, ece_fm_flag_ch, rp_min, &
                                         dat_model_ece, tau, set_grid_dynamic, verbose)
 use mod_ecfm_refr,        only: make_dat_model_ece_ecfm_refr
@@ -94,7 +92,7 @@ call make_dat_model_ece_ecfm_refr(rhop_knots_ne, n_e, n_e_dx2, rhop_knots_Te, T_
 end subroutine make_dat_model_ECRad
 
 subroutine make_BPD_w_res_ch_ECRad(pnts_BPD, idiag, ich, rhop_knots_ne, n_e, n_e_dx2, rhop_knots_Te, T_e, T_e_dx2, &
-                                   ne_rhop_scal, reflec_X_new, & ! in
+                                   ne_rhop_scal, reflec_X_new, &
                                    reflec_O_new, rp_min, &
                                    rhop, BPD, rhop_res_warm)
 use mod_ecfm_refr,        only: make_BPD_w_res_ch

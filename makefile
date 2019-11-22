@@ -40,13 +40,13 @@ MODECRad=$(ROOTDIR)/$(SYS)/mod$(COMPILER)$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)
 $(shell   mkdir -p $(MODECRad))
 # Debugging -> enable if DEBUG==		True
 ifeq ($(DEBUG),True)
-	F90FLAGS = -c -g -traceback -check bounds  -check all -u -warn all -diag-disable 7712 -check-uninit -fp-model source -debug all -gen-interfaces -warn interfaces -fpe3
+	F90FLAGS = -c -g -traceback -check bounds  -check all -u -warn all -diag-disable 7712 -check-uninit -fp-model source -debug all -gen-interfaces -warn interfaces -fpe3 -fpic
 	DB = db
 	# Optimized
 else
-  F90FLAGS = -c -O2 -fp-model source -axavx
+  F90FLAGS = -c -O2 -fp-model source -axavx -fpic
   # Profiling
-  #F90FLAGS = -c -O2 -r8 -vec-report -g -prof-gen -prof-dir/afs/ipp-garching.mpg.de/home/s/sdenk/F90/Ecfm_Model_new/prof_dir
+  #F90FLAGS = -c -O2 -r8 -vec-report -g -prof-gen -prof-dir/afs/ipp-garching.mpg.de/home/s/sdenk/F90/Ecfm_Model_new/prof_dir -fpic
 endif
 ifeq ($(OPEN_MP),True)
   # Parallelisation

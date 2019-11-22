@@ -5,17 +5,14 @@ use f90_kind
 #ifdef OMP
   use omp_lib
 #endif
-#ifdef IDA
+
 public :: initialize_stand_alone, &
           initialize_ecfm, &
           make_rays_ecfm, &
           make_dat_model_ece_ecfm_refr, &
           pre_initialize_ecfm, &
           make_ece_rad_temp
-#else
-public :: initialize_stand_alone, &
-          make_ece_rad_temp
-#endif
+
 private :: save_data_to_ASCII
 
 contains
@@ -156,7 +153,6 @@ character(*),  intent(in)      :: flag
   end if
 end subroutine initialize_stand_alone
 
-#ifdef IDA
 subroutine pre_initialize_ecfm(working_dir_in, flag, ecrad_verbose, ray_tracing, ecrad_Bt_ripple, &
                                rhopol_max_spline_knot, ecrad_weak_rel, &
                                ecrad_ratio_for_third_harmonic, &
@@ -594,7 +590,6 @@ subroutine update_svecs(rad, rhop_knots_ne, n_e, n_e_dx2, rhop_knots_Te, T_e, T_
     end do
   end do
 end subroutine update_svecs
-#endif
 
 subroutine make_ece_rad_temp()
 use mod_ecfm_refr_types,        only: dstf, reflec_X, reflec_O, mode_cnt, N_ray, N_freq, plasma_params, &
