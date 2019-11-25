@@ -251,6 +251,7 @@ else
 end if
 end subroutine pre_initialize_ecfm
 
+
 subroutine clean_up_ecfm()
 use mod_ecfm_refr_types,      only: plasma_params,rad, ant, ray_init
 use mod_ecfm_refr_utils,      only: dealloc_ant
@@ -316,6 +317,75 @@ logical                                           :: old_straight
     stop "Interal error"
   end if
 end subroutine initialize_ecfm
+
+#ifdef USE3D
+subroutine initialize_ecfm_3D(flag, N_Te_spline_knots, N_ne_spline_knots, &
+                              equilibrium_file, equilibrium_type, use_mesh, \
+                              use_symmetry, B_ref, s_plus, s_max, \
+                              interpolation_acc, fourier_coeff_trunc, \
+                              h_mesh, delta_phi_mesh, vessel_filename)
+! Hence, to keep the structure similiar all initizalization is performed here
+! Initializations that depend on time are done here
+use mod_ecfm_refr_types,        only: plasma_params, use_3D, Vessel_bd_filename
+use mod_ecfm_refr_raytrace_initialize, only: init_raytrace, dealloc_raytrace
+implicit none
+character(*), intent(in)                          :: flag
+CHARACTER(*), intent(in) :: work_dir
+CHARACTER(*), intent(in) :: equilibrium_file
+CHARACTER(*), intent(in) :: equilibrium_type
+logical, intent(in)      :: use_mesh, use_symmetry
+real(rkind), intent(in)  :: B_ref, s_plus, s_max, h_mesh, delta_phi_mesh, &
+                            interpolation_acc, fourier_coeff_trunc
+real(rkind), dimension(:), intent(out), optional  :: rhopol_out
+integer(ikind)                                    :: idiag
+logical                                           :: old_straight
+  if(trim(flag) == "init") then
+    use_3D = .true.
+    plasma_params%Scenario%name_config = equilibrium_file
+    plasma_params%Scenario%format_config = equilibrium_type
+    plasma_params%Scenario%useMesh = use_mesh
+    plasma_params%Scenario%useSymm = use_symmetry
+    plasma_params%Scenario%B_ref = B_ref
+    plasma_params%Scenario%splus = s_plus
+    plasma_params%Scenario%smax = s_max
+    plasma_params%Scenario%accbooz = interpolation_acc
+    plasma_params%Scenario%tolharm = fourier_coeff_trunc
+    plasma_params%Scenario%hgrid = h_mesh
+    plasma_params%Scenario%dphic = delta_phi_mesh! Degrees
+    plasma_params%vessel_filename = vessel_filename
+    call init_raytrace(plasma_params, R, z, rhop, Br, Bt, Bz, R_ax, z_ax)
+    allocate(plasma_params%IDA_rhop_knots_ne(N_ne_spline_knots), plasma_params%IDA_n_e(N_ne_spline_knots), &
+             plasma_params%IDA_n_e_dx2(N_ne_spline_knots), plasma_params%IDA_rhop_knots_Te(N_Te_spline_knots), &
+             plasma_params%IDA_T_e(N_Te_spline_knots), plasma_params%IDA_T_e_dx2(N_Te_spline_knots))
+    if(present(rhopol_out)) then
+      ! straight los => Neither Te nor ne matters
+      plasma_params%No_ne_te = .true.
+      old_straight = straight
+      straight = .True.
+      call make_rays_ecfm(rhopol_out) ! initial resonances without ray tracing
+      plasma_params%No_ne_te = .false.
+      straight = old_straight
+    end if
+    ! Two modes one for shot file load one for loading from files
+    if(output_level) then
+      print*, "----- Options for raytracing ------"
+      print*, "Force straight lines of sight: ", straight
+      print*, "Include ripple: ", plasma_params%w_ripple
+      print*, "Use weakly relativistic cut off correction for ray tracing: ", warm_plasma
+    end if
+  else if(trim(flag) == "clean") then
+    !TODO: Implement clean up routine
+    call dealloc_raytrace(plasma_params)
+    ray_init = .false.
+    deallocate(plasma_params%IDA_rhop_knots_ne, plasma_params%IDA_n_e, &
+               plasma_params%IDA_n_e_dx2, plasma_params%IDA_rhop_knots_Te, &
+               plasma_params%IDA_T_e, plasma_params%IDA_T_e_dx2)
+  else
+    print*, "Inappropriate flag in initalize in mod_ecfm_ECE_rad"
+    stop "Interal error"
+  end if
+end subroutine initialize_ecfm_3D
+#endif
 
 subroutine make_rays_ecfm(rhop_knots_ne, n_e, n_e_dx2, rhop_knots_Te, T_e, T_e_dx2, &
                           rhop_res)

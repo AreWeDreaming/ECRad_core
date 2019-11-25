@@ -53,7 +53,7 @@ endif
 F77FLAGS = $(F90FLAGS) -C
 # Libraries
 FITPACK = -L$(ROOTDIR)/../netlib/fitpack/ -lfit
-LIBS = -L$(ECRadLIBDir) -l$(ECRadLIB)$(OMPFLAG)$(USE3DFLAG)$(DB) $(NAGF90LIB) $(NAGFLIB) $(FITPACK) $(MAGCONF)
+LIBS = -L$(ECRadLIBDir) -l$(ECRadLIB)$(OMPFLAG)$(USE3DFLAG)$(DB) $(NAGF90LIB) $(NAGFLIB) $(FITPACK)
 ifeq ($(USE_3D),True)
  	LIBS += $(ROOTDIR)/../Mconf/lib/libmconf64.a
 #   LIBS += $(ROOTDIR)/../magconf/lib/libmconf64.a

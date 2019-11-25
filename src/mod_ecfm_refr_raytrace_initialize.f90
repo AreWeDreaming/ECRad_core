@@ -348,23 +348,6 @@ module mod_ecfm_refr_raytrace_initialize
     if(use_3D) then
         plasma_params%Scenario%work_dir = working_dir
         call read_3D_vessel_file(plasma_params)
-        filename = trim(working_dir) // "ECRad_data/"  // "equ3D_info"
-        open(77, file=trim(filename))
-        read(77,*) plasma_params%Scenario%name_config
-        read(77,*) plasma_params%Scenario%format_config
-        read(77,*) plasma_params%Scenario%useMesh
-        read(77,*) plasma_params%Scenario%useSymm
-        read(77,*) plasma_params%Scenario%B_ref
-        read(77,*) plasma_params%Scenario%splus
-        read(77,*) plasma_params%Scenario%smax
-        read(77,*) plasma_params%Scenario%accbooz
-        read(77,*) plasma_params%Scenario%tolharm
-        read(77,*) plasma_params%Scenario%hgrid
-        read(77,*) plasma_params%Scenario%dphic ! Degrees
-        close(77)
-        plasma_params%Scenario%dphic =  plasma_params%Scenario%dphic / 180.d0 * Pi
-        plasma_params%Scenario%name_config = trim(working_dir) // "ECRad_data/"  // trim(plasma_params%Scenario%name_config)
-        plasma_params%Scenario%mConfAddr = 0 ! Set our pointer to Null like a good boy
         call MConf_Setup_Config(plasma_params%Scenario)
         call MConf_Load_MagConfig(loaded, plasma_params%Scenario%mConfAddr)
         if(loaded /= 1) then
@@ -562,7 +545,7 @@ module mod_ecfm_refr_raytrace_initialize
 
   subroutine init_raytrace(plasma_params, R, z, rhop, Br, Bt, Bz, R_ax, z_ax)
     use f90_kind
-    use mod_ecfm_refr_types,       only: plasma_params_type, stand_alone
+    use mod_ecfm_refr_types,       only: plasma_params_type, stand_alone, use_3D
     Use constants                , only : pi
     implicit none
     type(plasma_params_type), intent(inout)           :: plasma_params
@@ -606,7 +589,7 @@ module mod_ecfm_refr_raytrace_initialize
       call deallocate_1d_spline(plasma_params%ne_spline)
     end if
     deallocate(plasma_params%Int_absz, plasma_params%Int_weights)
-    deallocate(plasma_params%vessel_poly%x, plasma_params%vessel_poly%y)
+    if(.not. use_3D) deallocate(plasma_params%vessel_poly%x, plasma_params%vessel_poly%y)
     deallocate(plasma_params%R, plasma_params%z, plasma_params%rhop)
     call deallocate_rect_spline(plasma_params%rhop_spline)
     call deallocate_rect_spline(plasma_params%B_R_spline)

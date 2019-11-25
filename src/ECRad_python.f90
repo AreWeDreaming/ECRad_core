@@ -58,6 +58,31 @@ call initialize_ecfm(flag, N_Te_spline_knots, N_ne_spline_knots, &
                      R, z, rhop, Br, Bt, Bz, R_ax, z_ax, rhopol_out)
 end subroutine initialize_ECRad
 
+subroutine initialize_ECRad_3D(flag, N_Te_spline_knots, N_ne_spline_knots, &
+                               equilibrium_file, equilibrium_type, use_mesh, \
+                               use_symmetry, B_ref, s_plus, s_max, \
+                               interpolation_acc, fourier_coeff_trunc, \
+                               h_mesh, delta_phi_mesh, vessel_filename)
+! Hence, to keep the structure similiar all initizalization is performed here
+! Initializations that depend on time are done here
+use mod_ecfm_refr, only: initialize_ecfm_3D
+implicit none
+character(*), intent(in) :: flag
+CHARACTER(*), intent(in) :: work_dir
+CHARACTER(*), intent(in) :: equilibrium_file
+CHARACTER(*), intent(in) :: equilibrium_type
+logical, intent(in)      :: use_mesh, use_symmetry
+real(rkind), intent(in)  :: B_ref, s_plus, s_max, h_mesh, delta_phi_mesh, &
+                            interpolation_acc, fourier_coeff_trunc
+real(rkind), dimension(:), intent(out)  :: rhopol_out
+call initialize_ecfm_3D(flag, N_Te_spline_knots, N_ne_spline_knots, &
+                        equilibrium_file, equilibrium_type, use_mesh, \
+                        use_symmetry, B_ref, s_plus, s_max, \
+                        interpolation_acc, fourier_coeff_trunc, \
+                        h_mesh, delta_phi_mesh, vessel_filename)
+end subroutine initialize_ECRad_3D
+
+
 subroutine make_rays_ECRad(N_ch, rhop_knots_ne, n_e, rhop_knots_Te, T_e, rhop_res)
 use mod_ecfm_refr,        only: make_rays_ecfm
 implicit none

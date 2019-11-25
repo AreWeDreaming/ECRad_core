@@ -114,6 +114,7 @@ use mod_ecfm_refr_types,        only : ant, rad, plasma_params, dstf, diagnostic
                                        ratio_for_third_harmonic, straight, reflec_X, reflec_O, modes, mode_cnt, working_dir, &
                                        mode_conv, N_freq, N_ray, warm_plasma, max_points_svec, &
                                        reflec_model, vessel_plasma_ratio, new_IO, use_3D
+use constants,                         only: pi
 implicit none
 character(*), intent(in)          :: working_dir_in
 character(50)                     :: diag_str
@@ -263,8 +264,24 @@ integer(ikind)                    :: IOstatus
 #ifdef USE_3D
     read(66,"(L1)",IOSTAT=IOstatus) use_3D
     if(IOstatus /= 0) use_3D = .false.
-    if(use_3D .and. output_level) then
-        print*, "Using 3-dimensional equilibrium"
+    if(use_3D) then
+      input_filename = trim(working_dir) // "ECRad_data/"  // "equ3D_info"
+      open(77, file=trim(input_filename))
+      read(77,*) plasma_params%Scenario%name_config
+      read(77,*) plasma_params%Scenario%format_config
+      read(77,*) plasma_params%Scenario%useMesh
+      read(77,*) plasma_params%Scenario%useSymm
+      read(77,*) plasma_params%Scenario%B_ref
+      read(77,*) plasma_params%Scenario%splus
+      read(77,*) plasma_params%Scenario%smax
+      read(77,*) plasma_params%Scenario%accbooz
+      read(77,*) plasma_params%Scenario%tolharm
+      read(77,*) plasma_params%Scenario%hgrid
+      read(77,*) plasma_params%Scenario%dphic ! Degrees
+      close(77)
+      plasma_params%Scenario%dphic =  plasma_params%Scenario%dphic / 180.d0 * Pi
+      plasma_params%Scenario%name_config = trim(working_dir) // "ECRad_data/"  // trim(plasma_params%Scenario%name_config)
+      plasma_params%Scenario%mConfAddr = 0 ! Set our pointer to Null like a good boy
     end if
 #endif
   close(66)
