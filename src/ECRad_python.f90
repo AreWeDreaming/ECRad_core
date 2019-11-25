@@ -48,28 +48,39 @@ subroutine initialize_ECRad(flag, N_ch, N_Te_spline_knots, N_ne_spline_knots, &
 use mod_ecfm_refr,        only: initialize_ecfm
 implicit none
 character(*), intent(in)                           :: flag
-integer, intent(in)                        :: N_ch
-integer, intent(in), optional              :: N_Te_spline_knots, N_ne_spline_knots
+integer, intent(in)                        		   :: N_ch
+integer, intent(in)                                :: N_Te_spline_knots, N_ne_spline_knots
 real(kind=8), intent(in), optional                 :: R_ax, z_ax
-real(kind=8), dimension(:), intent(in), optional   :: R, z
-real(kind=8), dimension(:,:), intent(in), optional :: rhop, Br, Bt, Bz
-real(kind=8), dimension(N_ch), intent(out), optional  :: rhopol_out
+real(kind=8), dimension(:), intent(in)             :: R, z
+real(kind=8), dimension(:,:), intent(in)           :: rhop, Br, Bt, Bz
+real(kind=8), dimension(N_ch), intent(out)         :: rhopol_out
 call initialize_ecfm(flag, N_Te_spline_knots, N_ne_spline_knots, &
                      R, z, rhop, Br, Bt, Bz, R_ax, z_ax, rhopol_out)
 end subroutine initialize_ECRad
 
-subroutine make_rays_ECRad(N_ch, rhop_knots_ne, n_e, n_e_dx2, rhop_knots_Te, T_e, T_e_dx2, &
+subroutine make_rays_ECRad(N_ch, rhop_knots_ne, n_e, rhop_knots_Te, T_e, rhop_res)
+use mod_ecfm_refr,        only: make_rays_ecfm
+implicit none
+integer, intent(in)                        :: N_ch
+real(kind=8), dimension(:), intent(in) :: rhop_knots_ne, n_e, rhop_knots_Te, T_e
+real(kind=8), dimension(N_ch),  intent(out) :: rhop_res
+integer                          :: idiag, ich
+call make_rays_ecfm(rhop_knots_ne=rhop_knots_ne, n_e=n_e, rhop_knots_Te=rhop_knots_Te, &
+					T_e=T_e,  rhop_res=rhop_res)
+end subroutine make_rays_ECRad
+
+subroutine make_rays_ECRad_spline(N_ch, rhop_knots_ne, n_e, n_e_dx2, rhop_knots_Te, T_e, T_e_dx2, &
                           rhop_res)
 use mod_ecfm_refr,        only: make_rays_ecfm
 implicit none
 integer, intent(in)                        :: N_ch
-real(kind=8), dimension(:), intent(in), optional   :: rhop_knots_ne, n_e, n_e_dx2, rhop_knots_Te, T_e, T_e_dx2
-real(kind=8), dimension(N_ch),  intent(out), optional :: rhop_res
+real(kind=8), dimension(:), intent(in) :: rhop_knots_ne, n_e, n_e_dx2, rhop_knots_Te, T_e, T_e_dx2
+real(kind=8), dimension(N_ch),  intent(out) :: rhop_res
 integer                          :: idiag, ich
 call make_rays_ecfm(rhop_knots_ne, n_e, n_e_dx2, rhop_knots_Te, T_e, T_e_dx2, rhop_res)
-end subroutine make_rays_ECRad
+end subroutine make_rays_ECRad_spline
 
-subroutine make_dat_model_ECRad(N_ch, rhop_knots_ne, n_e, n_e_dx2, rhop_knots_Te, T_e, T_e_dx2, &
+subroutine make_dat_model_ECRad(N_ch, rhop_knots_ne, n_e, rhop_knots_Te, T_e, &
                                         ne_rhop_scal, reflec_X_new, &
                                         reflec_O_new, ece_fm_flag_ch, rp_min, &
                                         dat_model_ece, tau, set_grid_dynamic, verbose)
@@ -78,18 +89,40 @@ implicit none
 integer, intent(in)             :: N_ch
 real(kind=8), dimension(:), intent(in)  :: rhop_knots_ne, n_e, rhop_knots_Te, T_e
 real(kind=8),               intent(in)  :: ne_rhop_scal, reflec_X_new, reflec_O_new, rp_min
-real(kind=8), dimension(:), intent(in), optional  :: n_e_dx2, T_e_dx2
 logical,     dimension(:), intent(in)  :: ece_fm_flag_ch
 real(kind=8), intent(out) :: dat_model_ece(N_ch)
-real(kind=8), intent(out), optional  :: tau(N_ch)
-logical,      intent(in), optional     :: verbose
-logical, intent(in), optional          :: set_grid_dynamic
+real(kind=8), intent(out)  :: tau(N_ch)
+logical,      intent(in)     :: verbose
+logical, intent(in)          :: set_grid_dynamic
+integer                         :: ich
+call make_dat_model_ece_ecfm_refr(rhop_knots_ne=rhop_knots_ne, n_e=n_e, rhop_knots_Te=rhop_knots_Te, &
+								  T_e=T_e, ne_rhop_scal=ne_rhop_scal, reflec_X_new=reflec_X_new, & ! in
+                                  reflec_O_new=reflec_O_new, ece_fm_flag_ch=ece_fm_flag_ch, rp_min=rp_min, &
+                                  dat_model_ece=dat_model_ece, tau=tau, set_grid_dynamic=set_grid_dynamic, &
+                                  verbose=verbose)
+end subroutine make_dat_model_ECRad
+
+subroutine make_dat_model_ECRad_spline(N_ch, rhop_knots_ne, n_e, n_e_dx2, rhop_knots_Te, T_e, T_e_dx2, &
+                                        ne_rhop_scal, reflec_X_new, &
+                                        reflec_O_new, ece_fm_flag_ch, rp_min, &
+                                        dat_model_ece, tau, set_grid_dynamic, verbose)
+use mod_ecfm_refr,        only: make_dat_model_ece_ecfm_refr
+implicit none
+integer, intent(in)             :: N_ch
+real(kind=8), dimension(:), intent(in)  :: rhop_knots_ne, n_e, rhop_knots_Te, T_e
+real(kind=8),               intent(in)  :: ne_rhop_scal, reflec_X_new, reflec_O_new, rp_min
+real(kind=8), dimension(:), intent(in)  :: n_e_dx2, T_e_dx2
+logical,     dimension(:), intent(in)   :: ece_fm_flag_ch
+real(kind=8), intent(out) :: dat_model_ece(N_ch)
+real(kind=8), intent(out)  :: tau(N_ch)
+logical,      intent(in)     :: verbose
+logical, intent(in)          :: set_grid_dynamic
 integer                         :: ich
 call make_dat_model_ece_ecfm_refr(rhop_knots_ne, n_e, n_e_dx2, rhop_knots_Te, T_e, T_e_dx2, &
                                   ne_rhop_scal, reflec_X_new, & ! in
                                   reflec_O_new, ece_fm_flag_ch, rp_min, &
                                   dat_model_ece, tau, set_grid_dynamic, verbose)
-end subroutine make_dat_model_ECRad
+end subroutine make_dat_model_ECRad_spline
 
 subroutine make_BPD_w_res_ch_ECRad(pnts_BPD, idiag, ich, rhop_knots_ne, n_e, n_e_dx2, rhop_knots_Te, T_e, T_e_dx2, &
                                    ne_rhop_scal, reflec_X_new, &
