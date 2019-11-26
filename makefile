@@ -59,7 +59,7 @@ ifeq ($(USE_3D),True)
 #   LIBS += $(ROOTDIR)/../magconf/lib/libmconf64.a
 #../Mconf/unix/mconf_matlab64.so
 	LIBS += -lpthread -lstdc++
-	LIBS += -L${NETCDF_HOME}/lib/  -lnetcdf_c++4  -lnetcdf 
+	#LIBS += -L${NETCDF_HOME}/lib/  -lnetcdf_c++4  -lnetcdf 
 endif
 ifeq ($(OPEN_MP),True)
 	LIBS += -qopenmp
