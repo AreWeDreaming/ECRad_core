@@ -320,22 +320,25 @@ end subroutine initialize_ecfm
 
 #ifdef USE_3D
 subroutine initialize_ecfm_3D(flag, N_Te_spline_knots, N_ne_spline_knots, &
-                              equilibrium_file, equilibrium_type, use_mesh, \
-                              use_symmetry, B_ref, s_plus, s_max, \
-                              interpolation_acc, fourier_coeff_trunc, \
-                              h_mesh, delta_phi_mesh, vessel_filename)
+                              equilibrium_file, equilibrium_type, use_mesh, &
+                              use_symmetry, B_ref, s_plus, s_max, &
+                              interpolation_acc, fourier_coeff_trunc, &
+                              h_mesh, delta_phi_mesh, vessel_filename, &
+                              rhopol_out)
 ! Hence, to keep the structure similiar all initizalization is performed here
 ! Initializations that depend on time are done here
-use mod_ecfm_refr_types,        only: plasma_params, use_3D, Vessel_bd_filename
+use mod_ecfm_refr_types,        only: plasma_params, use_3D, Vessel_bd_filename, &
+									  straight, output_level, ray_init, warm_plasma
 use mod_ecfm_refr_raytrace_initialize, only: init_raytrace, dealloc_raytrace
 implicit none
-character(*), intent(in)                          :: flag
-CHARACTER(*), intent(in) :: work_dir
+character(*), intent(in) :: flag
+integer(ikind), intent(in), optional :: N_Te_spline_knots, N_ne_spline_knots
 CHARACTER(*), intent(in) :: equilibrium_file
 CHARACTER(*), intent(in) :: equilibrium_type
 logical, intent(in)      :: use_mesh, use_symmetry
 real(rkind), intent(in)  :: B_ref, s_plus, s_max, h_mesh, delta_phi_mesh, &
                             interpolation_acc, fourier_coeff_trunc
+CHARACTER(*), intent(in) :: vessel_filename                            
 real(rkind), dimension(:), intent(out), optional  :: rhopol_out
 integer(ikind)                                    :: idiag
 logical                                           :: old_straight
@@ -352,8 +355,8 @@ logical                                           :: old_straight
     plasma_params%Scenario%tolharm = fourier_coeff_trunc
     plasma_params%Scenario%hgrid = h_mesh
     plasma_params%Scenario%dphic = delta_phi_mesh! Degrees
-    plasma_params%vessel_filename = vessel_filename
-    call init_raytrace(plasma_params, R, z, rhop, Br, Bt, Bz, R_ax, z_ax)
+    vessel_bd_filename = vessel_filename
+    call init_raytrace(plasma_params)
     allocate(plasma_params%IDA_rhop_knots_ne(N_ne_spline_knots), plasma_params%IDA_n_e(N_ne_spline_knots), &
              plasma_params%IDA_n_e_dx2(N_ne_spline_knots), plasma_params%IDA_rhop_knots_Te(N_Te_spline_knots), &
              plasma_params%IDA_T_e(N_Te_spline_knots), plasma_params%IDA_T_e_dx2(N_Te_spline_knots))
