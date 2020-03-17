@@ -318,7 +318,7 @@ logical                                           :: old_straight
   end if
 end subroutine initialize_ecfm
 
-#ifdef USE3D
+#ifdef USE_3D
 subroutine initialize_ecfm_3D(flag, N_Te_spline_knots, N_ne_spline_knots, &
                               equilibrium_file, equilibrium_type, use_mesh, \
                               use_symmetry, B_ref, s_plus, s_max, \
