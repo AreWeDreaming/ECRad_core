@@ -1,4 +1,4 @@
-      subroutine regrif(iopt,mx,x,my,y,z,xb,xe,yb,ye,kx,ky,s,
+      subroutine regrid(iopt,mx,x,my,y,z,xb,xe,yb,ye,kx,ky,s,
      * nxest,nyest,nx,tx,ny,ty,c,fp,wrk,lwrk,iwrk,kwrk,ier)
 c given the set of values z(i,j) on the rectangular grid (x(i),y(j)),
 c i=1,...,mx;j=1,...,my, subroutine regrid determines a smooth bivar-
@@ -78,7 +78,7 @@ c          used, the value of nx should be left unchanged between sub-
 c          sequent calls.
 c          in case iopt=-1, the value of nx should be specified on entry
 c  tx    : real array of dimension nmax.
-c          on succesful exit, this array will contain the knots of the
+c          on successful exit, this array will contain the knots of the
 c          spline with respect to the x-variable, i.e. the position of
 c          the interior knots tx(kx+2),...,tx(nx-kx-1) as well as the
 c          position of the additional knots tx(1)=...=tx(kx+1)=xb and
@@ -96,7 +96,7 @@ c          used, the value of ny should be left unchanged between sub-
 c          sequent calls.
 c          in case iopt=-1, the value of ny should be specified on entry
 c  ty    : real array of dimension nmax.
-c          on succesful exit, this array will contain the knots of the
+c          on successful exit, this array will contain the knots of the
 c          spline with respect to the y-variable, i.e. the position of
 c          the interior knots ty(ky+2),...,ty(ny-ky-1) as well as the
 c          position of the additional knots ty(1)=...=ty(ky+1)=yb and
@@ -107,7 +107,7 @@ c          if the computation mode iopt=-1 is used, the values ty(ky+2),
 c          ...ty(ny-ky-1) must be supplied by the user, before entry.
 c          see also the restrictions (ier=10).
 c  c     : real array of dimension at least (nxest-kx-1)*(nyest-ky-1).
-c          on succesful exit, c contains the coefficients of the spline
+c          on successful exit, c contains the coefficients of the spline
 c          approximation s(x,y)
 c  fp    : real. unless ier=10, fp contains the sum of squared
 c          residuals of the spline approximation returned.
@@ -146,7 +146,7 @@ c            the approximation returned is the least-squares spline
 c            according to the current set of knots. the parameter fp
 c            gives the corresponding sum of squared residuals (fp>s).
 c   ier=2  : error. a theoretically impossible result was found during
-c            the iteration proces for finding a smoothing spline with
+c            the iteration process for finding a smoothing spline with
 c            fp = s. probably causes : s too small.
 c            there is an approximation returned but the corresponding
 c            sum of squared residuals does not satisfy the condition
@@ -263,7 +263,6 @@ c
 c  creation date : may 1979
 c  latest update : march 1989
 c
-c  Small edit: Added some debug output if ier=10 (S denk Mar 16)
 c  ..
 c  ..scalar arguments..
       real*8 xb,xe,yb,ye,s,fp
@@ -287,66 +286,33 @@ c  we set up the parameters tol and maxit.
 c  before starting computations a data check is made. if the input data
 c  are invalid, control is immediately repassed to the calling program.
       ier = 10
-      if(kx.le.0 .or. kx.gt.5) then
-        print*, 'kx bad', kx
-        go to 70
-      end if
+      if(kx.le.0 .or. kx.gt.5) go to 70
       kx1 = kx+1
       kx2 = kx1+1
-      if(ky.le.0 .or. ky.gt.5) then
-        print*, 'ky bad', ky
-        go to 70
-      end if
+      if(ky.le.0 .or. ky.gt.5) go to 70
       ky1 = ky+1
       ky2 = ky1+1
-      if(iopt.lt.(-1) .or. iopt.gt.1) then
-        print*, 'iopt bad', iopt
-        go to 70
-      end if
+      if(iopt.lt.(-1) .or. iopt.gt.1) go to 70
       nminx = 2*kx1
-      if(mx.lt.kx1 .or. nxest.lt.nminx) then
-        print*, 'mx or nxest bad', mx, kx1, nxest, nminx
-        go to 70
-      end if
+      if(mx.lt.kx1 .or. nxest.lt.nminx) go to 70
       nminy = 2*ky1
-      if(my.lt.ky1 .or. nyest.lt.nminy) then
-        print*, 'my or nuest bad', my, ky1, nyest, nminy
-        go to 70
-      end if
+      if(my.lt.ky1 .or. nyest.lt.nminy) go to 70
       mz = mx*my
       nc = (nxest-kx1)*(nyest-ky1)
       lwest = 4+nxest*(my+2*kx2+1)+nyest*(2*ky2+1)+mx*kx1+
      * my*ky1+max0(nxest,my)
       kwest = 3+mx+my+nxest+nyest
-      if(lwrk.lt.lwest .or. kwrk.lt.kwest) then
-        print*, 'lwrk or kwrk bad', lwrk, lwest, kwrk, kwest
-        go to 70
-      end if
-      if(xb.gt.x(1) .or. xe.lt.x(mx)) then
-        print*, 'x not in grid', xb, x(1), xe, x(mx)
-        go to 70
-      end if
+      if(lwrk.lt.lwest .or. kwrk.lt.kwest) go to 70
+      if(xb.gt.x(1) .or. xe.lt.x(mx)) go to 70
       do 10 i=2,mx
-        if(x(i-1).ge.x(i)) then
-          print*, 'x not monotonic', x(i-1), x(i)
-          go to 70
-        end if
+        if(x(i-1).ge.x(i)) go to 70
   10  continue
-      if(yb.gt.y(1) .or. ye.lt.y(my)) then
-          print*, 'y not in grid', yb, y(1), ye, y(my)
-          go to 70
-        end if
+      if(yb.gt.y(1) .or. ye.lt.y(my)) go to 70
       do 20 i=2,my
-        if(y(i-1).ge.y(i)) then
-          print*, 'y not monotonic', y(i-1), y(i)
-          go to 70
-        end if
+        if(y(i-1).ge.y(i)) go to 70
   20  continue
       if(iopt.ge.0) go to 50
-      if(nx.lt.nminx .or. nx.gt.nxest) then
-        print*, 'nx bad', nminx, nx, nxest
-        go to 70
-      end if
+      if(nx.lt.nminx .or. nx.gt.nxest) go to 70
       j = nx
       do 30 i=1,kx1
         tx(i) = xb
@@ -354,14 +320,8 @@ c  are invalid, control is immediately repassed to the calling program.
         j = j-1
   30  continue
       call fpchec(x,mx,tx,nx,kx,ier)
-      if(ier.ne.0) then
-        print*, 'fpchec x bad', ier
-        go to 70
-      end if
-      if(ny.lt.nminy .or. ny.gt.nyest) then
-        print*, 'nx bad', nminy, ny, nyest
-        go to 70
-      end if
+      if(ier.ne.0) go to 70
+      if(ny.lt.nminy .or. ny.gt.nyest) go to 70
       j = ny
       do 40 i=1,ky1
         ty(i) = yb
@@ -369,20 +329,11 @@ c  are invalid, control is immediately repassed to the calling program.
         j = j-1
   40  continue
       call fpchec(y,my,ty,ny,ky,ier)
-      if(ier /= 0) then
-        print*, 'fpchec of y bad', ier
-        go to 70
-      end if
       if (ier.eq.0) go to 60
       go to 70
-  50  if(s.lt.0.) then
-        print*, 's smaller 0', s
-        go to 70
-      end if
-      if(s.eq.0. .and. (nxest.lt.(mx+kx1) .or. nyest.lt.(my+ky1)) ) then
-        print*, 'not enough knots', nxest, mx+kx1,nyest,my+ky1
-        go to 70
-      end if
+  50  if(s.lt.0.) go to 70
+      if(s.eq.0. .and. (nxest.lt.(mx+kx1) .or. nyest.lt.(my+ky1)) )
+     * go to 70
       ier = 0
 c  we partition the working space and determine the spline approximation
   60  lfpx = 5

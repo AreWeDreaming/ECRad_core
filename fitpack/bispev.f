@@ -38,7 +38,7 @@ c   kwrk  : integer, specifying the dimension of iwrk. kwrk >= mx+my.
 c
 c  output parameters:
 c   z     : real array of dimension (mx*my).
-c           on succesful exit z(my*(i-1)+j) contains the value of s(x,y)
+c           on successful exit z(my*(i-1)+j) contains the value of s(x,y)
 c           at the point (x(i),y(j)),i=1,...,mx;j=1,...,my.
 c   ier   : integer error flag
 c    ier=0 : normal return
@@ -69,14 +69,11 @@ c
 c  latest update : march 1987
 c
 c  ..scalar arguments..
-      integer, intent(in)  :: nx,ny,kx,ky,mx,my,lwrk,kwrk
-      integer, intent(out) :: ier
+      integer nx,ny,kx,ky,mx,my,lwrk,kwrk,ier
 c  ..array arguments..
-      integer, intent(inout) :: iwrk(kwrk)
-      real*8, intent(in) :: tx(nx),ty(ny),c((nx-kx-1)*(ny-ky-1)),x(mx),
-     * y(my)
-      real*8, intent(out) :: z(mx*my)
-      real*8, intent(inout) :: wrk(lwrk)
+      integer iwrk(kwrk)
+      real*8 tx(nx),ty(ny),c((nx-kx-1)*(ny-ky-1)),x(mx),y(my),z(mx*my),
+     * wrk(lwrk)
 c  ..local scalars..
       integer i,iw,lwest
 c  ..

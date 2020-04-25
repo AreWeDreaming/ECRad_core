@@ -102,7 +102,7 @@ module mod_ecfm_refr_interpol
     spl%x_end = x(m)
     spl%y_start = y(1)
     spl%y_end = y(n)
-    call regrif(spl%iopt_int, m, x, n, y, temp_mat, &
+    call regrid(spl%iopt_int, m, x, n, y, temp_mat, &
                 x(1) - 1.d-4, x(m) + 1.d-4, y(1) - 1.d-4, y(n) + 1.d-4, kx, ky, 0.d0, &
                 spl%nuest,  spl%nvest,  spl%nu,  spl%tu, &
                 spl%nv, spl%tv,  spl%c, fp,  spl%wrk, &
@@ -512,9 +512,9 @@ module mod_ecfm_refr_interpol
         print*, "Critical error in spline evaluation: dfdx"
         print*, ier
         print*, "spline in mod_ecfm_refr_utils failed"
-        if(ier == 1) then
+        if(ier == 10) then
           print*, "Array value out of bounds"
-          print*, x_ar
+          print*, "requested value", x_ar
           print*, "x boundary", spl%x_start, spl%x_end
         end if
         call TRACEBACKQQ()
@@ -526,9 +526,9 @@ module mod_ecfm_refr_interpol
     if(ier /= 0) then
       print*, "Critical error in spline evaluation: f"
       print*, "spline in mod_ecfm_refr_utils failed"
-      if(ier == 1) then
+      if(ier == 10) then
         print*, "Array value out of bounds"
-        print*, x_ar
+        print*, "requested value", x_ar
         print*, "x boundary", spl%x_start, spl%x_end
       end if
       call tracebackqq()
@@ -545,7 +545,7 @@ module mod_ecfm_refr_interpol
         print*, "spline", f
         if(ier == 1) then
           print*, "Array value out of bounds"
-          print*, x_ar
+          print*, "requested value",  x_ar
           print*, "x boundary", spl%x_start, spl%x_end
         end if
         call tracebackqq()
@@ -593,9 +593,9 @@ module mod_ecfm_refr_interpol
         print*, "Critical error in spline evaluation: dfdx"
         print*, ier
         print*, "spline in mod_ecfm_refr_utils failed"
-        if(ier == 1) then
+        if(ier == 10) then
           print*, "Array value out of bounds"
-          print*, x
+          print*, "requested value", x
           print*, "x boundary", spl%x_start, spl%x_end
         end if
         call tracebackqq()
@@ -607,9 +607,9 @@ module mod_ecfm_refr_interpol
       print*, "Critical error in spline evaluation: f"
       print*, "spline in mod_ecfm_refr_utils failed"
       print*, "error message", ier
-      if(ier == 1) then
+      if(ier == 10) then
         print*, "Array value out of bounds"
-        print*, x
+        print*, "requested value", x
         print*, "x boundary", spl%x_start, spl%x_end
       end if
       call tracebackqq()

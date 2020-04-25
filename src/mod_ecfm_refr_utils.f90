@@ -1011,7 +1011,6 @@ implicit none
   call make_1d_spline(spl, size(x_poly), s, f)
   call spline_1d(spl, s, dummy, df)
   call make_1d_spline(d_spl, size(s_high_res), s_high_res, df)
-  root_cnt = size(roots)
   call spline_1d_get_roots(d_spl, roots, root_cnt)
   call spline_1d(spl, roots(1:root_cnt), dist(1:root_cnt))
   distance_to_poly = minval(dist(1:root_cnt))

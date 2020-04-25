@@ -34,7 +34,7 @@ module mod_ecfm_refr_raytrace
                func_X, sub_spatial_grad_N_par, &
                func_Y, sub_spatial_grad_Y, &
                sub_grad_H, sub_grad_Lambda, sub_grad_Lambda_star, f_H, f_Lambda, jac, &
-               sub_single_step_LSODE, &
+               sub_single_step_lsoda, &
                sub_local_params, reflect_off_surface, make_Snells_refraction, make_H, &
                make_H_wrapper, sub_calculate_initial_N, &
                func_within_plasma, find_first_point_in_plasma, make_ray_segment, &
@@ -1435,8 +1435,8 @@ function func_dA_dY(X, Y)
     N_abs = sqrt(x_vec(4)**2 + x_vec(5)**2 + x_vec(6)**2)
     call sub_get_grad_rhop_and_grad_B_vec(plasma_params, x_vec(1:3), in_plasma, rhop_out, B_vec, grad_rhop, grad_B_vec)
     if(.not. in_plasma) then
-        ! This routine is only called by DLSODE or for debugging purposes
-        ! If we walk out of the plasma during an DLSODE call we need to smoothly exit
+        ! This routine is only called by lsoda or for debugging purposes
+        ! If we walk out of the plasma during an lsoda call we need to smoothly exit
         ! Straight propagation
         dx_dsigma(1:3) = x_vec(4:6)
         ! No change in wave vector
@@ -1688,8 +1688,8 @@ function func_dA_dY(X, Y)
     N_vec = x_vec(4:6)
     call sub_get_grad_rhop_and_grad_B_vec(plasma_params, x_vec(1:3), in_plasma, rhop_out, B_vec, grad_rhop, grad_B_vec)
     if(.not. in_plasma) then
-        ! This routine is only called by DLSODE or for debugging purposes
-        ! If we walk out of the plasma during an DLSODE call we need to smoothly exit
+        ! This routine is only called by lsoda or for debugging purposes
+        ! If we walk out of the plasma during an lsoda call we need to smoothly exit
         ! Straight propagation
         dxds(1:3) = N_vec
         ! No change in wave vector
@@ -1845,8 +1845,8 @@ function func_dA_dY(X, Y)
     N_vec = x_vec(4:6)
     call sub_get_grad_rhop_and_grad_B_vec(plasma_params, x_vec(1:3), in_plasma, rhop_out, B_vec, grad_rhop, grad_B_vec)
     if(.not. in_plasma) then
-        ! This routine is only called by DLSODE or for debugging purposes
-        ! If we walk out of the plasma during an DLSODE call we need to smoothly exit
+        ! This routine is only called by lsoda or for debugging purposes
+        ! If we walk out of the plasma during an lsoda call we need to smoothly exit
         ! Straight propagation
         dxds(1:3) = N_vec
         ! No change in wave vector
@@ -1974,8 +1974,8 @@ function func_dA_dY(X, Y)
     real(rkind),  dimension(m), intent(inout) :: dx_dsigma
     call sub_grad_H(glob_plasma_params, glob_omega, glob_mode, x_vec, dx_dsigma)
     if(any(dx_dsigma/=dx_dsigma)) then
-      ! This routine is only called by DLSODE or for debugging purposes
-      ! If we walk out of the plasma during an DLSODE call we need to smoothly exit
+      ! This routine is only called by lsoda or for debugging purposes
+      ! If we walk out of the plasma during an lsoda call we need to smoothly exit
       ! Straight propagation
       dx_dsigma(1:3) = x_vec(4:6)
       ! No change in wave vector
@@ -2000,8 +2000,8 @@ function func_dA_dY(X, Y)
       call sub_grad_Lambda(glob_plasma_params, glob_omega, glob_mode, x_vec, dxds)
     end if
     if(any(dxds/=dxds)) then
-        ! This routine is only called by DLSODE or for debugging purposes
-        ! If we walk out of the plasma during an DLSODE call we need to smoothly exit
+        ! This routine is only called by lsoda or for debugging purposes
+        ! If we walk out of the plasma during an lsoda call we need to smoothly exit
         ! Straight propagation
         dxds(1:3) = x_vec(4:6)
         ! No change in wave vector
@@ -2031,9 +2031,9 @@ function func_dA_dY(X, Y)
     return
  end subroutine Jac
 
-  subroutine sub_single_step_LSODE(sigma, x_vec, N_vec, h, x_vec_out, N_vec_out, B_vec_out, &
+  subroutine sub_single_step_lsoda(sigma, x_vec, N_vec, h, x_vec_out, N_vec_out, B_vec_out, &
               theta_out, Hamil_out, N_s_out, n_e_out, omega_c_out, T_e_out, rhop_out, v_g_perp, &
-              work_lsode, iwork_lsode, istate)
+              work_lsoda, iwork_lsoda, istate)
     USE f90_kind
     USE mod_ecfm_refr_types, only : Hamil, Lambda_star
     USE constants,                 only : c0, eps0, mass_e, e0
@@ -2043,8 +2043,8 @@ function func_dA_dY(X, Y)
     real(rkind),                 intent(inout):: h
     real(rkind), dimension(:),   intent(out)  :: x_vec_out, N_vec_out, B_vec_out
     real(rkind),                 intent(out)  :: theta_out, Hamil_out, N_s_out, n_e_out, omega_c_out, T_e_out, rhop_out, v_g_perp
-    real(rkind), dimension(:),   intent(in)   :: work_lsode
-    integer(ikind), dimension(:), intent(in)  :: iwork_lsode
+    real(rkind), dimension(:),   intent(in)   :: work_lsoda
+    integer(ikind), dimension(:), intent(in)  :: iwork_lsoda
     integer(ikind),              intent(inout):: istate
     real(rkind)                               :: X, Y, A, B, C, N_par, dX1, dX2, sigma0
     integer, dimension(1)                     :: neq
@@ -2058,9 +2058,10 @@ function func_dA_dY(X, Y)
     y_vec_init = y_vec
     sigma0 = sigma
     if(Hamil == "Dani") then
-      call dlsode(f_Lambda, neq,y_vec,sigma,sigma + h,       &
+      call lsoda(f_Lambda, neq,y_vec,sigma,sigma + h,       &
                   1, rtol, atol,4,istate,1, &
-                  work_lsode,size(work_lsode),iwork_lsode,size(iwork_lsode),Jac,10) !22
+                  work_lsoda,size(work_lsoda),iwork_lsoda,size(iwork_lsoda),\
+                  Jac,2) !22
       if(Lambda_star) then
         call sub_grad_Lambda_star(glob_plasma_params, glob_omega, glob_mode, y_vec_init, dy_vec_dummy)
         dX1 = sqrt(dy_vec_dummy(1)**2 + dy_vec_dummy(2)**2 + dy_vec_dummy(3)**2 + &
@@ -2077,9 +2078,9 @@ function func_dA_dY(X, Y)
                  dy_vec_dummy(4)**2 + dy_vec_dummy(5)**2 + dy_vec_dummy(6)**2)
       end if
     else
-      call dlsode(f_H,neq,y_vec,sigma,sigma + h, &
+      call lsoda(f_H,neq,y_vec,sigma,sigma + h, &
                   1, rtol, atol,4,istate,1, &
-                  work_lsode,size(work_lsode),iwork_lsode,size(iwork_lsode),Jac,10) !22
+                  work_lsoda,size(work_lsoda),iwork_lsoda,size(iwork_lsoda),Jac,10) !22
       call sub_grad_H(glob_plasma_params, glob_omega, glob_mode, y_vec_init, dy_vec_dummy)
       dX1 = sqrt(dy_vec_dummy(1)**2 + dy_vec_dummy(2)**2 + dy_vec_dummy(3)**2 + &
                  dy_vec_dummy(4)**2 + dy_vec_dummy(5)**2 + dy_vec_dummy(6)**2)
@@ -2121,7 +2122,7 @@ function func_dA_dY(X, Y)
     !end if
     if (istate /= 2 .or. abs(Hamil_out) > 1.0e-2 .or. any(y_vec /= y_vec) .or. Hamil_out /= Hamil_out) then
       if(istate /= 2 ) then
-        print'(a,i4,a,2e16.8)','WARNING from DLSODE: istate =',istate, &
+        print'(a,i4,a,2e16.8)','WARNING from lsoda: istate =',istate, &
                               '   p_got =',sigma0, sigma0 + h
       else
         print*, "Very large Hamiltonian encountered, rays most likely highly inaccurate", Hamil_out
@@ -2143,7 +2144,7 @@ function func_dA_dY(X, Y)
           call sub_grad_H(glob_plasma_params,glob_omega, glob_mode, y_vec, dy_vec_dummy)
       end if
     end if
-  end subroutine sub_single_step_LSODE
+  end subroutine sub_single_step_lsoda
 
   subroutine sub_local_params(plasma_params, omega, x_vec, N_vec, B_vec, N_abs, n_e, omega_c, T_e, theta, rhop_out)
     USE f90_kind
@@ -2767,11 +2768,11 @@ function func_dA_dY(X, Y)
     integer(ikind)                                                   :: N, i, istate, first_N
     real(rkind), dimension(3)                                        :: R_vec, x_vec_max
     real(rkind)                                                      :: first_s, X, Y, angle_change, delta_s_step
-    real(rkind), dimension(116)               :: work_lsode
-    integer(ikind), dimension(20)             :: iwork_lsode
-    iwork_lsode(:) = 0.d0
-    iwork_lsode(6) = 8000
-    work_lsode(:) = 0.d0
+    real(rkind), dimension(118)               :: work_lsoda
+    integer(ikind), dimension(26)             :: iwork_lsoda
+    iwork_lsoda(:) = 0.d0
+    iwork_lsoda(6) = 8000
+    work_lsoda(:) = 0.d0
     propagating = .true.
     ray_segment(1)%sigma = 0.d0
     if(present(N_start)) then
@@ -2794,13 +2795,13 @@ function func_dA_dY(X, Y)
     !print*, "Initial wall hits", wall_hits
 !    open(96, file= "k_out_ecfm")
     !print*, "-----------------Ray trace init-------------"
-    work_lsode(6) = 2.d0 * plasma_params%h ! Never allow more than 2 h as the step size
+    work_lsoda(6) = 2.d0 * plasma_params%h ! Never allow more than 2 h as the step size
     do while(propagating)
       !print*, ray_segment(N)%s
-      x_vec_max = ray_segment(N)%x_vec + 1.5 * work_lsode(6) * ray_segment(N)%N_vec ! A lttile extra to avoid close calls
-      ! Check, whether the furtherst point that DLSODE is allowed to reach in next step is still in plasma
-      ! This is just a guess as N_vec could change during the DLSODE step
-      ! Nevertheless this should stop DLSODE from stepping outside the domain where flux sufrace information is available
+      x_vec_max = ray_segment(N)%x_vec + 1.5 * work_lsoda(6) * ray_segment(N)%N_vec ! A lttile extra to avoid close calls
+      ! Check, whether the furtherst point that lsoda is allowed to reach in next step is still in plasma
+      ! This is just a guess as N_vec could change during the lsoda step
+      ! Nevertheless this should stop lsoda from stepping outside the domain where flux sufrace information is available
       propagating = func_within_plasma(plasma_params, x_vec_max, wall_hits, been_in_plasma)
       if(.not. propagating) exit
       if(N + 1 > max_points_svec) then
@@ -2827,23 +2828,23 @@ function func_dA_dY(X, Y)
         if(Hamil == "Dani") then
           if(N > 1) ray_segment(N)%h = ray_segment(N - 1)%h ! retrieve updated h from last step
           ray_segment(N + 1)%s = ray_segment(N)%s
-          work_lsode(1) = max(ray_segment(N + 1)%s + 4.d0 * ray_segment(N)%h, work_lsode(13) + 4.d0 * ray_segment(N)%h)! s can be smaller than s from the solver
-          call sub_single_step_LSODE(ray_segment(N + 1)%s, ray_segment(N)%x_vec, ray_segment(N)%N_vec, &
+          work_lsoda(1) = max(ray_segment(N + 1)%s + 4.d0 * ray_segment(N)%h, work_lsoda(13) + 4.d0 * ray_segment(N)%h)! s can be smaller than s from the solver
+          call sub_single_step_lsoda(ray_segment(N + 1)%s, ray_segment(N)%x_vec, ray_segment(N)%N_vec, &
                                ray_segment(N)%h, ray_segment(N + 1)%x_vec, &
                                ray_segment(N + 1)%N_vec, ray_segment(N + 1)%B_vec, ray_segment(N + 1)%theta, &
                                ray_segment(N + 1)%Hamil, ray_segment(N + 1)%N_s, ray_segment(N + 1)%n_e, &
                                ray_segment(N + 1)%omega_c,  ray_segment(N + 1)%T_e, ray_segment(N + 1)%rhop, &
-                               ray_segment(N + 1)%v_g_perp, work_lsode, iwork_lsode, istate)
+                               ray_segment(N + 1)%v_g_perp, work_lsoda, iwork_lsoda, istate)
           call sub_remap_coords(ray_segment(N + 1)%x_vec, ray_segment(N + 1)%R_vec)
             !print*, "x, R", ray_segment(N + 1)%x_vec, ray_segment(N + 1)%R_vec
         else
           ray_segment(N + 1)%sigma = ray_segment(N)%sigma
-          work_lsode(1) = ray_segment(N + 1)%sigma  + 4.d0 * ray_segment(N)%h
-          call sub_single_step_LSODE(ray_segment(N + 1)%sigma, ray_segment(N)%x_vec, ray_segment(N)%N_vec, &
+          work_lsoda(1) = ray_segment(N + 1)%sigma  + 4.d0 * ray_segment(N)%h
+          call sub_single_step_lsoda(ray_segment(N + 1)%sigma, ray_segment(N)%x_vec, ray_segment(N)%N_vec, &
                                ray_segment(N)%h, ray_segment(N + 1)%x_vec, ray_segment(N + 1)%N_vec, &
                                ray_segment(N + 1)%B_vec, ray_segment(N + 1)%theta, ray_segment(N + 1)%Hamil, ray_segment(N + 1)%N_s, &
                                ray_segment(N + 1)%n_e, ray_segment(N + 1)%omega_c, ray_segment(N + 1)%T_e, &
-                               ray_segment(N + 1)%rhop, ray_segment(N + 1)%v_g_perp, work_lsode, iwork_lsode, istate)
+                               ray_segment(N + 1)%rhop, ray_segment(N + 1)%v_g_perp, work_lsoda, iwork_lsoda, istate)
           !ray_segment(N)%N_s = sqrt(ray_segment(N)%N_vec(1)**2 + ray_segment(N)%N_vec(2)**2 + ray_segment(N)%N_vec(3)**2)
           call sub_remap_coords(ray_segment(N + 1)%x_vec, ray_segment(N + 1)%R_vec)
           !print*, ray_segment(N + 1)%R_vec, ray_segment(N)%rhop
@@ -2859,7 +2860,7 @@ function func_dA_dY(X, Y)
         if(istate /= 2) then
           propagating = .false.
           wall_hits = 2
-          print*, "stopped propagating because of LSODE error"
+          print*, "stopped propagating because of lsoda error"
         end if
       else ! Straight line
         ray_segment(N + 1)%x_vec = ray_segment(N)%x_vec + plasma_params%h * ray_segment(N)%N_vec ! Vacuum (straight) propagation

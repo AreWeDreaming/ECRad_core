@@ -32,7 +32,7 @@ c   kwrk  : integer, specifying the dimension of iwrk. kwrk >= mx+my.
 c
 c  output parameters:
 c   z     : real array of dimension (m).
-c           on succesful exit z(i) contains the value of the
+c           on successful exit z(i) contains the value of the
 c           specified partial derivative of s(x,y) at the point
 c           (x(i),y(i)),i=1,...,m.
 c   ier   : integer error flag
@@ -59,19 +59,17 @@ c    e-mail : Paul.Dierckx@cs.kuleuven.ac.be
 c
 c  latest update : march 1989
 c
-      integer, intent(in) :: nx,ny,kx,ky,m,lwrk,kwrk,nux,nuy
-      integer, intent(out) :: ier
+c  ..scalar arguments..
+      integer nx,ny,kx,ky,m,lwrk,kwrk,ier,nux,nuy
 c  ..array arguments..
-      integer, intent(inout) :: iwrk(kwrk)
-      real*8, intent(in) :: tx(nx),ty(ny),c((nx-kx-1)*(ny-ky-1)),x(m),
-     *                      y(m)
-      real*8, intent(out) :: z(m)
-      real*8, intent(inout) :: wrk(lwrk)
+      integer iwrk(kwrk)
+      real*8 tx(nx),ty(ny),c((nx-kx-1)*(ny-ky-1)),x(m),y(m),z(m),
+     * wrk(lwrk)
 c  ..local scalars..
       integer i,iwx,iwy,j,kkx,kky,kx1,ky1,lx,ly,lwest,l1,l2,mm,m0,m1,
      * nc,nkx1,nky1,nxx,nyy
       real*8 ak,fac
-c
+c  ..
 c  before starting computations a data check is made. if the input data
 c  are invalid control is immediately repassed to the calling program.
       ier = 10
@@ -158,4 +156,3 @@ c  we partition the working space and evaluate the partial derivative
  390  continue
  400  return
       end
-

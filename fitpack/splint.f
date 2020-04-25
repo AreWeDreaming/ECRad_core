@@ -1,9 +1,10 @@
       real*8 function splint_fitpack(t,n,c,k,a,b,wrk)
-c  function splint calculates the integral of a spline function s(x)
+      implicit none
+c  function splint_fitpack calculates the integral of a spline function s(x)
 c  of degree k, which is given in its normalized b-spline representation
 c
 c  calling sequence:
-c     aint = splint(t,n,c,k,a,b,wrk)
+c     aint = splint_fitpack(t,n,c,k,a,b,wrk)
 c
 c  input parameters:
 c    t    : array,length n,which contains the position of the knots

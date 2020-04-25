@@ -36,7 +36,7 @@ MODECRad=$(ROOTDIR)/$(SYS)/mod$(COMPILER)$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)
 $(shell   mkdir -p $(MODECRad))
 # Debugging -> enable if DEBUG==		True
 ifeq ($(DEBUG),True)
-	F90FLAGS = -c -g -traceback -check bounds  -check all -u -warn all -diag-disable 7712 -check-uninit -fp-model source -debug all -gen-interfaces -warn interfaces -fpe3 -fpic
+	F90FLAGS = -c -g -traceback -fpic -DTBB_USE_DEBUG
 	DB = db
 	# Optimized
 else
@@ -49,11 +49,14 @@ ifeq ($(OPEN_MP),True)
   F90FLAGS += -qopenmp
 endif
 # Debugging parallelisation
-# F90FLAGS = -c -g -O0 -shared-libgcc -traceback -check bounds  -check all -u -warn all -diag-disable 7712 -check uninit -fp-model source -gen-interfaces -warn interfaces -fpe3 -openmp -openmp-report -DTBB_USE_DEBUG
+#F90FLAGS = -c -g -O0 -shared-libgcc -traceback -check bounds  -check all -u -warn all -diag-disable 7712 -check uninit -fp-model source -warn interfaces -fpe3 -qopenmp -qopenmp-report -DTBB_USE_DEBUG
 F77FLAGS = $(F90FLAGS) -C
 # Libraries
-FITPACK = -L$(ROOTDIR)/fitpack/ -lfit
-LIBS = -L$(ECRadLIBDir) -l$(ECRadLIB)$(OMPFLAG)$(USE3DFLAG)$(DB) $(NAGF90LIB) $(NAGFLIB) $(FITPACK)
+FITPACK = -L$(ROOTDIR)/fitpack/ -lFITPack
+ODEPACK = -L$(ROOTDIR)/odepack/ -lODEPack
+LIBS = -L$(ECRadLIBDir) -l$(ECRadLIB)$(OMPFLAG)$(USE3DFLAG)$(DB) \
+		$(NAGF90LIB) $(NAGFLIB) $(FITPACK) $(ODEPACK) \
+	    -mkl -static-intel
 ifeq ($(USE_3D),True)
  	LIBS += $(ROOTDIR)/../Mconf/lib/libmconf64.a
 #   LIBS += $(ROOTDIR)/../magconf/lib/libmconf64.a
@@ -98,7 +101,6 @@ OBJECTS += \
 	mod_ecfm_refr_abs_Al$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).o \
 	mod_ripple3d$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).o \
 	mod_ecfm_refr_raytrace_initialize$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).o \
-	dlsode$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).o \
 	mod_ecfm_refr_raytrace$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).o \
 	mod_ecfm_refr_rad_transp$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).o \
 	mod_ecfm_refr$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).o #\
@@ -133,9 +135,6 @@ $(ECRadLIB)$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).a: $(OBJS)
 $(MODECRad)/%$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).o: $(SRCP)/%.f90
 	 $(F90) ${MODULES} $(FFPFLAGS) $(F90FLAGS) $< -o $@
 	 
-$(MODECRad)/dlsode$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).o: $(SRCP)/dlsode.f
-	 $(F77) $(FFPFLAGS) $(F77FLAGS) \
-	 $< -o $@
 # making the directories
 #directories: ${MODECRad}
 
@@ -200,7 +199,6 @@ $(MODECRad)/mod_ecfm_refr_raytrace_initialize$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(D
 $(MODECRad)/mod_ecfm_refr_raytrace$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).o: $(STDPLIB) \
 	$(SRCP)/magconfig3D.f90 \
 	$(SRCP)/mod_ecfm_refr_types.f90 \
-	$(SRCP)/dlsode.f \
 	$(SRCP)/mod_ripple3d.f90 \
 	$(SRCP)/mod_ecfm_refr_raytrace_initialize.f90 \
 	$(SRCP)/mod_ecfm_refr_interpol.f90 \

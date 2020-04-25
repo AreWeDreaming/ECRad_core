@@ -40,7 +40,7 @@ c   kwrk  : integer, specifying the dimension of iwrk. kwrk >= mx+my.
 c
 c  output parameters:
 c   z     : real array of dimension (mx*my).
-c           on succesful exit z(my*(i-1)+j) contains the value of the
+c           on successful exit z(my*(i-1)+j) contains the value of the
 c           specified partial derivative of s(x,y) at the point
 c           (x(i),y(j)),i=1,...,mx;j=1,...,my.
 c   ier   : integer error flag
@@ -71,14 +71,11 @@ c
 c  latest update : march 1989
 c
 c  ..scalar arguments..
-      integer, intent(in) :: nx,ny,kx,ky,nux,nuy,mx,my,lwrk,kwrk
-      integer, intent(out) :: ier
+      integer nx,ny,kx,ky,nux,nuy,mx,my,lwrk,kwrk,ier
 c  ..array arguments..
-      integer, intent(inout) :: iwrk(kwrk)
-      real*8, intent(in) :: tx(nx),ty(ny),c((nx-kx-1)*(ny-ky-1)),x(mx),
-     *                      y(my)
-      real*8, intent(out) :: z(mx*my)
-      real*8, intent(inout) :: wrk(lwrk)
+      integer iwrk(kwrk)
+      real*8 tx(nx),ty(ny),c((nx-kx-1)*(ny-ky-1)),x(mx),y(my),z(mx*my),
+     * wrk(lwrk)
 c  ..local scalars..
       integer i,iwx,iwy,j,kkx,kky,kx1,ky1,lx,ly,lwest,l1,l2,m,m0,m1,
      * nc,nkx1,nky1,nxx,nyy

@@ -56,11 +56,9 @@ c++   - removed the restriction of the orderness of x values
 c++   - fixed initialization of sp to double precision value
 c
 c  ..scalar arguments..
-      integer, intent(in) :: n, k, m, e
-      integer, intent(out) :: ier
+      integer n, k, m, e, ier
 c  ..array arguments..
-      real*8, intent(in) :: t(n), c(n), x(m)
-      real*8, intent(out) :: y(m)
+      real*8 t(n), c(n), x(m), y(m)
 c  ..local scalars..
       integer i, j, k1, l, ll, l1, nk1
 c++..
