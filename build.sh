@@ -12,9 +12,9 @@ echo "Type g for gfortran or anything else for intel"
 read COMPILERINP
 if [ $COMPILERINP == "g" ]
   then
-  	COMPILER = "g"
+  export COMPILER="g"
 else
-	COMPILER = "i"
+  export COMPILER="i"
 fi
 rm id
 git rev-parse HEAD > id
