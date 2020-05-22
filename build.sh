@@ -1,11 +1,12 @@
 #!/bin/bash
-if [ $SYS == "amd64_sles15" ]; then
-  module purge
-  module load intel/19.0.3
-  module load git
-  module load anaconda/2/2018.12
-  module load hdf5-serial
-  module load netcdf-serial
+if [ $SYS == "amd64_sles15" ]
+  then
+  	module purge
+  	module load intel/19.0.3
+  	module load git
+  	module load anaconda/2/2018.12
+  	module load hdf5-serial
+  	module load netcdf-serial
 fi
 rm id
 git rev-parse HEAD > id

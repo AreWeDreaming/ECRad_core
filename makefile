@@ -1,10 +1,13 @@
-COMPILER=i
+COMPILER=g
 APPLICATION = ECRad
-
+ifndef $(SYS)
+	SYS = Unknown
+endif
 ROOTDIR=$(CURDIR)
 ECRadLIBDir=$(ROOTDIR)/$(SYS)
 ECRadLIB=$(APPLICATION)
 SRCP=$(ROOTDIR)/src
+
 ifeq ($(IDA),True)
 	STDP=/afs/ipp/cips/ipp/data_analysis/lib_std/$(SYS)
 	MODSTDP=$(STDP)/mod$(COMPILER)
@@ -15,10 +18,30 @@ else
 endif
 obj=
 #Linux
-F90 = ifort
-F77 = ifort
+ifeq ($(COMPILER),g)
+	F90 = gfortran
+	F77 = gfortran
+else
+	F90 = ifort
+	F77 = ifort
+endif
+
+ifeq ($(F90),gfortran)
+	F90OPTFLAGS = -O2 -mavx -ffree-form -ffree-line-length-none
+	F90DBGFLAGS = -g -traceback -ffree-form -ffree-line-length-none
+	F90PARFLAGS = -fopenmp
+	FFPFLAGS = -cpp
+	MODULEFLAG = -mhle	
+	LIBFLAG = -static-libgcc -llapack -lblas
+else
+	FFPFLAGS = -fpp -DINTEL
+	F90OPTFLAGS = -O2 -fp-model source -axavx -fpic
+	F90DBGFLAGS = -g -traceback -fpic -DTBB_USE_DEBUG
+	F90PARFLAGS = -qopenmp
+	MODULEFLAG = -module
+	LIBFLAG = -mkl -static-intel
+endif
 MKDIR_P = mkdir -p
-FFPFLAGS = -fpp
 ifeq ($(IDA),True)
 	FFPFLAGS += -DIDA
 endif
@@ -30,23 +53,26 @@ ifeq ($(USE_3D),True)
 	FFPFLAGS += -DUSE_3D
 	USE3DFLAG = USE3D
 endif
+ifeq ($(IDA)$(USE_3D),TrueFalse)
+	FFPFLAGS += -DIDAUSE_2D
+endif
 OBJJ = $(obj)
 NAG_MOD = $(NAGF90MOD)
 MODECRad=$(ROOTDIR)/$(SYS)/mod$(COMPILER)$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)
 $(shell   mkdir -p $(MODECRad))
 # Debugging -> enable if DEBUG==		True
 ifeq ($(DEBUG),True)
-	F90FLAGS = -c -g -traceback -fpic -DTBB_USE_DEBUG
+	F90FLAGS = -c $(F90DBGFLAGS)
 	DB = db
 	# Optimized
 else
-  F90FLAGS = -c -O2 -fp-model source -axavx -fpic
+  F90FLAGS = -c $(F90OPTFLAGS)
   # Profiling
   #F90FLAGS = -c -O2 -r8 -vec-report -g -prof-gen -prof-dir/afs/ipp-garching.mpg.de/home/s/sdenk/F90/Ecfm_Model_new/prof_dir -fpic
 endif
 ifeq ($(OPEN_MP),True)
   # Parallelisation
-  F90FLAGS += -qopenmp
+  F90FLAGS += $(F90OPTFLAGS)
 endif
 # Debugging parallelisation
 #F90FLAGS = -c -g -O0 -shared-libgcc -traceback -check bounds  -check all -u -warn all -diag-disable 7712 -check uninit -fp-model source -warn interfaces -fpe3 -qopenmp -qopenmp-report -DTBB_USE_DEBUG
@@ -56,7 +82,7 @@ FITPACK = -L$(ROOTDIR)/fitpack/ -lFITPack
 ODEPACK = -L$(ROOTDIR)/odepack/ -lODEPack
 LIBS = -L$(ECRadLIBDir) -l$(ECRadLIB)$(OMPFLAG)$(USE3DFLAG)$(DB) \
 		$(NAGF90LIB) $(NAGFLIB) $(FITPACK) $(ODEPACK) \
-	    -mkl -static-intel
+	    $(LIBFLAG)
 ifeq ($(USE_3D),True)
  	LIBS += $(ROOTDIR)/../Mconf/lib/libmconf64.a
 #   LIBS += $(ROOTDIR)/../magconf/lib/libmconf64.a
@@ -65,10 +91,10 @@ ifeq ($(USE_3D),True)
 	#LIBS += -L${NETCDF_HOME}/lib/  -lnetcdf_c++4  -lnetcdf 
 endif
 ifeq ($(OPEN_MP),True)
-	LIBS += -qopenmp
+	LIBS += $(F90PARFLAGS)
 endif
 LDFLAGS = -z muldefs
-MODULES = -module $(MODECRad)
+MODULES = $(MODULEFLAG) $(MODECRad)
 ifeq ($(IDA),True)
 	ifneq ($(USE_3D),True)
 		MODULES += -I$(MODSTDP)
@@ -220,4 +246,6 @@ $(MODECRad)/mod_ecfm_refr$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).o: \
 	$(SRCP)/mod_ecfm_refr_utils.f90
 
 clean:
+ifneq ($(ROOTDIR),$(ECRadLIBDir))
 	rm -r $(ECRadLIBDir)
+endif
