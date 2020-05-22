@@ -1,15 +1,11 @@
 #!/bin/bash
-if [ $SYS == "amd64_sles11" ]; then
-  module purge
-  module load intel/17.0
-  mpdule load git
-elif [ $SYS == "amd64_sles12" ]; then
+if [[ $SYS == "amd64_sles12" ]]; then
   module purge
   module load intel/17.0
   mpdule load git
   module load hdf5-serial
   module load netcdf-serial
-elif [ $SYS == "amd64_sles15" ]; then
+elif [[ $SYS == "amd64_sles15" ]]; then
   module purge
   module load intel/19.0.3
   module load git
