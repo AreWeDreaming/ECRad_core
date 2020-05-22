@@ -1,16 +1,22 @@
-#!/bin/tcsh
-module purge
-if ($SYS == "amd64_sles11") then
+#!/bin/bash
+if [ $SYS == "amd64_sles11" ]; then
+  module purge
   module load intel/17.0
   mpdule load git
-else if ($SYS == "amd64_sles12") then
+elif [ $SYS == "amd64_sles12" ]; then
+  module purge
   module load intel/17.0
   mpdule load git
-else if ($SYS == "amd64_sles15") then
+  module load hdf5-serial
+  module load netcdf-serial
+elif [ $SYS == "amd64_sles15" ]; then
+  module purge
   module load intel/19.0.3
   module load git
   module load anaconda/2/2018.12
-endif
+  module load hdf5-serial
+  module load netcdf-serial
+fi
 rm id
 git rev-parse HEAD > id
 make clean # Just for good measure
@@ -28,8 +34,6 @@ make DEBUG=True
 make
 make OPEN_MP=True
 make OPEN_MP=True DEBUG=True
-module load hdf5-serial
-module load netcdf-serial
 make USE_3D=True DEBUG=True
 make USE_3D=True
 make USE_3D=True DEBUG=True OPEN_MP=True
