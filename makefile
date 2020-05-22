@@ -1,4 +1,3 @@
-COMPILER=g
 APPLICATION = ECRad
 ifndef $(SYS)
 	SYS = Unknown

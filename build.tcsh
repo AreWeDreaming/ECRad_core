@@ -7,6 +7,14 @@ if($SYS == "amd64_sles15") then
   module load hdf5-serial
   module load netcdf-serial
 endif
+echo "Type g for gfortran or anything else for intel"
+set COMPILERINP = $<
+if($COMPILERINP == "g") then
+  	set COMPILER = "g"
+else
+	set COMPILER = "i"
+endif
+echo "Compiler is $COMPILER"
 rm id
 git rev-parse HEAD > id
 make clean # Just for good measure

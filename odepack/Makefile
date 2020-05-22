@@ -3,8 +3,16 @@
 # Usage: make LIB=<libname>
 # Pearu
 LIB=ODEPack
-FC = gfortran
-FFLAGS = -O2 -mavx -fpic -fopenmp
+ifeq ($(COMPILER),g)
+	FC = gfortran
+else
+	FC = ifort
+endif
+ifeq ($(FC),gfortran)
+	FFLAGS = -O2 -mavx -fopenmp
+else
+	FFLAGS = -O2 -fp-model source -axavx -fpic -qopenmp
+endif
 OBJ=$(patsubst %.f,%.o,$(shell ls *.f))
 all: lib$(LIB).a
 $(OBJ):

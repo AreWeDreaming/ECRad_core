@@ -3,8 +3,16 @@
 # Usage: make LIB=<libname>
 # Pearu
 LIB=FITPack
-FC = gfortran
-FFLAGS = -O2 -mavx -fpic -fopenmp
+ifeq ($(COMPILER),g)
+	FC = gfortran
+else
+	FC = ifort
+endif
+ifeq ($(FC),gfortran)
+	FFLAGS = -O2 -mavx -fopenmp
+else
+	FFLAGS = -O2 -fp-model source -axavx -fpic -qopenmp
+endif
 OBJ=$(patsubst %.f,%.o,$(shell ls *.f))
 all: lib$(LIB).a
 $(OBJ):
@@ -13,9 +21,3 @@ lib$(LIB).a: $(OBJ)
 	$(AR) rus lib$(LIB).a $?
 clean:
 	rm *.o
-
-
-
-
-
-
