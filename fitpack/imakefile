@@ -2,9 +2,9 @@
 # of the Fortran files found in the current directory.
 # Usage: make LIB=<libname>
 # Pearu
-LIB=ODEPack
+LIB=FITPack
 FC = gfortran
-FFLAGS = -O2 -mavx -fpic -fopenmp
+FFLAGS = -O2 -fp-model source -axavx -fpic -qopenmp
 OBJ=$(patsubst %.f,%.o,$(shell ls *.f))
 all: lib$(LIB).a
 $(OBJ):
@@ -13,3 +13,9 @@ lib$(LIB).a: $(OBJ)
 	$(AR) rus lib$(LIB).a $?
 clean:
 	rm *.o
+
+
+
+
+
+

@@ -187,7 +187,6 @@ logical, intent(in)           :: ecrad_verbose, ecrad_Bt_ripple, ray_tracing, ec
 integer(ikind), intent(in), optional  :: parallelization_mode
 real(rkind), dimension(:), intent(in), optional :: f, df, R, phi, z, tor, pol, dist_foc, width
 integer(ikind)                :: idiag
-!call abort("ECFM disabled")
 if(trim(flag) == "init" .or. trim(flag) == "load") then
 ! A few things need to be done both times
   working_dir = trim(working_dir_in)  // "/"
@@ -479,7 +478,7 @@ else
   call update_svecs(rad, rhop_knots_ne, n_e, n_e_dx2, rhop_knots_Te, T_e, T_e_dx2)
 end if
 ! Perform the classical analysis using the resonance of the X-mode
-if(any(ece_fm_flag_ch == .false.)) then
+if(any(ece_fm_flag_ch .eqv. .false.)) then
   call retrieve_T_e(plasma_params, abs(rad%diag(1)%ch(:)%rhop_res), dat_model_ece)
   if(any(dat_model_ece /= dat_model_ece)) then
     print*, "Nan in ECE forward model with classical analysis"
@@ -1398,7 +1397,7 @@ if(output_level) then
             open(75, file=cur_filename)
           end if
         end if
-        if(output_all_ray_data == .true.) then
+        if(output_all_ray_data .eqv. .true.) then
           N_ray_output = N_ray
         else
           N_ray_output = 1

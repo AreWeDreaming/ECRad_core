@@ -478,7 +478,7 @@ function func_dA_dY(X, Y)
                      R_vec(3) - plasma_params%z_shift, rhop,R_grad_rhop%dR,R_grad_rhop%dz)
     if(rhop /= rhop) then
         print*, "Got NaN when trying to find rho_pol for R,z", R_vec(1), R_vec(3)
-        call abort("Something wrong with equilibrium!")
+        call abort()
     end if
     spatial_grad_rhop(1) = func_dR_dx(x_vec(1),x_vec(2)) * R_grad_rhop%dR
     spatial_grad_rhop(2) = func_dR_dy(x_vec(1),x_vec(2)) * R_grad_rhop%dR
@@ -2946,8 +2946,8 @@ function func_dA_dY(X, Y)
   type(spl_type_1d)                                                          :: spl
   real(rkind), dimension(last_N)                                             :: flush_ray_s, flush_ray_y, roots, s_dense, s_dense_debug
   integer(ikind)                                                             :: i, N_roots, N_s_dense, i_root, roots_processed, grid, &
-                                                                                i_next, i_next_root, i_svec, i_last, N_interval
-  real(rkind)                                                                :: s_next, a, b, i_interval, cur_dist
+                                                                                i_next, i_next_root, i_svec, i_last, N_interval, i_interval
+  real(rkind)                                                                :: s_next, a, b, cur_dist
   logical                                                                    :: ray_finished
   flush_ray_s = ray(1:last_N)%s
   flush_ray_y = ray(1:last_N)%omega_c / omega

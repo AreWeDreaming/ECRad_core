@@ -58,7 +58,7 @@ private :: make_launch, &
       module procedure retrieve_n_e_single, retrieve_n_e_vector
     end interface retrieve_n_e
 
-#if(defined(IDA) .and. .not. defined(USE_3D))
+#ifdef IDAUSE_2D
     interface
       subroutine make_temperature(par, Te, x_eval, rp_min, dTedx)
       use f90_kind
@@ -1274,7 +1274,7 @@ implicit none
     if(present(grad_T_e)) grad_T_e = 0.d0
     T_e = SOL_Te
     if(scaled_rhop > plasma_params%rhop_max) return
-#if(defined(IDA) .and. .not. defined(USE_3D))
+#ifdef IDAUSE_2D
     if(use_ida_spline_Te) then
       if(present(grad_T_e)) then
         call spline_1d(plasma_params%IDA_rhop_knots_Te, plasma_params%IDA_T_e, &
@@ -1311,7 +1311,7 @@ implicit none
           call spline_1d(plasma_params%Te_spline, scaled_rhop, T_e)
         end if
       end if
-#if(defined(IDA) .and. .not. defined(USE_3D))
+#ifdef IDAUSE_2D
     end if
 #endif
     if(plasma_params%prof_log_flag) then
@@ -1341,7 +1341,7 @@ implicit none
     rhop_aux = rhop * plasma_params%rhop_scale_te
     where(rhop_aux > plasma_params%rhop_max) rhop_aux = plasma_params%rhop_max
     where(rhop_aux < 0.d0) rhop_aux = plasma_params%rhop_max
-#if(defined(IDA) .and. .not. defined(USE_3D))
+#ifdef IDAUSE_2D
     if(use_ida_spline_Te) then
       if(present(grad_T_e)) then
         call spline_1d(plasma_params%IDA_rhop_knots_Te, plasma_params%IDA_T_e, &
@@ -1378,7 +1378,7 @@ implicit none
           call spline_1d(plasma_params%Te_spline, rhop_aux, T_e)
         end if
       end if
-#if(defined(IDA) .and. .not. defined(USE_3D))
+#ifdef IDAUSE_2D
     end if
 #endif
     if(plasma_params%prof_log_flag) then
@@ -1467,7 +1467,7 @@ implicit none
     if(present(grad_n_e)) grad_n_e = 0.d0
     n_e = SOL_ne
     if(scaled_rhop > plasma_params%rhop_max) return
-#if(defined(IDA) .and. .not. defined(USE_3D))
+#ifdef IDAUSE_2D
     if(use_ida_spline_ne) then
       if(present(grad_n_e)) then
         call spline_1d(plasma_params%IDA_rhop_knots_ne, plasma_params%IDA_n_e, &
@@ -1504,7 +1504,7 @@ implicit none
           call spline_1d(plasma_params%ne_spline, scaled_rhop, n_e)
         end if
       end if
-#if(defined(IDA) .and. .not. defined(USE_3D))
+#ifdef IDAUSE_2D
     end if
 #endif
     if(plasma_params%prof_log_flag) then
@@ -1535,7 +1535,7 @@ implicit none
     rhop_aux = rhop * plasma_params%rhop_scale_ne
     where(rhop_aux > plasma_params%rhop_max) rhop_aux = plasma_params%rhop_max
     where(rhop_aux < 0.d0) rhop_aux = plasma_params%rhop_max
-#if(defined(IDA) .and. .not. defined(USE_3D))
+#ifdef IDAUSE_2D
     if(use_ida_spline_ne) then
       if(present(grad_n_e)) then
         call spline_1d(plasma_params%IDA_rhop_knots_ne, plasma_params%IDA_n_e, &
@@ -1572,7 +1572,7 @@ implicit none
           call spline_1d(plasma_params%ne_spline, rhop_aux, n_e)
         end if
       end if
-#if(defined(IDA) .and. .not. defined(USE_3D))
+#ifdef IDAUSE_2D
     end if
 #endif
     if(plasma_params%prof_log_flag) then
