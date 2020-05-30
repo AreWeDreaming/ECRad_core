@@ -93,7 +93,11 @@ ifeq ($(OPEN_MP),True)
 	LIBS += $(F90PARFLAGS)
 endif
 LDFLAGS = -z muldefs
-MODULES = $(MODULEFLAG) -J$(MODECRad)
+ifeq ($(F90),gfortran)
+	MODULES = $(MODULEFLAG) -J$(MODECRad)
+else
+	MODULES = $(MODULEFLAG) $(MODECRad)
+endif
 ifeq ($(IDA),True)
 	ifneq ($(USE_3D),True)
 		MODULES += -I$(MODSTDP)
