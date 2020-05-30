@@ -26,8 +26,10 @@ subroutine initialize_stand_alone(working_dir, flag)
 use mod_ecfm_refr_types,        only: dstf, dst_data_folder, Ich_name, ray_out_folder, output_level, data_name, &
                                       dstf_comp, plasma_params, warm_plasma, data_secondary_name, &
                                       data_folder, Ich_name, dstf_comp, straight, stand_alone, ffp, N_absz, &
-                                      N_absz_large, new_IO, ray_init
-use mod_ecfm_refr_utils,      only: read_input_file, prepare_ECE_diag_new_IO, prepare_ECE_diag_old_IO, init_non_therm
+                                      N_absz_large, new_IO, ray_init, use_ext_rays
+use mod_ecfm_refr_utils,      only: read_input_file, prepare_ECE_diag_new_IO, &
+                                    prepare_ECE_diag_old_IO, init_non_therm, &
+                                    read_external_rays
 use mod_ecfm_refr_raytrace_initialize,    only: init_raytrace
 use mod_ecfm_refr_raytrace,               only: span_svecs
 use mod_ecfm_refr_abs_Al,         only: abs_Al_init,abs_Al_clean_up
@@ -43,6 +45,7 @@ character(*),  intent(in)      :: flag
     else
       call prepare_ECE_diag_new_IO()
     end if
+    if(use_ext_rays) call read_external_rays()
     dstf_comp = "Th"
     if(trim(dstf) == "Th") then
       dstf = "Th"
@@ -1432,33 +1435,35 @@ if(output_level) then
             close(74)
             do i = 1,rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(1)%total_LOS_points
             if(new_IO) then
-              write(98,"(E18.10E3,A1,E18.10E3,A1,E18.10E3,A1,E18.10E3,A1,E18.10E3,A1,E18.10E3,A1,E18.10E3,A1,E18.10E3,A1,E18.10E3,A1,E18.10E3,A1,E18.10E3,A1,E18.10E3,A1,E18.10E3,A1,E18.10E3,A1,E18.10E3,A1,E18.10E3,A1,E18.10E3,A1,E18.10E3,A1,E18.10E3,A1,E18.10E3,A1,E18.10E3,A1,E18.10E3,A1,E18.10E3,A1,E18.10E3,A1,E18.10E3)") &
-                         rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(1)%svec(i)%s, " ", &
-                         rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(1)%svec(i)%x_vec(1), " ", &
-                         rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(1)%svec(i)%x_vec(2), " ", &
-                         rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(1)%svec(i)%x_vec(3), " ", &
-                         rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(1)%svec(i)%rhop, " ", &
-                         rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%BPD(i), " ", &
-                         rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%BPD_secondary(i), " ", &
-                         rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%em(i), " ", &
-                         rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%em_secondary(i), " ", &
-                         rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%ab(i), " ", &
-                         rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%ab_secondary(i), " ", &
-                         rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%T(i), " ", &
-                         rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%T_secondary(i), " ", &
-                         rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(1)%svec(i)%Te, " ", &
-                         rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(1)%svec_extra_output(i)%H, " ", &
-                         rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(1)%svec_extra_output(i)%N_ray, " ", &
-                         rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(1)%svec(i)%N_cold, " ", &
-                         rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(1)%svec(i)%theta, " ", &
-                         rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(1)%svec(i)%N_vec(1), " ", &
-                         rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(1)%svec(i)%N_vec(2), " ", &
-                         rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(1)%svec(i)%N_vec(3), " ", &
-                         rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(1)%svec(i)%B_vec(1), " ", &
-                         rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(1)%svec(i)%B_vec(2), " ", &
-                         rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(1)%svec(i)%B_vec(3)
+              write(98,"(26E19.10E3)") &
+                   rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(1)%svec(i)%s, &
+                   rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(1)%svec(i)%x_vec(1), &
+                   rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(1)%svec(i)%x_vec(2), &
+                   rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(1)%svec(i)%x_vec(3), &
+                   rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(1)%svec(i)%rhop, &
+                   rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%BPD(i), &
+                   rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%BPD_secondary(i), &
+                   rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%em(i), &
+                   rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%em_secondary(i), &
+                   rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%ab(i), &
+                   rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%ab_secondary(i), &
+                   rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%T(i), &
+                   rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%T_secondary(i), &
+                   rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(1)%svec(i)%ne, &
+                   rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(1)%svec(i)%Te, &
+                   rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(1)%svec_extra_output(i)%H, &
+                   rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(1)%svec_extra_output(i)%N_ray, &
+                   rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(1)%svec(i)%N_cold, &
+                   rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(1)%svec(i)%theta, &
+                   rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(1)%svec(i)%N_vec(1), &
+                   rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(1)%svec(i)%N_vec(2), &
+                   rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(1)%svec(i)%N_vec(3), &
+                   rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(1)%svec(i)%B_vec(1), &
+                   rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(1)%svec(i)%B_vec(2), &
+                   rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(1)%svec(i)%B_vec(3), &
+                   rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(1)%svec(i)%v_g_perp
               else
-                write(98,"(E18.10E3,A1,E18.10E3,A1,E18.10E3,A1,E18.10E3,A1,E18.10E3,A1,E18.10E3,A1,E18.10E3,A1,E18.10E3,A1,E18.10E3,A1,E18.10E3,A1,E18.10E3,A1,E18.10E3,A1,E18.10E3,A1,E18.10E3,A1,E18.10E3,A1,E18.10E3,A1,E18.10E3,A1,E18.10E3,A1,E18.10E3)") &
+                write(98,"(E18.10E3,A1,E18.10E3,A1,E18.10E3,A1,E18.10E3,A1,E18.10E3,A1,E18.10E3,A1,E18.10E3,A1,E18.10E3,A1,E18.10E3,A1,E18.10E3,A1,E18.10E3,A1,E18.10E3,A1,E18.10E3,A1,E18.10E3,A1,E18.10E3,A1,E18.10E3,A1,E18.10E3,A1,E18.10E3,A1,E18.10E3,A1,E18.10E3)") &
                            rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(1)%svec(i)%s, " ", &
                            rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(1)%svec(i)%x_vec(1), " ", &
                            rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(1)%svec(i)%x_vec(2), " ", &
@@ -1476,7 +1481,8 @@ if(output_level) then
                            rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(1)%svec(i)%N_vec(3), " ", &
                            rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(1)%svec(i)%B_vec(1), " ", &
                            rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(1)%svec(i)%B_vec(2), " ", &
-                           rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(1)%svec(i)%B_vec(3)
+                           rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(1)%svec(i)%B_vec(3), " ", &
+                           rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(1)%svec(i)%v_g_perp
               end if
             end do
             close(98)

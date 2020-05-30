@@ -312,7 +312,7 @@ END TYPE Scenario_type
    ELSEIF (coord == 'ca') THEN
      isInside = MCXYZISINSIDE(mConfAddr,XYZ) /= 0
    ELSE
-     CALL abort('magconfig3D.f90, isInsideLCMS: called with wrong coordinates system.')
+     CALL abort()
    ENDIF
 !========================================================================
  END FUNCTION MConf_isInsideLCMS

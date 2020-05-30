@@ -41,7 +41,7 @@
                             							
                             <targetPlatform archList="all" binaryParser="org.eclipse.cdt.core.ELF" id="photran.managedbuild.target.gnu.platform.exe.debug.2091560857" name="Debug Platform" osList="solaris,linux,hpux,aix,qnx" superClass="photran.managedbuild.target.gnu.platform.exe.debug"/>
                             							
-                            <builder arguments="OPEN_MP=True" command="make" id="photran.managedbuild.target.gnu.builder.exe.debug.2105009919" keepEnvironmentInBuildfile="false" managedBuildOn="false" name="Gnu Make Builder" superClass="photran.managedbuild.target.gnu.builder.exe.debug"/>
+                            <builder arguments="" command="make" id="photran.managedbuild.target.gnu.builder.exe.debug.2105009919" keepEnvironmentInBuildfile="false" managedBuildOn="false" name="Gnu Make Builder" superClass="photran.managedbuild.target.gnu.builder.exe.debug"/>
                             							
                             <tool id="photran.managedbuild.tool.gnu.c.compiler.exe.debug.856065537" name="GCC C Compiler" superClass="photran.managedbuild.tool.gnu.c.compiler.exe.debug">
                                 								
@@ -263,7 +263,7 @@
                             							
                             <targetPlatform archList="all" binaryParser="org.eclipse.cdt.core.ELF" id="photran.managedbuild.target.gnu.platform.exe.debug.86103348" name="Debug Platform" osList="solaris,linux,hpux,aix,qnx" superClass="photran.managedbuild.target.gnu.platform.exe.debug"/>
                             							
-                            <builder command="make" id="photran.managedbuild.target.gnu.builder.exe.debug.1851344943" keepEnvironmentInBuildfile="false" managedBuildOn="false" name="Gnu Make Builder" superClass="photran.managedbuild.target.gnu.builder.exe.debug"/>
+                            <builder arguments="OPEN_MP=True" command="make" id="photran.managedbuild.target.gnu.builder.exe.debug.1851344943" keepEnvironmentInBuildfile="false" managedBuildOn="false" name="Gnu Make Builder" superClass="photran.managedbuild.target.gnu.builder.exe.debug"/>
                             							
                             <tool id="photran.managedbuild.tool.gnu.c.compiler.exe.debug.1080311742" name="GCC C Compiler" superClass="photran.managedbuild.tool.gnu.c.compiler.exe.debug">
                                 								
@@ -320,6 +320,8 @@
     <storageModule moduleId="refreshScope" versionNumber="2">
         		
         <configuration configurationName="3D"/>
+        		
+        <configuration configurationName="MP"/>
         		
         <configuration configurationName="Default">
             			

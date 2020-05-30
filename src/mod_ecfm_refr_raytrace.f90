@@ -2919,13 +2919,10 @@ function func_dA_dY(X, Y)
 
   subroutine make_s_grid(plasma_params, omega, Y_res, svec, ray, total_LOS_points, &
                          last_N, dist, rad_ray_freq, max_points_svec_reached)
-  ! Linearly interpolates R,z on the ray which corresponds
-  ! to the s values given oprintn an equidistant grid.
+  ! Creates s grid suitable for Rk4.
   ! The cold resonance is detected automatically and the step size is choosen correspondingly.
-  ! Once the R,z values are obtained the other ray parameters are aqcuired using sub_local_params.
-  ! Every time this routine is called the svec values from i_start to i_end will be filled.
   ! i referst to the svec, while N refers to the ray_segment
-  ! This routine also conrolls the step size.
+  ! This routine also controls the step size.
   use mod_ecfm_refr_types,        only: rad_diag_ch_mode_ray_freq_svec_type, plasma_params_type, &
                                         ray_element_full_type, max_points_svec, &
                                         spl_type_1d, eps_svec_max_length, rad_diag_ch_mode_ray_freq_type
@@ -3142,7 +3139,7 @@ function func_dA_dY(X, Y)
     if(present(rad_ray_freq)) then
       if(rad_ray_freq%s_res >= 0.d0) call spline_1d(spl, rad_ray_freq%s_res, x_res(i))
     end if
-    flush_ray_y = -ray(1:N)%N_vec(i)
+    flush_ray_y = ray(1:N)%N_vec(i)
     call make_1d_spline(spl, N, flush_ray_s, flush_ray_y)
     call spline_1d(spl, flush_svec_s, flush_svec_y)
     svec(1:total_LOS_points)%N_vec(i) = flush_svec_y
@@ -3273,7 +3270,9 @@ function func_dA_dY(X, Y)
   ! Also allocates all vectors related to output_level = .true.
   use mod_ecfm_refr_types,        only: rad, ant, rad_diag_type, plasma_params_type, &
                                         N_ray, N_freq, modes, mode_cnt, output_level, pnts_BPD, &
-                                        max_points_svec, Hamil, straight, largest_svec, ray_element_full_type
+                                        max_points_svec, Hamil, straight, largest_svec, &
+                                        ray_element_full_type, use_ext_rays, ext_rays
+  use mod_ecfm_refr_utils,       only: deallocate_ext_rays
   use f90_kind
   use constants,                  only: pi,e0, mass_e
 #ifdef OMP
@@ -3281,8 +3280,8 @@ function func_dA_dY(X, Y)
 #endif
   implicit none
   type(plasma_params_type), intent(inout)                       :: plasma_params
-  integer(ikind)                                                :: idiag, last_N, ich, ir, &
-                                                                   ifreq, imode,  N, N_init, mode
+  integer(ikind)                                                :: idiag, last_N, ich, ir, cur_ray, &
+                                                                   ifreq, imode, i, N, N_init, mode
   real(rkind), dimension(2)                                     :: dist
   type(ray_element_full_type), dimension(:), allocatable        :: ray_segment
   real(rkind)                                                   :: omega, temp, X, Y
@@ -3314,7 +3313,7 @@ function func_dA_dY(X, Y)
 #ifdef OMP
     !$omp parallel private(ich, imode, ir, ifreq, &
     !$omp                 N_init, last_N, wall_hits, been_in_plasma, N, &
-    !$omp                 omega, temp, X, Y, No_plasma, &
+    !$omp                 omega, temp, X, Y, No_plasma, cur_ray, &
     !$omp                 ray_segment, mode) default(shared)
 #endif
     allocate(ray_segment(max_points_svec), x_loc_vec(3), N_loc_vec(3))
@@ -3363,43 +3362,54 @@ function func_dA_dY(X, Y)
             ray_segment(1)%N_vec(1) = ray_segment(1)%N_vec(2)
             ray_segment(1)%N_vec(2) = temp
           end if
-          call find_first_point_in_plasma(plasma_params, omega, mode, ray_segment, last_N, wall_hits, been_in_plasma, No_plasma)
-          if(No_plasma) wall_hits = 2
-          N_init = last_N
-          if(debug_level > 0 .and. output_level .and. .not. No_plasma) then
-            print*, "First point in plasma",ray_segment(last_N)%R_vec
-          end if
-          if(last_N  + 1 <= max_points_svec .and. .not. No_plasma) then
-            call make_ray_segment(20.d0, plasma_params, omega, mode, ray_segment, last_N, wall_hits, been_in_plasma, No_plasma, N_init)
-          else if(.not. No_plasma) then
-            print*,"Ray reached maximum length when searching for first point in vessel"
-            print*, "Most likely something is very wrong the launching geometry of the diagnostic"
-            print*, "Current diagnostic", ant%diag(idiag)%diag_name
-            print*, "position and launch vector in Carthesian coordinates", ray_segment(1)%x_vec, &
-              ray_segment(1)%N_vec
-            stop "Error when finding first point in plasma in mod_raytrace.f90"
-          end if
-          if(No_plasma) then
-            rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%contributes = .false.
-            if(output_level) print*, "Warning a ray did not pass through any plasma"
-            cycle
-          end if
-          if(last_N >= max_points_svec) then
-            print*, "WARNING a ray did not reach the plasma wall"
-            print*, "From here on  output is only for debugging purposes"
-            wall_hits = 2
-          end if
-          if( wall_hits < 2) then
-            debug_level = 1
-            call find_first_point_in_plasma(plasma_params, omega, mode, ray_segment, last_N, wall_hits, been_in_plasma, No_plasma)
-            N_init = last_N
-            call make_ray_segment(20.d0, plasma_params, omega, mode, ray_segment, last_N, wall_hits, been_in_plasma, No_plasma, N_init)
-            print*, "Ray in span_svecs did not end at a wall"
-            print*, ray_segment(1)%R_vec(1), ray_segment(1)%R_vec(2), ray_segment(1)%R_vec(3)
-            print*, ray_segment(last_N)%R_vec(1), ray_segment(last_N)%R_vec(2), ray_segment(last_N)%R_vec(3)
-            print*, "Traveled distance", ray_segment(last_N)%s - ray_segment(N_init)%s
-            stop "Error with rays in mod_raytrace.f90"
-          end if
+          if(.not. use_ext_rays) then
+              call find_first_point_in_plasma(plasma_params, omega, mode, ray_segment, last_N, wall_hits, been_in_plasma, No_plasma)
+              if(No_plasma) wall_hits = 2
+              N_init = last_N
+              if(debug_level > 0 .and. output_level .and. .not. No_plasma) then
+                print*, "First point in plasma",ray_segment(last_N)%R_vec
+              end if
+              if(last_N  + 1 <= max_points_svec .and. .not. No_plasma) then
+                call make_ray_segment(20.d0, plasma_params, omega, mode, ray_segment, last_N, &
+                                      wall_hits, been_in_plasma, No_plasma, N_init)
+              else if(.not. No_plasma) then
+                print*,"Ray reached maximum length when searching for first point in vessel"
+                print*, "Most likely something is very wrong the launching geometry of the diagnostic"
+                print*, "Current diagnostic", ant%diag(idiag)%diag_name
+                print*, "position and launch vector in Carthesian coordinates", ray_segment(1)%x_vec, &
+                  ray_segment(1)%N_vec
+                stop "Error when finding first point in plasma in mod_raytrace.f90"
+              end if
+              if(No_plasma) then
+                rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%contributes = .false.
+                if(output_level) print*, "Warning a ray did not pass through any plasma"
+                cycle
+              end if
+              if(last_N >= max_points_svec) then
+                print*, "WARNING a ray did not reach the plasma wall"
+                print*, "From here on  output is only for debugging purposes"
+                wall_hits = 2
+              end if
+              if( wall_hits < 2) then
+                debug_level = 1
+                call find_first_point_in_plasma(plasma_params, omega, mode, ray_segment, last_N, wall_hits, been_in_plasma, No_plasma)
+                N_init = last_N
+                call make_ray_segment(20.d0, plasma_params, omega, mode, ray_segment, last_N, wall_hits, been_in_plasma, No_plasma, N_init)
+                print*, "Ray in span_svecs did not end at a wall"
+                print*, ray_segment(1)%R_vec(1), ray_segment(1)%R_vec(2), ray_segment(1)%R_vec(3)
+                print*, ray_segment(last_N)%R_vec(1), ray_segment(last_N)%R_vec(2), ray_segment(last_N)%R_vec(3)
+                print*, "Traveled distance", ray_segment(last_N)%s - ray_segment(N_init)%s
+                stop "Error with rays in mod_raytrace.f90"
+              end if
+           else
+             cur_ray = ir + N_ray * mode_cnt * (ich - 1) + N_ray * (imode - 1)
+             ray_segment = ext_rays(cur_ray)%ray
+             wall_hits = 2
+             last_N = ext_rays(cur_ray)%N_steps
+             do i = 1, last_N
+              ray_segment(i)%omega_c = e0 * sqrt(sum(ray_segment(i)%B_vec**2)) / mass_e
+             end do
+           end if
           !print*, "plasma", last_N
           if(output_level) then
           ! Copy ray information to the ray_extra_output array
@@ -3444,8 +3454,15 @@ function func_dA_dY(X, Y)
 !          rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%y(1), &
 !          rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%z(1)
           ! Reverse the entire ray such that the propagation direction is towards the antenna
-          ray_segment(1:last_N) = ray_segment(last_N:1:-1)
-          ray_segment(1:last_N)%s = ray_segment(1)%s - ray_segment(1:last_N)%s
+          if(.not. use_ext_rays) then
+            ! Change the propagation direction so we go towards the antenna
+            ray_segment(1:last_N) = ray_segment(last_N:1:-1)
+            ray_segment(1:last_N)%s = ray_segment(1)%s - ray_segment(1:last_N)%s
+            do i = 1,3
+              ray_segment(1:last_N)%N_vec(i) = -ray_segment(1:last_N)%N_vec(i)
+            end do
+            ! Do not need to do anything with theta it will be computed from N and B
+          end if
           !last_N = last_N - N_init - 1 ! exclude straight line part in vacuum
           if(rad%diag(idiag)%ch(ich)%mode(imode)%mode > 0) then
           ! X-mode -> first and second harmonic problematic
@@ -3597,6 +3614,7 @@ function func_dA_dY(X, Y)
       end do
     end do
   end do ! idiag
+  if(use_ext_rays) call deallocate_ext_rays()
   !if(output_level) print*, "largest svec", largest_svec
   !stop "Early ray end?"
   end subroutine span_svecs
@@ -3636,9 +3654,8 @@ function func_dA_dY(X, Y)
   ray_segment%s = svec(1:total_LOS_points)%s
   do k = 1, 3
     ray_segment%x_vec(k) = svec(1:total_LOS_points)%x_vec(k)
-    ! Turn this around to make this a ray that goes from outside the plasma into the plasma
     ! Theta is computed from N and B
-    ray_segment%N_vec(k) = -svec(1:total_LOS_points)%N_vec(k)
+    ray_segment%N_vec(k) = svec(1:total_LOS_points)%N_vec(k)
     ray_segment%B_vec(k) = svec(1:total_LOS_points)%B_vec(k)
   end do
   ray_segment%rhop = svec(1:total_LOS_points)%rhop

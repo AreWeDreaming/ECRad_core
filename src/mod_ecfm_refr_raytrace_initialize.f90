@@ -354,7 +354,7 @@ module mod_ecfm_refr_raytrace_initialize
             print*, "Failed to load equilibrium"
             print*, "Please check that", plasma_params%Scenario%name_config, " exists!"
             print*, "MConf error code", loaded
-            call abort("")
+            call abort()
         end if
 #ifdef OMP
       !$omp parallel

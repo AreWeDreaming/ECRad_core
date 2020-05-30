@@ -1,6 +1,6 @@
 APPLICATION = ECRad
-ifndef $(SYS)
-	SYS = Unknown
+ifndef SYS
+	SYS = Unknown_SYS
 endif
 ROOTDIR=$(CURDIR)
 ECRadLIBDir=$(ROOTDIR)/$(SYS)
@@ -27,7 +27,7 @@ endif
 
 ifeq ($(F90),gfortran)
 	F90OPTFLAGS = -O2 -mavx -ffree-form -ffree-line-length-none
-	F90DBGFLAGS = -g -traceback -ffree-form -ffree-line-length-none
+	F90DBGFLAGS = -g -ffree-form -ffree-line-length-none
 	F90PARFLAGS = -fopenmp
 	FFPFLAGS = -cpp
 	MODULEFLAG = -mhle	
@@ -93,7 +93,7 @@ ifeq ($(OPEN_MP),True)
 	LIBS += $(F90PARFLAGS)
 endif
 LDFLAGS = -z muldefs
-MODULES = $(MODULEFLAG) $(MODECRad)
+MODULES = $(MODULEFLAG) -J$(MODECRad)
 ifeq ($(IDA),True)
 	ifneq ($(USE_3D),True)
 		MODULES += -I$(MODSTDP)

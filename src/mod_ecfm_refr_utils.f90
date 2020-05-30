@@ -15,6 +15,8 @@ public :: read_input_file, &
           prepare_ECE_diag_IDA, &
           parse_ecfm_settings_from_ida, &
           dealloc_ant, &
+          read_external_rays, &
+          deallocate_ext_rays, &
           func_in_poly, &
           distance_to_poly, &
           binary_search, &
@@ -113,7 +115,8 @@ use mod_ecfm_refr_types,        only : ant, rad, plasma_params, dstf, diagnostic
                                        n_e_filename, T_e_filename, vessel_bd_filename, ray_launch_file, &
                                        ratio_for_third_harmonic, straight, reflec_X, reflec_O, modes, mode_cnt, working_dir, &
                                        mode_conv, N_freq, N_ray, warm_plasma, max_points_svec, &
-                                       reflec_model, vessel_plasma_ratio, new_IO, use_3D
+                                       reflec_model, vessel_plasma_ratio, new_IO, use_3D, &
+                                       ext_ray_folder, use_ext_rays
 use constants,                         only: pi
 implicit none
 character(*), intent(in)          :: working_dir_in
@@ -246,12 +249,12 @@ integer(ikind)                    :: IOstatus
     plasma_params%rhop_scale_Te = 1.0
     plasma_params%rhop_scale_ne = 1.0
   end if
-  read(66,"(I4)"), N_freq ! N_freq > 1 -> consider bandwith
+  read(66,"(I4)") N_freq ! N_freq > 1 -> consider bandwith
   if( int(real(N_freq + 1,8)/ 2.d0) /= real(N_freq + 1,8)/ 2.d0) then
     print*, "Please chose an odd N_freq in the input file"
     call abort
   end if
-  read(66,"(I4)"), N_ray ! N_ray > 1 -> consider VOS instead of LOS
+  read(66,"(I4)") N_ray ! N_ray > 1 -> consider VOS instead of LOS
   if( int(sqrt(real(N_ray - 1,8))) /= sqrt(real(N_ray - 1,8))) then
     print*, "Please chose an N_ray = N**2 + 1 with N an integer in the input file"
     call abort
@@ -261,6 +264,8 @@ integer(ikind)                    :: IOstatus
   read(66,"(E19.12E2)") plasma_params%R_shift ! Obsolete
   read(66,"(E19.12E2)") plasma_params%z_shift ! Obsolete
   read(66,"(I10)") max_points_svec
+  read(66,"(L1)",IOSTAT=IOstatus) use_ext_rays
+  if(IOstatus /= 0) use_ext_rays = .false.
 #ifdef USE_3D
     read(66,"(L1)",IOSTAT=IOstatus) use_3D
     if(IOstatus /= 0) use_3D = .false.
@@ -290,11 +295,13 @@ integer(ikind)                    :: IOstatus
     T_e_filename = trim(working_dir) // "ECRad_data/" // "Te_file.dat"
     Vessel_bd_filename = trim(working_dir) // "ECRad_data/" // "vessel_bd.txt"
     ray_launch_file = trim(working_dir) // "ECRad_data/" // "ray_launch.dat"
+     ext_ray_folder = trim(working_dir)  // "ECRad_data/" // "ext_rays/"
   else
     n_e_filename = trim(working_dir) // "ecfm_data/" // "ne_file.dat"
     T_e_filename = trim(working_dir) // "ecfm_data/" // "Te_file.dat"
     Vessel_bd_filename = trim(working_dir) // "ecfm_data/" // "vessel_bd.txt"
     ray_launch_file = trim(working_dir) // "ecfm_data/" // "ray_launch.dat"
+     ext_ray_folder = trim(working_dir)  // "ecfm_data/" // "ext_rays/"
   end if
   if(output_level) then
     print*,"Chosen ECRad mode ", dstf
@@ -923,6 +930,52 @@ subroutine make_launch(idiag_in)
 end subroutine make_launch
 !*******************************************************************************
 
+subroutine read_external_rays()
+use mod_ecfm_refr_types, only : ext_rays, ant, ext_ray_folder, mode_cnt, N_ray
+implicit none
+Character(200) :: cur_filename
+Character(12) :: i_channel_str, i_mode_str, i_ray_str
+integer(ikind) :: ich, i, imode, iray, idiag = 1, cur_ray
+allocate(ext_rays(ant%diag(idiag)%N_ch * mode_cnt * N_ray))
+do ich = 1, ant%diag(idiag)%N_ch
+  write(i_channel_str, "(I3.3)") ich
+  do imode = 1, mode_cnt
+    write(i_mode_str, "(I3.3)") imode
+    do iray = 1, N_ray
+      cur_ray = iray + N_ray * (imode - 1) + N_ray * mode_cnt * (ich - 1)
+      write(i_ray_str, "(I3.3)") iray
+      cur_filename = trim(ext_ray_folder) // "raydata_" // trim(i_channel_str) // "_" // trim(i_mode_str) // "_" // trim(i_ray_str) // ".dat"
+      open(87, file=cur_filename)
+      read(87, "(I6.6)") ext_rays(cur_ray)%N_steps
+      allocate(ext_rays(cur_ray)%ray(ext_rays(cur_ray)%N_steps))
+      do i = 1, ext_rays(cur_ray)%N_steps
+        read(87,"(15E20.12E2)") ext_rays(cur_ray)%ray(i)%s, ext_rays(cur_ray)%ray(i)%x_vec(1), ext_rays(cur_ray)%ray(i)%x_vec(2), ext_rays(cur_ray)%ray(i)%x_vec(3), &
+                               ext_rays(cur_ray)%ray(i)%N_vec(1), ext_rays(cur_ray)%ray(i)%N_vec(2), ext_rays(cur_ray)%ray(i)%N_vec(3), &
+                               ext_rays(cur_ray)%ray(i)%B_vec(1), ext_rays(cur_ray)%ray(i)%B_vec(2), ext_rays(cur_ray)%ray(i)%B_vec(3), &
+                               ext_rays(cur_ray)%ray(i)%rhop, ext_rays(cur_ray)%ray(i)%n_e, ext_rays(cur_ray)%ray(i)%T_e, &
+                               ext_rays(cur_ray)%ray(i)%N_s, ext_rays(cur_ray)%ray(i)%v_g_perp
+      end do
+      ext_rays(cur_ray)%ray(:)%Hamil = 0.0
+    end do
+  end do
+end do
+end subroutine read_external_rays
+
+subroutine deallocate_ext_rays()
+use mod_ecfm_refr_types, only : ext_rays, ant, mode_cnt, N_ray
+implicit none
+integer(ikind)   :: ich, idiag=1, imode, iray
+do ich = 1, ant%diag(idiag)%N_ch
+  do imode = 1, mode_cnt
+    do iray = 1, N_ray
+      deallocate(ext_rays(iray + N_ray * mode_cnt * (ich - 1) + N_ray * (imode - 1))%ray)
+    end do
+  end do
+end do
+deallocate(ext_rays)
+end subroutine deallocate_ext_rays
+
+!*******************************************************************************
 subroutine dealloc_ant(ant)
 use mod_ecfm_refr_types,        only :  ant_type, diagnostics
 implicit none
