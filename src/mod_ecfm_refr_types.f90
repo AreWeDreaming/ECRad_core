@@ -389,6 +389,11 @@ type ray_element_full_type
   real(rkind)                                       :: sigma
 end type ray_element_full_type
 
+type ext_ray_type
+  type(ray_element_full_type), dimension(:), allocatable :: ray
+  integer(ikind)                                         :: N_steps
+end type ext_ray_type
+
 type plasma_params_type
   logical                                           :: on_the_fly_raytracing = .false.
                                                        ! If .true. raytracing and radiation transport are solved simultaneously
@@ -476,6 +481,9 @@ type plasma_params_type
 end type plasma_params_type
 
   type(ant_type)                     :: ant
+  logical                            :: use_ext_rays = .false. ! Can be overwritten by the input file, if it is long enough
+  character(200)                     :: ext_ray_folder
+  type(ext_ray_type), dimension(:), allocatable :: ext_rays
   real(rkind)                        :: Te_min = 1.d0
   type(rad_type)                     :: rad
   type(plasma_params_type)           :: plasma_params
