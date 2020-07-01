@@ -26,7 +26,7 @@ else
 endif
 
 ifeq ($(F90),gfortran)
-	F90OPTFLAGS = -O2 -mavx -ffree-form -fpic -ffree-line-length-none
+	F90OPTFLAGS = -O2 -mavx -ffree-form -fpic -ffree-line-length-none -fPIC
 	F90DBGFLAGS = -g -ffree-form -fpic -ffree-line-length-none
 	F90PARFLAGS = -fopenmp
 	FFPFLAGS = -cpp
