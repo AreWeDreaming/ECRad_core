@@ -529,6 +529,7 @@ end type plasma_params_type
   integer(ikind)                     :: modes = 0 ! whichs mode(s) are considered
                                                              ! 1 -> X, 2 -> O, 3 -> O, X
   integer(ikind)                     :: mode_cnt ! 1,2
+  character(2)                       :: eq_mode
   real(rkind)                        :: plasma_vac_boundary = 1.05d0 ! boundary at which the polarization of X and O-mode will be calculated
   character(3), dimension(:), allocatable :: diagnostics ! Separates individual channel bunches into separate diagnostics
   real(rkind)                        :: h_x_glob = 1.d-5 !*

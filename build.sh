@@ -37,6 +37,7 @@ make USE_3D=True DEBUG=True
 make USE_3D=True
 make USE_3D=True DEBUG=True OPEN_MP=True
 make USE_3D=True OPEN_MP=True
+#f2py -c --fcompiler=gnu95 ../src/ECRad_python.f90 --build-dir modgOMP -m ECRad_python -ImodgOMP/ --f90flags=-openmp -lgomp -L../fitpack/ -lFITPack -L../odepack/ -lODEPack -L/mnt/c/Users/Severin/git/augd_ecrad/ubuntu_19_04/ -lECRadOMP
 #f2py -c --fcompiler=gnu95 ../src/ECRad_python.f90 --build-dir modiOMP -m ECRad_python -ImodiOMP/ -lECRadOMP --f90flags=-openmp -lgomp -L../..fitpack/ -lfit
 #f2py -c --fcompiler=intelem ../src/ECRad_python.f90 -m ECRad_python -I$SYS/modiOMPUSE3D/ --f90flags="-qopenmp -fpp -DOMP -O2" -liomp5 -L../fitpack/ -L../odepack/ -L$SYS -lECRadOMP -lFITPack -lODEPack
 #f2py -c --fcompiler=intelem src/ECRad_python.f90 -m ECRad_python -I$SYS/modiOMPUSE3D/ --f90flags="-qopenmp -fpp -DOMP -DUSE3D -O2" -liomp5 -L../netlib/fitpack/ -L../Mconf/lib/ -L$SYS -lECRadOMPUSE3D -lfit -lmconf64

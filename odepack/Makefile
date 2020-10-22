@@ -9,7 +9,7 @@ else
 	FC = ifort
 endif
 ifeq ($(FC),gfortran)
-	FFLAGS = -O2 -mavx -fopenmp
+	FFLAGS = -O2 -mavx -fopenmp -fpic
 else
 	FFLAGS = -O2 -fp-model source -axavx -fpic -qopenmp
 endif

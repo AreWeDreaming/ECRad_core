@@ -1178,19 +1178,12 @@ function func_dA_dY(X, Y)
     else
 #endif
         call sub_B_and_grad_B(plasma_params, x_vec, in_plasma, R_vec, B_vec, grad_B_vec)
-        grad_rhop = 0.d0
-        rhop_out = -1.d0
         if(.not. in_plasma) return
-        if(plasma_params%Te_ne_mat) then
+        call sub_spatial_grad_rhop(plasma_params, x_vec, R_vec, rhop_out, grad_rhop)
+        if(rhop_out == -1.d0) then
+            !print*, "Invalid rhop", rhop_out, plasma_params%rhop_max
             grad_rhop = 0.d0
-            rhop_out = func_rhop(plasma_params, x_vec) ! For diagnostic purposes only.
-        else
-            call sub_spatial_grad_rhop(plasma_params, x_vec, R_vec, rhop_out, grad_rhop)
-            if(rhop_out == -1.d0) then
-                !print*, "Invalid rhop", rhop_out, plasma_params%rhop_max
-                grad_rhop = 0.d0
-                in_plasma = .false.
-            end if
+            in_plasma = .false.
         end if
 #ifdef USE_3D
     end if
@@ -2389,7 +2382,7 @@ function func_dA_dY(X, Y)
     end if
     N_abs = sqrt(N_abs)
     N_abs_lower = 0.999d0 * N_abs
-    N_abs_upper = 1.001d0 * N_abs
+    N_abs_upper = min(1.001d0 * N_abs, 1 - 1.d-6)
 !    print*, "N_abs range", N_abs_lower, N_abs,  N_abs_upper
 !    print*, "Hamil range", make_H(N_abs_lower), make_H(N_abs), make_H(N_abs_upper)
     H_lower = make_H(N_abs_lower)
@@ -2706,7 +2699,8 @@ function func_dA_dY(X, Y)
       if((ray_segment(N)%R_vec(1)  > plasma_params%R_min .and.  ray_segment(N)%R_vec(1)  < plasma_params%R_max) .and.  &
          (ray_segment(N)%R_vec(3)  > plasma_params%z_min .and.  ray_segment(N)%R_vec(3)  < plasma_params%z_max)) then
          call sub_local_params(plasma_params, omega, ray_segment(N)%x_vec, ray_segment(N)%N_vec, ray_segment(N)%B_vec, &
-          ray_segment(N)%N_s, ray_segment(N)%n_e, ray_segment(N)%omega_c,  ray_segment(N)%T_e, ray_segment(N)%theta, ray_segment(N)%rhop)
+                               ray_segment(N)%N_s, ray_segment(N)%n_e, ray_segment(N)%omega_c,  ray_segment(N)%T_e, &
+                               ray_segment(N)%theta, ray_segment(N)%rhop)
       else
           ray_segment(N)%omega_c = 0.d0
           ray_segment(N)%rhop = -1.d0
@@ -2739,7 +2733,8 @@ function func_dA_dY(X, Y)
 !          stop "no equilibrium for within vessel in mod_raytrace.f90"
 !    end if
     call sub_local_params(plasma_params, omega, ray_segment(N)%x_vec, ray_segment(N)%N_vec, ray_segment(N)%B_vec, &
-          ray_segment(N)%N_s, ray_segment(N)%n_e, ray_segment(N)%omega_c,  ray_segment(N)%T_e, ray_segment(N)%theta, ray_segment(N)%rhop)
+                          ray_segment(N)%N_s, ray_segment(N)%n_e, ray_segment(N)%omega_c, &
+                           ray_segment(N)%T_e, ray_segment(N)%theta, ray_segment(N)%rhop)
     last_N = N
     if(straight .or. LOS_end) then
       ray_segment(N)%Hamil = 0.d0
