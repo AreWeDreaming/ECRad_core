@@ -116,7 +116,7 @@ use mod_ecfm_refr_types,        only : ant, rad, plasma_params, dstf, diagnostic
                                        ratio_for_third_harmonic, straight, reflec_X, reflec_O, modes, mode_cnt, working_dir, &
                                        mode_conv, N_freq, N_ray, warm_plasma, max_points_svec, &
                                        reflec_model, vessel_plasma_ratio, new_IO, use_3D, &
-                                       ext_ray_folder, use_ext_rays
+                                       ext_ray_folder, use_ext_rays, eq_mode
 use constants,                         only: pi
 implicit none
 character(*), intent(in)          :: working_dir_in
@@ -266,9 +266,14 @@ integer(ikind)                    :: IOstatus
   read(66,"(I10)") max_points_svec
   read(66,"(L1)",IOSTAT=IOstatus) use_ext_rays
   if(IOstatus /= 0) use_ext_rays = .false.
+  read(66,"(A2)",IOSTAT=IOstatus) eq_mode
+  if(IOstatus /= 0) eq_mode = "1D"
 #ifdef USE_3D
-    read(66,"(L1)",IOSTAT=IOstatus) use_3D
-    if(IOstatus /= 0) use_3D = .false.
+    if(eq_mode == "3D") then
+      use_3D = .True.
+    else
+      use_3D = .False.
+    end if
     if(use_3D) then
       input_filename = trim(working_dir) // "ECRad_data/"  // "equ3D_info"
       open(77, file=trim(input_filename))
@@ -1065,8 +1070,12 @@ implicit none
   call spline_1d(spl, s, dummy, df)
   call make_1d_spline(d_spl, size(s_high_res), s_high_res, df)
   call spline_1d_get_roots(d_spl, roots, root_cnt)
-  call spline_1d(spl, roots(1:root_cnt), dist(1:root_cnt))
-  distance_to_poly = minval(dist(1:root_cnt))
+  if(root_cnt > 0) then
+    call spline_1d(spl, roots(1:root_cnt), dist(1:root_cnt))
+    distance_to_poly = minval(dist(1:root_cnt))
+  else
+    distance_to_poly = minval(Sqrt((x_poly - x)**2 + (y_poly - y)**2))
+  end if
   call deallocate_1d_spline(spl)
   call deallocate_1d_spline(d_spl)
   return

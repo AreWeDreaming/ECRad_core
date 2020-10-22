@@ -545,14 +545,14 @@ module mod_ecfm_refr_raytrace_initialize
 
   subroutine init_raytrace(plasma_params, R, z, rhop, Br, Bt, Bz, R_ax, z_ax)
     use f90_kind
-    use mod_ecfm_refr_types,       only: plasma_params_type, stand_alone, use_3D
+    use mod_ecfm_refr_types,       only: plasma_params_type, stand_alone, use_3D, eq_mode
     Use constants                , only : pi
     implicit none
     type(plasma_params_type), intent(inout)           :: plasma_params
     real(rkind), dimension(:), intent(in), optional   :: R, z
     real(rkind), dimension(:,:), intent(in), optional :: rhop, Br, Bt, Bz
     real(rkind), intent(in), optional                 :: R_ax, z_ax
-    if(plasma_params%eq_diag == "E2D") then
+    if(eq_mode == "2D") then
       plasma_params%Te_ne_mat = .true.
     end if
     if(stand_alone) then

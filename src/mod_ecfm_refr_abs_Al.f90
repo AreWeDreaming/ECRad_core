@@ -88,7 +88,7 @@ contains
 #ifdef NAG
     use nag_quad_util,              only: nag_quad_gs_wt_absc
     USE nag_error_handling
-#endif NAG
+#endif
     use quadrature,                 only: cdgqf
     use mod_ecfm_refr_abs_Fa,       only: set_extv
     use mod_ecfm_refr_types,        only: dstf_comp
@@ -97,7 +97,7 @@ contains
 #ifdef NAG
     type(nag_error)                        :: error
     real(rkind), dimension(:), allocatable :: Int_weights_check, Int_absz_check
-#endif NAG/
+#endif
     allocate( Int_weights(N_absz),Int_absz(N_absz))
     call cdgqf( int(N_absz,kind=4), int(1,kind=4), 0.d0, 0.d0, Int_absz, Int_weights)
 #ifdef NAG
