@@ -2946,7 +2946,7 @@ function func_dA_dY(X, Y)
   N_s_dense = 1
   do i = 1,size(Y_res)
   ! Upshift -> resonance at magnetic field slightly lower than at cold resonance
-    call make_1d_spline(spl, last_N, flush_ray_s, flush_ray_y - (Y_res(i) + plasma_params%up_shift))
+    call make_1d_spline(spl, last_N, flush_ray_s, flush_ray_y - (Y_res(i) + plasma_params%up_shift), iopt=0)
     call spline_1d_get_roots(spl, roots, N_roots)
     do i_root= 1, N_roots
       if(roots(i_root) > 0.d0) then
@@ -2955,7 +2955,7 @@ function func_dA_dY(X, Y)
       end if
     end do
   ! Downshift -> resonance at magnetic field slightly higher than at cold resonance
-    call make_1d_spline(spl, last_N, flush_ray_s, flush_ray_y - (Y_res(i) + plasma_params%down_shift))
+    call make_1d_spline(spl, last_N, flush_ray_s, flush_ray_y - (Y_res(i) + plasma_params%down_shift), iopt=0)
     call spline_1d_get_roots(spl, roots, N_roots)
     do i_root= 1, N_roots
       if(roots(i_root) > 0.d0) then
@@ -2965,7 +2965,7 @@ function func_dA_dY(X, Y)
     end do
   end do
   if(present(rad_ray_freq)) then
-    call make_1d_spline(spl, last_N, flush_ray_s, flush_ray_y - plasma_params%Y_res)
+    call make_1d_spline(spl, last_N, flush_ray_s, flush_ray_y - plasma_params%Y_res, iopt=0)
     call spline_1d_get_roots(spl, roots, N_roots)
     if(N_roots == 0) then
       rad_ray_freq%s_res = -1.0
@@ -3128,14 +3128,14 @@ function func_dA_dY(X, Y)
   ! First quantities that are present on the entire ray
   do i=1,3
     flush_ray_y = ray(1:N)%x_vec(i)
-    call make_1d_spline(spl, N, flush_ray_s, flush_ray_y)
+    call make_1d_spline(spl, N, flush_ray_s, flush_ray_y, iopt=0)
     call spline_1d(spl, flush_svec_s, flush_svec_y)
     svec(1:total_LOS_points)%x_vec(i) = flush_svec_y
     if(present(rad_ray_freq)) then
       if(rad_ray_freq%s_res >= 0.d0) call spline_1d(spl, rad_ray_freq%s_res, x_res(i))
     end if
     flush_ray_y = ray(1:N)%N_vec(i)
-    call make_1d_spline(spl, N, flush_ray_s, flush_ray_y)
+    call make_1d_spline(spl, N, flush_ray_s, flush_ray_y, iopt=0)
     call spline_1d(spl, flush_svec_s, flush_svec_y)
     svec(1:total_LOS_points)%N_vec(i) = flush_svec_y
   end do
@@ -3180,7 +3180,7 @@ function func_dA_dY(X, Y)
   !if(present(rad_ray_freq)) B_res(:) = 0.d0
   do i=1,3
     flush_ray_y(1:N_plasma) = pack(ray(1:N)%B_vec(i), ray(1:N)%rhop > 0)
-    call make_1d_spline(spl, N_plasma, flush_ray_s(1:N_plasma), flush_ray_y(1:N_plasma))
+    call make_1d_spline(spl, N_plasma, flush_ray_s(1:N_plasma), flush_ray_y(1:N_plasma), iopt=0)
     call spline_1d(spl, flush_svec_s(1:i2 - i1 + 1), flush_svec_y(1:i2 - i1 + 1))
     svec(i1:i2)%B_vec(i) = flush_svec_y(1:i2 - i1 + 1)
 !    if(present(rad_ray_freq) .and. rad_ray_freq%s_res >  flush_ray_s(1) .and. &
@@ -3189,7 +3189,7 @@ function func_dA_dY(X, Y)
 !    end if
   end do
   flush_ray_y(1:N_plasma) = pack(ray(1:N)%rhop, ray(1:N)%rhop > 0)
-  call make_1d_spline(spl, N_plasma, flush_ray_s(1:N_plasma), flush_ray_y(1:N_plasma))
+  call make_1d_spline(spl, N_plasma, flush_ray_s(1:N_plasma), flush_ray_y(1:N_plasma), iopt=0)
   call spline_1d(spl, flush_svec_s(1:i2 - i1 + 1), flush_svec_y(1:i2 - i1 + 1))
   svec(i1:i2)%rhop = flush_svec_y(1:i2 - i1 + 1)
   if(present(rad_ray_freq)) then
@@ -3203,7 +3203,7 @@ function func_dA_dY(X, Y)
   if(plasma_params%prof_log_flag) then
     flush_ray_y(1:N_plasma) = log(flush_ray_y(1:N_plasma) * 1.e-19)
   end if
-  call make_1d_spline(spl, N_plasma, flush_ray_s(1:N_plasma), flush_ray_y(1:N_plasma))
+  call make_1d_spline(spl, N_plasma, flush_ray_s(1:N_plasma), flush_ray_y(1:N_plasma), iopt=0)
   call spline_1d(spl, flush_svec_s(1:i2 - i1 + 1), flush_svec_y(1:i2 - i1 + 1))
   svec(i1:i2)%ne = flush_svec_y(1:i2 - i1 + 1)
   if(plasma_params%prof_log_flag) then
@@ -3213,23 +3213,23 @@ function func_dA_dY(X, Y)
   if(plasma_params%prof_log_flag) then
     flush_ray_y(1:N_plasma) = log(flush_ray_y(1:N_plasma))
   end if
-  call make_1d_spline(spl, N_plasma, flush_ray_s(1:N_plasma), flush_ray_y(1:N_plasma))
+  call make_1d_spline(spl, N_plasma, flush_ray_s(1:N_plasma), flush_ray_y(1:N_plasma), iopt=0)
   call spline_1d(spl, flush_svec_s(1:i2 - i1 + 1), flush_svec_y(1:i2 - i1 + 1))
   svec(i1:i2)%Te = flush_svec_y(1:i2 - i1 + 1)
   if(plasma_params%prof_log_flag) then
     svec(i1:i2)%Te = exp(svec(i1:i2)%Te)
   end if
   flush_ray_y(1:N_plasma) = pack(ray(1:N)%N_s, ray(1:N)%rhop > 0)
-  call make_1d_spline(spl, N_plasma, flush_ray_s(1:N_plasma), flush_ray_y(1:N_plasma))
+  call make_1d_spline(spl, N_plasma, flush_ray_s(1:N_plasma), flush_ray_y(1:N_plasma), iopt=0)
   call spline_1d(spl, flush_svec_s(1:i2 - i1 + 1), flush_svec_y(1:i2 - i1 + 1))
   svec(i1:i2)%N_cold = flush_svec_y(1:i2 - i1 + 1)
   flush_ray_y(1:N_plasma) = pack(ray(1:N)%v_g_perp, ray(1:N)%rhop > 0)
-  call make_1d_spline(spl, N_plasma, flush_ray_s(1:N_plasma), flush_ray_y(1:N_plasma))
+  call make_1d_spline(spl, N_plasma, flush_ray_s(1:N_plasma), flush_ray_y(1:N_plasma), iopt=0)
   call spline_1d(spl, flush_svec_s(1:i2 - i1 + 1), flush_svec_y(1:i2 - i1 + 1))
   svec(i1:i2)%v_g_perp = flush_svec_y(1:i2 - i1 + 1)
   if(present(svec_extra_output)) then
     flush_ray_y(1:N_plasma) = pack(ray(1:N)%hamil, ray(1:N)%rhop > 0)
-    call make_1d_spline(spl, N_plasma, flush_ray_s(1:N_plasma), flush_ray_y(1:N_plasma))
+    call make_1d_spline(spl, N_plasma, flush_ray_s(1:N_plasma), flush_ray_y(1:N_plasma), iopt=0)
     call spline_1d(spl, flush_svec_s(1:i2 - i1 + 1), flush_svec_y(1:i2 - i1 + 1))
     svec_extra_output(i1:i2)%H = flush_svec_y(1:i2 - i1 + 1)
     svec_extra_output(i1:i2)%N_ray = 0.d0
