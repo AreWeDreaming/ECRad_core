@@ -115,7 +115,7 @@ module mod_ecfm_refr_interpol
     spl%y_start = y(1)
     spl%y_end = y(n)
     call regrid(spl%iopt_int, m, x, n, y, temp_mat, &
-                x(1) - 1.d-4, x(m) + 1.d-4, y(1) - 1.d-4, y(n) + 1.d-4, kx, ky, 0.d0, &
+                x(1), x(m), y(1), y(n), kx, ky, 0.d0, &
                 spl%nuest,  spl%nvest,  spl%nu,  spl%tu, &
                 spl%nv, spl%tv,  spl%c, fp,  spl%wrk, &
                 spl%lwrk,  spl%iwrk,  spl%kwrk, ier)
@@ -190,15 +190,18 @@ module mod_ecfm_refr_interpol
     end if
     w(:) = 1.d0
     if(spl%iopt_int == 0) then !
+      if(allocated(spl%t)) then
+        deallocate(spl%t, spl%c, spl%wrk, spl%iwrk)
+      end if
       spl%nest= m + spl%k + 2*spl%k+2
       spl%n = spl%nest
       spl%lwrk = (spl%k + 1) *  m + spl%nest * (7 + 3 * spl%k)
       allocate(spl%t(spl%nest), &
-        spl%c(spl%nest), spl%wrk(spl%lwrk), spl%iwrk(spl%nest))
+               spl%c(spl%nest), spl%wrk(spl%lwrk), spl%iwrk(spl%nest))
     end if
     spl%x_start = x(1)
     spl%x_end = x(m)
-    call curfit(spl%iopt_int, m, x, y, w, x(1) - 1.d-4, x(m) + 1.d-4, spl%k, 0.d0, spl%nest, spl%n,&
+    call curfit(spl%iopt_int, m, x, y, w, x(1), x(m), spl%k, 0.d0, spl%nest, spl%n,&
                 spl%t, spl%c, fp, spl%wrk, spl%lwrk, spl%iwrk, ier)
     if(spl%iopt_int == 0) spl%iopt_int = 1
     if(ier /= -1) then

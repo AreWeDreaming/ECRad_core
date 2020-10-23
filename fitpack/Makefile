@@ -2,7 +2,7 @@
 # of the Fortran files found in the current directory.
 # Usage: make LIB=<libname>
 # Pearu
-LIB=ODEPack
+LIB=FITPack
 ifeq ($(COMPILER),g)
 	FC = gfortran
 else

@@ -18,11 +18,8 @@ c-----------------------------------------------------------------------
       double precision rls, rlsa
       dimension rsav(1), isav(1)
       common /ls0001/ rls(218), ils(39)
-      !$OMP THREADPRIVATE(/ls0001/)
       common /lsa001/ rlsa(22), ilsa(9)
-      !$OMP THREADPRIVATE(/lsa001/)
       common /eh0001/ ieh(2)
-      !$OMP THREADPRIVATE(/eh0001/)
       data lenrls/218/, lenils/39/, lenrla/22/, lenila/9/
 c
       if (job .eq. 2) go to 100

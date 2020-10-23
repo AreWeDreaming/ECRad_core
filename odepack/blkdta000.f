@@ -18,9 +18,7 @@ c-----------------------------------------------------------------------
       double precision rowns, rcomm
       common /ls0001/ rowns(209), rcomm(9),
      1   illin, iduma(10), ntrep, idumb(2), iowns(6), icomm(19)
-      !$OMP THREADPRIVATE(/ls0001/)
       common /eh0001/ mesflg, lunit
-      !$OMP THREADPRIVATE(/eh0001/)
       data illin/0/, ntrep/0/
       data mesflg/1/, lunit/6/
 c

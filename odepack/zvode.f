@@ -1907,9 +1907,7 @@ C
      5                LOCJS, MAXORD, METH, MITER, MSBJ, MXHNIL, MXSTEP,
      6                N, NEWH, NEWQ, NHNIL, NQ, NQNYH, NQWAIT, NSLJ,
      7                NSLP, NYH
-      !$OMP THREADPRIVATE(/ZVOD01/)
       COMMON /ZVOD02/ HU, NCFN, NETF, NFE, NJE, NLU, NNI, NQU, NST
-      !$OMP THREADPRIVATE(/ZVOD02/)
 C
       DATA HUN /100.0D0/, ZERO /0.0D0/
 C
@@ -2070,9 +2068,7 @@ C-----------------------------------------------------------------------
      5                LOCJS, MAXORD, METH, MITER, MSBJ, MXHNIL, MXSTEP,
      6                N, NEWH, NEWQ, NHNIL, NQ, NQNYH, NQWAIT, NSLJ,
      7                NSLP, NYH
-      !$OMP THREADPRIVATE(/ZVOD01/)
       COMMON /ZVOD02/ HU, NCFN, NETF, NFE, NJE, NLU, NNI, NQU, NST
-      !$OMP THREADPRIVATE(/ZVOD02/)
 C
       DATA KFC/-3/, KFH/-7/, MXNCF/10/
       DATA ADDON  /1.0D-6/,    BIAS1  /6.0D0/,     BIAS2  /6.0D0/,
@@ -2479,7 +2475,6 @@ C
      5                LOCJS, MAXORD, METH, MITER, MSBJ, MXHNIL, MXSTEP,
      6                N, NEWH, NEWQ, NHNIL, NQ, NQNYH, NQWAIT, NSLJ,
      7                NSLP, NYH
-      !$OMP THREADPRIVATE(/ZVOD01/)
 C
       DATA CORTES /0.1D0/
       DATA ONE  /1.0D0/, SIX /6.0D0/, TWO /2.0D0/, ZERO /0.0D0/
@@ -2864,9 +2859,7 @@ C
      5                LOCJS, MAXORD, METH, MITER, MSBJ, MXHNIL, MXSTEP,
      6                N, NEWH, NEWQ, NHNIL, NQ, NQNYH, NQWAIT, NSLJ,
      7                NSLP, NYH
-      !$OMP THREADPRIVATE(/ZVOD01/)
       COMMON /ZVOD02/ HU, NCFN, NETF, NFE, NJE, NLU, NNI, NQU, NST
-      !$OMP THREADPRIVATE(/ZVOD02/)
 C
       DATA CCMAX /0.3D0/, CRDOWN /0.3D0/, MAXCOR /3/, MSBP /20/,
      1     RDIV  /2.0D0/
@@ -3092,9 +3085,7 @@ C-----------------------------------------------------------------------
      5                LOCJS, MAXORD, METH, MITER, MSBJ, MXHNIL, MXSTEP,
      6                N, NEWH, NEWQ, NHNIL, NQ, NQNYH, NQWAIT, NSLJ,
      7                NSLP, NYH
-      !$OMP THREADPRIVATE(/ZVOD01/)
       COMMON /ZVOD02/ HU, NCFN, NETF, NFE, NJE, NLU, NNI, NQU, NST
-      !$OMP THREADPRIVATE(/ZVOD02/)
 C
       DATA ONE /1.0D0/, THOU /1000.0D0/, ZERO /0.0D0/, PT1 /0.1D0/
 C
@@ -3356,7 +3347,6 @@ C
      5                LOCJS, MAXORD, METH, MITER, MSBJ, MXHNIL, MXSTEP,
      6                N, NEWH, NEWQ, NHNIL, NQ, NQNYH, NQWAIT, NSLJ,
      7                NSLP, NYH
-      !$OMP THREADPRIVATE(/ZVOD01/)
 C
       DATA ONE /1.0D0/, ZERO /0.0D0/
 C
@@ -3423,9 +3413,7 @@ C-----------------------------------------------------------------------
       SAVE LENRV1, LENIV1, LENRV2, LENIV2
 C
       COMMON /ZVOD01/ RVOD1(50), IVOD1(33)
-      !$OMP THREADPRIVATE(/ZVOD01/)
       COMMON /ZVOD02/ RVOD2(1), IVOD2(8)
-      !$OMP THREADPRIVATE(/ZVOD02/)
       DATA LENRV1/50/, LENIV1/33/, LENRV2/1/, LENIV2/8/
 C
       IF (JOB .EQ. 2) GO TO 100
