@@ -3187,7 +3187,7 @@ function func_dA_dY(X, Y)
   call make_1d_spline(spl, N, flush_ray_s(1:N), flush_ray_y(1:N), iopt=0)
   call spline_1d(spl, flush_svec_s, flush_svec_y)
   if(plasma_params%prof_log_flag) then
-    flush_svec_y = exp(flush_svec_y)%ne) * 1.e19
+    flush_svec_y = exp(flush_svec_y) * 1.e19
   end if
   svec(1:total_LOS_points)%ne = flush_svec_y
   flush_ray_y(1:N) = ray(1:N)%T_e
@@ -3216,7 +3216,6 @@ function func_dA_dY(X, Y)
     svec_extra_output(1:total_LOS_points)%N_ray = 0.d0
     do i=1,3
       svec_extra_output(1:total_LOS_points)%N_ray = svec_extra_output(1:total_LOS_points)%N_ray + svec(1:total_LOS_points)%N_vec(i)**2
-      (i)**2
     end do
     svec_extra_output(1:total_LOS_points)%N_ray = sqrt(svec_extra_output(1:total_LOS_points)%N_ray)
   end if
