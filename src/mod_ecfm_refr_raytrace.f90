@@ -3116,7 +3116,7 @@ function func_dA_dY(X, Y)
   type(rad_diag_ch_mode_ray_freq_type), intent(inout), optional              :: rad_ray_freq
   type(rad_diag_ch_mode_ray_freq_svec_extra_output_type), dimension(:), intent(inout), optional :: svec_extra_output
   type(spl_type_1d)                                                          :: spl
-  real(rkind), dimension(N)                                                  :: flush_ray_s, flush_ray_y
+  real(rkind), dimension(N)                                                  :: flush_ray_s, flush_ray_y, flush_ray_s_plasma
   real(rkind), dimension(total_LOS_points)                                   :: flush_svec_s, flush_svec_y
   integer(ikind)                                                             :: i, N_plasma, i1, i2
   real(rkind), dimension(3)                                                  :: x_res!, B_res
@@ -3150,113 +3150,92 @@ function func_dA_dY(X, Y)
       rad_ray_freq%z_res = x_res(3)
     end if
   end if
+  ! Determine the edges of the plasma region
+  ! We'll need this later to restrict the radiation transport on this region
   N_plasma = size(pack(flush_ray_s, ray(1:N)%rhop > 0))
-  flush_ray_s(1:N_plasma) = pack(flush_ray_s, ray(1:N)%rhop > 0)
-  i1 = minloc(abs(flush_ray_s(1) - flush_svec_s), dim=1)
-  if(flush_svec_s(i1) <  flush_ray_s(1)) i1 = i1 + 1
-  i2 = minloc(abs(flush_ray_s(N_plasma) - flush_svec_s), dim=1)
-  if(flush_svec_s(i2) >  flush_ray_s(N_plasma)) i2 = i2 - 1
-  !Initialize everything for scrape of layer values
-  ! Later overwrite with plasma parameters
-  do i=1,3
-    svec(1:total_LOS_points)%B_vec(i) = 0.d0 ! Could be replaced with vacuum values but seems unneccessary
-  end do
-  svec(1:total_LOS_points)%rhop = -1.d0
-  svec(1:total_LOS_points)%ne = SOL_ne
-  svec(1:total_LOS_points)%Te = SOL_Te
-  svec(1:total_LOS_points)%freq_2X = 0.d0
-  svec(1:total_LOS_points)%theta = 0.d0
-  svec(1:total_LOS_points)%cos_theta = 1.d0
-  svec(1:total_LOS_points)%sin_theta = 0.d0
-  svec(1:total_LOS_points)%N_cold = 1.d0
-  svec(1:total_LOS_points)%v_g_perp = 0.d0
-  svec(1:total_LOS_points)%plasma = .false.
-  if(present(svec_extra_output)) then
-    svec_extra_output(1:total_LOS_points)%H = 0.d0
-    svec_extra_output(1:total_LOS_points)%N_ray = 1.d0
-  end if
-  flush_svec_s(1:i2 - i1 + 1) = flush_svec_s(i1:i2)
+  flush_ray_s_plasma(1:N_plasma) = pack(flush_ray_s, ray(1:N)%rhop > 0)
+  i1 = minloc(abs(flush_ray_s_plasma(1) - flush_svec_s), dim=1)
+  if(flush_svec_s(i1) <  flush_ray_s_plasma(1)) i1 = i1 + 1
+  i2 = minloc(abs(flush_ray_s_plasma(N_plasma) - flush_svec_s), dim=1)
+  if(flush_svec_s(i2) >  flush_ray_s_plasma(N_plasma)) i2 = i2 - 1
   svec(i1:i2)%plasma = .true.
-  !if(present(rad_ray_freq)) B_res(:) = 0.d0
+  ! In principle we could restrict the interpolationantities of the svec quantities to the ray segments
+  ! that have plasma
+  ! However this creates were sharp features near the edges and gives rise to large ringing
+  ! Instead interpolate entire ray, less ringing this way
   do i=1,3
-    flush_ray_y(1:N_plasma) = pack(ray(1:N)%B_vec(i), ray(1:N)%rhop > 0)
-    call make_1d_spline(spl, N_plasma, flush_ray_s(1:N_plasma), flush_ray_y(1:N_plasma), iopt=0)
-    call spline_1d(spl, flush_svec_s(1:i2 - i1 + 1), flush_svec_y(1:i2 - i1 + 1))
-    svec(i1:i2)%B_vec(i) = flush_svec_y(1:i2 - i1 + 1)
-!    if(present(rad_ray_freq) .and. rad_ray_freq%s_res >  flush_ray_s(1) .and. &
-!                                   rad_ray_freq%s_res <  flush_ray_s(N_plasma)) then
-!      call spline_1d(spl, rad_ray_freq%s_res, B_res(i))
-!    end if
+    flush_ray_y(1:N) =ray(1:N)%B_vec(i)
+    call make_1d_spline(spl, N, flush_ray_s(1:N), flush_ray_y(1:N), iopt=0)
+    call spline_1d(spl, flush_svec_s, flush_svec_y)
+    svec(1:total_LOS_points)%B_vec(i) = flush_svec_y
   end do
-  flush_ray_y(1:N_plasma) = pack(ray(1:N)%rhop, ray(1:N)%rhop > 0)
-  call make_1d_spline(spl, N_plasma, flush_ray_s(1:N_plasma), flush_ray_y(1:N_plasma), iopt=0)
-  call spline_1d(spl, flush_svec_s(1:i2 - i1 + 1), flush_svec_y(1:i2 - i1 + 1))
-  svec(i1:i2)%rhop = flush_svec_y(1:i2 - i1 + 1)
+  flush_ray_y(1:N) = ray(1:N)%rhop
+  call make_1d_spline(spl, N, flush_ray_s(1:N), flush_ray_y(1:N), iopt=0)
+  call spline_1d(spl, flush_svec_s, flush_svec_y)
+  svec(1:total_LOS_points)%rhop = flush_svec_y
   if(present(rad_ray_freq)) then
-    if(rad_ray_freq%s_res < 0.d0 .or. rad_ray_freq%s_res > maxval(flush_ray_s(1:N_plasma))) then
+    if(rad_ray_freq%s_res < 0.d0 .or. rad_ray_freq%s_res > maxval(flush_ray_s(1:N))) then
       rad_ray_freq%rhop_res = -1.d0
     else
       call spline_1d(spl, rad_ray_freq%s_res, rad_ray_freq%rhop_res)
     end if
   end if
-  flush_ray_y(1:N_plasma) = pack(ray(1:N)%n_e, ray(1:N)%rhop > 0)
+  flush_ray_y(1:N) = ray(1:N)%n_e
   if(plasma_params%prof_log_flag) then
-    flush_ray_y(1:N_plasma) = log(flush_ray_y(1:N_plasma) * 1.e-19)
+    flush_ray_y(1:N) = log(flush_ray_y(1:N) * 1.e-19)
   end if
-  call make_1d_spline(spl, N_plasma, flush_ray_s(1:N_plasma), flush_ray_y(1:N_plasma), iopt=0)
-  call spline_1d(spl, flush_svec_s(1:i2 - i1 + 1), flush_svec_y(1:i2 - i1 + 1))
-  svec(i1:i2)%ne = flush_svec_y(1:i2 - i1 + 1)
+  call make_1d_spline(spl, N, flush_ray_s(1:N), flush_ray_y(1:N), iopt=0)
+  call spline_1d(spl, flush_svec_s, flush_svec_y)
   if(plasma_params%prof_log_flag) then
-    svec(i1:i2)%ne = exp(svec(i1:i2)%ne) * 1.e19
+    flush_svec_y = exp(flush_svec_y)%ne) * 1.e19
   end if
-  flush_ray_y(1:N_plasma) = pack(ray(1:N)%T_e, ray(1:N)%rhop > 0)
+  svec(1:total_LOS_points)%ne = flush_svec_y
+  flush_ray_y(1:N) = ray(1:N)%T_e
   if(plasma_params%prof_log_flag) then
-    flush_ray_y(1:N_plasma) = log(flush_ray_y(1:N_plasma))
+    flush_ray_y(1:N) = log(flush_ray_y(1:N))
   end if
-  call make_1d_spline(spl, N_plasma, flush_ray_s(1:N_plasma), flush_ray_y(1:N_plasma), iopt=0)
-  call spline_1d(spl, flush_svec_s(1:i2 - i1 + 1), flush_svec_y(1:i2 - i1 + 1))
-  svec(i1:i2)%Te = flush_svec_y(1:i2 - i1 + 1)
+  call make_1d_spline(spl, N, flush_ray_s(1:N), flush_ray_y(1:N), iopt=0)
+  call spline_1d(spl, flush_svec_s, flush_svec_y)
   if(plasma_params%prof_log_flag) then
-    svec(i1:i2)%Te = exp(svec(i1:i2)%Te)
+    flush_svec_y = exp(flush_svec_y)
   end if
-  flush_ray_y(1:N_plasma) = pack(ray(1:N)%N_s, ray(1:N)%rhop > 0)
-  call make_1d_spline(spl, N_plasma, flush_ray_s(1:N_plasma), flush_ray_y(1:N_plasma), iopt=0)
-  call spline_1d(spl, flush_svec_s(1:i2 - i1 + 1), flush_svec_y(1:i2 - i1 + 1))
-  svec(i1:i2)%N_cold = flush_svec_y(1:i2 - i1 + 1)
-  flush_ray_y(1:N_plasma) = pack(ray(1:N)%v_g_perp, ray(1:N)%rhop > 0)
-  call make_1d_spline(spl, N_plasma, flush_ray_s(1:N_plasma), flush_ray_y(1:N_plasma), iopt=0)
-  call spline_1d(spl, flush_svec_s(1:i2 - i1 + 1), flush_svec_y(1:i2 - i1 + 1))
-  svec(i1:i2)%v_g_perp = flush_svec_y(1:i2 - i1 + 1)
+  svec(1:total_LOS_points)%Te = flush_svec_y(1:total_LOS_points)
+  flush_ray_y(1:N) = ray(1:N)%N_s
+  call make_1d_spline(spl, N, flush_ray_s(1:N), flush_ray_y(1:N), iopt=0)
+  call spline_1d(spl, flush_svec_s, flush_svec_y)
+  svec(1:total_LOS_points)%N_cold = flush_svec_y
+  flush_ray_y(1:N) = ray(1:N)%v_g_perp
+  call make_1d_spline(spl, N, flush_ray_s(1:N), flush_ray_y(1:N), iopt=0)
+  call spline_1d(spl, flush_svec_s, flush_svec_y)
+  svec(1:total_LOS_points)%v_g_perp = flush_svec_y
   if(present(svec_extra_output)) then
-    flush_ray_y(1:N_plasma) = pack(ray(1:N)%hamil, ray(1:N)%rhop > 0)
-    call make_1d_spline(spl, N_plasma, flush_ray_s(1:N_plasma), flush_ray_y(1:N_plasma), iopt=0)
-    call spline_1d(spl, flush_svec_s(1:i2 - i1 + 1), flush_svec_y(1:i2 - i1 + 1))
-    svec_extra_output(i1:i2)%H = flush_svec_y(1:i2 - i1 + 1)
-    svec_extra_output(i1:i2)%N_ray = 0.d0
+    flush_ray_y(1:N) = ray(1:N)%hamil
+    call make_1d_spline(spl, N, flush_ray_s(1:N), flush_ray_y(1:N), iopt=0)
+    call spline_1d(spl, flush_svec_s, flush_svec_y)
+    svec_extra_output(1:total_LOS_points)%H = flush_svec_y
+    svec_extra_output(1:total_LOS_points)%N_ray = 0.d0
     do i=1,3
-      svec_extra_output(i1:i2)%N_ray = svec_extra_output(i1:i2)%N_ray + svec(i1:i2)%N_vec(i)**2
+      svec_extra_output(1:total_LOS_points)%N_ray = svec_extra_output(1:total_LOS_points)%N_ray + svec(1:total_LOS_points)%N_vec(i)**2
+      (i)**2
     end do
-    svec_extra_output(i1:i2)%N_ray = sqrt(svec_extra_output(i1:i2)%N_ray)
+    svec_extra_output(1:total_LOS_points)%N_ray = sqrt(svec_extra_output(1:total_LOS_points)%N_ray)
   end if
-  svec(i1:i2)%freq_2X = e0 * sqrt(svec(i1:i2)%B_vec(1)**2 + svec(i1:i2)%B_vec(2)**2 + &
-                                  svec(i1:i2)%B_vec(3)**2) / (mass_e * pi)
-!  if(present(rad_ray_freq)) then
-!    if(rad_ray_freq%s_res >= 0.d0)  print*, "n at resonance", omega / (e0 * sqrt(B_res(1)**2 + B_res(2)**2 + &
-!                                           B_res(3)**2) / mass_e)
-!  end if
-  svec(i1:i2)%cos_theta = 0.d0
+  svec(1:total_LOS_points)%freq_2X = 0.d0
+  svec(1:total_LOS_points)%cos_theta = 0.d0
   do i=1,3
-    svec(i1:i2)%cos_theta = svec(i1:i2)%cos_theta + svec(i1:i2)%N_vec(i) * svec(i1:i2)%B_vec(i)
+    svec(1:total_LOS_points)%freq_2X = svec(1:total_LOS_points)%freq_2X + svec(1:total_LOS_points)%B_vec(i)**2
+    svec(1:total_LOS_points)%cos_theta = svec(1:total_LOS_points)%cos_theta + svec(1:total_LOS_points)%N_vec(i) * svec(1:total_LOS_points)%B_vec(i)
   end do
-  svec(i1:i2)%cos_theta = svec(i1:i2)%cos_theta / sqrt(svec(i1:i2)%B_vec(1)**2 + svec(i1:i2)%B_vec(2)**2 + &
-                                               svec(i1:i2)%B_vec(3)**2)
-  svec(i1:i2)%cos_theta = svec(i1:i2)%cos_theta / sqrt(svec(i1:i2)%N_vec(1)**2 + svec(i1:i2)%N_vec(2)**2 + &
-                                               svec(i1:i2)%N_vec(3)**2)
-  svec(i1:i2)%theta = acos(svec(i1:i2)%cos_theta)
-  svec(i1:i2)%sin_theta = sin(svec(i1:i2)%theta)
+  svec(1:total_LOS_points)%freq_2X  = e0 * sqrt(svec(1:total_LOS_points)%freq_2X) / (mass_e * pi)
+  svec(1:total_LOS_points)%cos_theta = svec(1:total_LOS_points)%cos_theta / sqrt(svec(1:total_LOS_points)%B_vec(1)**2 + svec(1:total_LOS_points)%B_vec(2)**2 + &
+                                               svec(1:total_LOS_points)%B_vec(3)**2)
+  svec(1:total_LOS_points)%cos_theta = svec(1:total_LOS_points)%cos_theta / sqrt(svec(1:total_LOS_points)%N_vec(1)**2 + svec(1:total_LOS_points)%N_vec(2)**2 + &
+                                               svec(1:total_LOS_points)%N_vec(3)**2)
+  svec(1:total_LOS_points)%theta = acos(svec(1:total_LOS_points)%cos_theta)
+  svec(1:total_LOS_points)%sin_theta = sin(svec(1:total_LOS_points)%theta)
   ! Do this for all points
   svec(1:total_LOS_points)%ibb = (omega / ( 2.d0 * pi))**2 * e0 * &
-                svec(1:total_LOS_points)%Te / c0**2
+                                 svec(1:total_LOS_points)%Te / c0**2
   call deallocate_1d_spline(spl)
   end subroutine interpolate_svec
 
