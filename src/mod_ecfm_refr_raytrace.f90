@@ -3158,6 +3158,7 @@ function func_dA_dY(X, Y)
   if(flush_svec_s(i1) <  flush_ray_s_plasma(1)) i1 = i1 + 1
   i2 = minloc(abs(flush_ray_s_plasma(N_plasma) - flush_svec_s), dim=1)
   if(flush_svec_s(i2) >  flush_ray_s_plasma(N_plasma)) i2 = i2 - 1
+  svec(:)%plasma = .false.
   svec(i1:i2)%plasma = .true.
   ! In principle we could restrict the interpolationantities of the svec quantities to the ray segments
   ! that have plasma
@@ -3169,10 +3170,11 @@ function func_dA_dY(X, Y)
     call spline_1d(spl, flush_svec_s, flush_svec_y)
     svec(1:total_LOS_points)%B_vec(i) = flush_svec_y
   end do
-  flush_ray_y(1:N) = ray(1:N)%rhop
-  call make_1d_spline(spl, N, flush_ray_s(1:N), flush_ray_y(1:N), iopt=0)
-  call spline_1d(spl, flush_svec_s, flush_svec_y)
-  svec(1:total_LOS_points)%rhop = flush_svec_y
+  flush_ray_y(1:N_plasma) = pack(ray(1:N)%rhop, ray(1:N)%rhop > 0)
+  call make_1d_spline(spl, N_plasma, flush_ray_s_plasma(1:N_plasma), flush_ray_y(1:N_plasma), iopt=0)
+  call spline_1d(spl, flush_svec_s(1:i2 - i1 + 1), flush_svec_y(1:i2 - i1 + 1))
+  svec(:)%rhop = -1.d0
+  svec(i1:i2)%rhop = flush_svec_y(1:i2 - i1 + 1)
   if(present(rad_ray_freq)) then
     if(rad_ray_freq%s_res < 0.d0 .or. rad_ray_freq%s_res > maxval(flush_ray_s(1:N))) then
       rad_ray_freq%rhop_res = -1.d0
