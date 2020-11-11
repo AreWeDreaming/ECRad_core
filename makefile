@@ -52,9 +52,9 @@ ifeq ($(USE_3D),True)
 	FFPFLAGS += -DUSE_3D
 	USE3DFLAG = USE3D
 endif
-ifeq ($(IDA)$(USE_3D),TrueFalse)
-	FFPFLAGS += -DIDAUSE_2D
-endif
+#ifeq ($(IDA)$(USE_3D),TrueFalse)
+#	FFPFLAGS += -DIDAUSE_2D
+#endif
 OBJJ = $(obj)
 NAG_MOD = $(NAGF90MOD)
 MODECRad=$(ROOTDIR)/$(SYS)/mod$(COMPILER)$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)
