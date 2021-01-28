@@ -1,4 +1,4 @@
-module mod_ecfm_refr_interpol
+module mod_ECRad_interpol
     implicit none
 #ifdef IDA
   public ::   spline_1d, & ! overloaded function
@@ -41,7 +41,7 @@ module mod_ecfm_refr_interpol
 
   subroutine make_rect_spline(spl, m, n, x, y, mat, iopt, m_max)
     use f90_kind
-    use mod_ecfm_refr_types,        only: spl_type_2d
+    use mod_ECRad_types,        only: spl_type_2d
 #ifdef INTEL
     use ifcore,                     only: tracebackqq
 #endif
@@ -135,7 +135,7 @@ module mod_ecfm_refr_interpol
 
   subroutine make_1d_spline(spl, m, x, y, iopt, k)
     use f90_kind
-    use mod_ecfm_refr_types,        only: spl_type_1d
+    use mod_ECRad_types,        only: spl_type_1d
 #ifdef INTEL
     use ifcore,                     only: tracebackqq
 #endif
@@ -221,7 +221,7 @@ module mod_ecfm_refr_interpol
 
   subroutine deallocate_rect_spline(spl)
     use f90_kind
-    use mod_ecfm_refr_types,        only: spl_type_2d
+    use mod_ECRad_types,        only: spl_type_2d
     type(spl_type_2d), intent(inout)   :: spl
     if(allocated(spl%tu)) deallocate(spl%tu, spl%tv, spl%c, &
                                       spl%wrk, spl%iwrk)
@@ -230,7 +230,7 @@ module mod_ecfm_refr_interpol
 
   subroutine deallocate_1d_spline(spl)
     use f90_kind
-    use mod_ecfm_refr_types,        only: spl_type_1d
+    use mod_ECRad_types,        only: spl_type_1d
     type(spl_type_1d), intent(inout)   :: spl
     if(allocated(spl%t)) deallocate(spl%t, spl%c, spl%wrk, spl%iwrk)
     spl%iopt_int = 0
@@ -245,9 +245,9 @@ module mod_ecfm_refr_interpol
   ! WARNING: This routine does not check bounds - out of bounds interpolations are prone to very large errors
     use f90_kind
 #ifdef NAG
-    USE mod_ecfm_refr_types , only : plasma_params_type, spl_type_2d, double_check_splines
+    USE mod_ECRad_types , only : plasma_params_type, spl_type_2d, double_check_splines
 #else
-    USE mod_ecfm_refr_types , only : plasma_params_type, spl_type_2d
+    USE mod_ECRad_types , only : plasma_params_type, spl_type_2d
 #endif
 #ifdef NAG
     USE nag_spline_2d             , only: nag_spline_2d_eval, &
@@ -285,7 +285,7 @@ module mod_ecfm_refr_interpol
       if(ier /= 0) then
         print*, "Critical error in spline evaluation: dfdx"
         print*, ier
-        print*, "spline in mod_ecfm_refr_utils failed"
+        print*, "spline in mod_ECRad_utils failed"
         if(ier == 10) then
           print*, "Array value out of bounds?"
           print*, x_ar
@@ -309,7 +309,7 @@ module mod_ecfm_refr_interpol
       dfdy = val_ar(1)
       if(ier /= 0) then
         print*, "Critical error in spline evaluation: dfdy"
-        print*, "spline in mod_ecfm_refr_utils failed"
+        print*, "spline in mod_ECRad_utils failed"
         if(ier == 10) then
           print*, "Array value out of bounds?"
           print*, x_ar
@@ -330,7 +330,7 @@ module mod_ecfm_refr_interpol
     f = val_ar(1)
     if(ier /= 0) then
       print*, "Critical error in spline evaluation: f"
-      print*, "spline in mod_ecfm_refr_utils failed"
+      print*, "spline in mod_ECRad_utils failed"
       if(ier == 10) then
           print*, "Array value out of bounds?"
           print*, x_ar
@@ -374,7 +374,7 @@ module mod_ecfm_refr_interpol
 
   subroutine print_2d_spline_params(spl,m)
     use f90_kind
-    USE mod_ecfm_refr_types , only : spl_type_2d
+    USE mod_ECRad_types , only : spl_type_2d
     implicit None
     type(spl_type_2d), intent(in) :: spl
     integer*4, intent(in)         :: m
@@ -399,9 +399,9 @@ module mod_ecfm_refr_interpol
     USE nag_spline_2d             , only: nag_spline_2d_eval, &
                                           nag_spline_2d_comm_wp => nag_spline_2d_comm_dp
     USE nag_error_handling
-    USE mod_ecfm_refr_types , only : plasma_params_type, spl_type_2d, double_check_splines, output_level
+    USE mod_ECRad_types , only : plasma_params_type, spl_type_2d, double_check_splines, output_level
 #else
-    USE mod_ecfm_refr_types , only : plasma_params_type, spl_type_2d
+    USE mod_ECRad_types , only : plasma_params_type, spl_type_2d
 #endif
     implicit none
     type(spl_type_2d), intent(in)                 :: spl
@@ -429,7 +429,7 @@ module mod_ecfm_refr_interpol
       if(ier /= 0) then
         print*, "Critical error in spline evaluation: dfdx"
         print*, ier
-        print*, "spline in mod_ecfm_refr_utils failed"
+        print*, "spline in mod_ECRad_utils failed"
         if(ier == 10) then
           print*, "Array value out of bounds?"
           print*, x_vec
@@ -454,7 +454,7 @@ module mod_ecfm_refr_interpol
       if(ier /= 0) then
         print*, "Critical error in spline evaluation: dfdy"
         print*, ier
-        print*, "spline in mod_ecfm_refr_utils failed"
+        print*, "spline in mod_ECRad_utils failed"
         if(ier == 10) then
           print*, "Array value out of bounds?"
           print*, x_vec
@@ -480,7 +480,7 @@ module mod_ecfm_refr_interpol
     if(ier /= 0) then
       print*, "Critical error in spline evaluation: f"
       print*, ier
-      print*, "spline in mod_ecfm_refr_utils failed"
+      print*, "spline in mod_ECRad_utils failed"
       if(ier == 10) then
           print*, "Array value out of bounds?"
           print*, x_vec
@@ -570,9 +570,9 @@ module mod_ecfm_refr_interpol
   ! WARNING: This routine does not check bounds - out of bounds interpolations are prone to very large errors
     use f90_kind
 #ifdef NAG
-    USE mod_ecfm_refr_types , only : spl_type_1d, double_check_splines
+    USE mod_ECRad_types , only : spl_type_1d, double_check_splines
 #else
-    USE mod_ecfm_refr_types , only : spl_type_1d
+    USE mod_ECRad_types , only : spl_type_1d
 #endif
 #ifdef NAG
     USE nag_spline_1d        , only : nag_spline_1d_eval, &
@@ -604,7 +604,7 @@ module mod_ecfm_refr_interpol
       if(ier /= 0) then
         print*, "Critical error in spline evaluation: dfdx"
         print*, ier
-        print*, "spline in mod_ecfm_refr_utils failed"
+        print*, "spline in mod_ECRad_utils failed"
         if(ier == 10) then
           print*, "Array value out of bounds"
           print*, "requested value", x_ar
@@ -622,11 +622,13 @@ module mod_ecfm_refr_interpol
     f = val_ar(1)
     if(ier /= 0) then
       print*, "Critical error in spline evaluation: f"
-      print*, "spline in mod_ecfm_refr_utils failed"
-      if(ier == 10) then
+      print*, "spline in mod_ECRad_utils failed"
+      if(ier == 10 .or. ier == 1) then
         print*, "Array value out of bounds"
         print*, "requested value", x_ar
         print*, "x boundary", spl%x_start, spl%x_end
+      else
+        print*, "FITPACK error code", ier
       end if
 #ifdef INTEL
       call tracebackqq()
@@ -679,9 +681,9 @@ module mod_ecfm_refr_interpol
     USE nag_spline_1d        , only : nag_spline_1d_eval, &
                                       nag_spline_1d_comm_wp => nag_spline_1d_comm_dp
     USE nag_error_handling
-    USE mod_ecfm_refr_types , only  : plasma_params_type, spl_type_1d, double_check_splines
+    USE mod_ECRad_types , only  : plasma_params_type, spl_type_1d, double_check_splines
 #else
-    USE mod_ecfm_refr_types , only  : plasma_params_type, spl_type_1d
+    USE mod_ECRad_types , only  : plasma_params_type, spl_type_1d
 #endif
 #ifdef INTEL
     use ifcore,                     only: tracebackqq
@@ -706,7 +708,7 @@ module mod_ecfm_refr_interpol
       if(ier /= 0) then
         print*, "Critical error in spline evaluation: dfdx"
         print*, ier
-        print*, "spline in mod_ecfm_refr_utils failed"
+        print*, "spline in mod_ECRad_utils failed"
         if(ier == 10) then
           print*, "Array value out of bounds"
           print*, "requested value", x
@@ -723,7 +725,7 @@ module mod_ecfm_refr_interpol
     call splev(spl%t, spl%n, spl%c, spl%k, x, f, m, 2, ier)
     if(ier /= 0) then
       print*, "Critical error in spline evaluation: f"
-      print*, "spline in mod_ecfm_refr_utils failed"
+      print*, "spline in mod_ECRad_utils failed"
       print*, "error message", ier
       if(ier == 10) then
         print*, "Array value out of bounds"
@@ -760,7 +762,7 @@ module mod_ecfm_refr_interpol
   subroutine spline_1d_get_roots(spl, roots, root_cnt)
   ! Finds the root of a 1D spline
     use f90_kind
-    USE mod_ecfm_refr_types , only  : spl_type_1d
+    USE mod_ECRad_types , only  : spl_type_1d
 #ifdef INTEL
     use ifcore,                     only: tracebackqq
 #endif
@@ -785,7 +787,7 @@ module mod_ecfm_refr_interpol
     if(ier /= 0) then
       print*, "Critical error in evaluation of spline roots"
       print*, ier
-      print*, "spline in mod_ecfm_refr_utils failed"
+      print*, "spline in mod_ECRad_utils failed"
       print*, "t", spl%t
 #ifdef INTEL
       call tracebackqq()
@@ -799,7 +801,7 @@ module mod_ecfm_refr_interpol
   subroutine spline_1d_integrate(spl, a, b, int_val)
   ! Definite integral a, b of spline
     use f90_kind
-    USE mod_ecfm_refr_types , only  : spl_type_1d
+    USE mod_ECRad_types , only  : spl_type_1d
     implicit none
     type(spl_type_1d)                     :: spl
     real(rkind),           intent(in)     :: a, b
@@ -808,4 +810,4 @@ module mod_ecfm_refr_interpol
     real(rkind), external :: splint_fitpack
     int_val = splint_fitpack(spl%t,spl%n,spl%c, spl%k, a, b, wrk)
   end subroutine spline_1d_integrate
-end module mod_ecfm_refr_interpol
+end module mod_ECRad_interpol

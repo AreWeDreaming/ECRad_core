@@ -1,4 +1,4 @@
-module mod_ecfm_refr_fp_dist_utils
+module mod_ECRad_fp_dist_utils
   use f90_kind
   implicit none
 
@@ -15,9 +15,9 @@ contains
 
 
 subroutine make_rhop_Bmin()
-  USE mod_ecfm_refr_types, only: ffp, plasma_params
+  USE mod_ECRad_types, only: ffp, plasma_params
   use constants,           only: mass_e, e0, pi
-  use mod_ecfm_refr_interpol,    only: make_1d_spline, rect_spline
+  use mod_ECRad_interpol,    only: make_1d_spline, rect_spline
   use mod_contour, only: contour_type, contouring, contour_indx2rz
 #ifdef NAG
   USE nag_spline_1d,                only: nag_spline_1d_interp
@@ -106,11 +106,11 @@ end subroutine make_rhop_Bmin
 
 subroutine setup_f_rhop_splines(ffp)
 #ifdef NAG
-  use mod_ecfm_refr_types,          only: ffp_type, double_check_splines
+  use mod_ECRad_types,          only: ffp_type, double_check_splines
 #else
-  use mod_ecfm_refr_types,          only: ffp_type
+  use mod_ECRad_types,          only: ffp_type
 #endif
-  use mod_ecfm_refr_interpol,       only: make_1d_spline
+  use mod_ECRad_interpol,       only: make_1d_spline
 #ifdef NAG
   USE nag_spline_1d,                only: nag_spline_1d_interp
 #endif
@@ -138,12 +138,12 @@ end subroutine setup_f_rhop_splines
 
 subroutine make_B_min_and_f_inter(svec, f_spl, B_min)
 #ifdef NAG
-  use mod_ecfm_refr_types,          only: ffp, rad_diag_ch_mode_ray_freq_svec_type, N_absz_large, double_check_splines, spl_type_2d
+  use mod_ECRad_types,          only: ffp, rad_diag_ch_mode_ray_freq_svec_type, N_absz_large, double_check_splines, spl_type_2d
 #else
-  use mod_ecfm_refr_types,          only: ffp, rad_diag_ch_mode_ray_freq_svec_type, N_absz_large, spl_type_2d
+  use mod_ECRad_types,          only: ffp, rad_diag_ch_mode_ray_freq_svec_type, N_absz_large, spl_type_2d
 #endif
-  use mod_ecfm_refr_types,          only: ffp
-  use mod_ecfm_refr_interpol,       only: make_rect_spline, deallocate_rect_spline, rect_spline, rect_spline_vec, spline_1d
+  use mod_ECRad_types,          only: ffp
+  use mod_ECRad_interpol,       only: make_rect_spline, deallocate_rect_spline, rect_spline, rect_spline_vec, spline_1d
 #ifdef NAG
   USE nag_spline_2d,                only: nag_spline_2d_interp
 #endif
@@ -264,7 +264,7 @@ subroutine make_B_min_and_f_inter(svec, f_spl, B_min)
 end subroutine make_B_min_and_f_inter
 
 subroutine cyl_to_pol(u_par, u_perp, svec, B_min, u, pitch)
-  use mod_ecfm_refr_types,          only: ffp,rad_diag_ch_mode_ray_freq_svec_type
+  use mod_ECRad_types,          only: ffp,rad_diag_ch_mode_ray_freq_svec_type
   use constants,                    only: mass_e, pi, e0, c0
   implicit none
   real(rkind), dimension(:), intent(in)         :: u_par, u_perp!
@@ -292,14 +292,14 @@ subroutine cyl_to_pol(u_par, u_perp, svec, B_min, u, pitch)
   if(any(pitch /= pitch)) then
     print*, "Nan in coordinate transform!"
     print*, "u_par, u_perp, zeta,", u_par, u_perp, zeta
-    stop "Nan in coordinate transform in mod_ecfm_refr_fp_dist_utils.f90"
+    stop "Nan in coordinate transform in mod_ECRad_fp_dist_utils.f90"
   end if
 end subroutine cyl_to_pol
 
 subroutine make_f_and_f_grad_along_line(u_par, u_perp, svec, f_spl, B_min, f, df_du_par, df_du_perp, debug)
-  use mod_ecfm_refr_types,          only: ffp,rad_diag_ch_mode_ray_freq_svec_type, spl_type_2d
+  use mod_ECRad_types,          only: ffp,rad_diag_ch_mode_ray_freq_svec_type, spl_type_2d
   use constants,                    only: mass_e, pi, e0, c0
-  use mod_ecfm_refr_interpol,       only: rect_spline_vec
+  use mod_ECRad_interpol,       only: rect_spline_vec
   implicit none
   real(rkind), dimension(:), intent(in)         :: u_par, u_perp!
   type(rad_diag_ch_mode_ray_freq_svec_type), intent(in):: svec
@@ -373,7 +373,7 @@ subroutine make_f_and_f_grad_along_line(u_par, u_perp, svec, f_spl, B_min, f, df
     call cyl_to_pol(u_par + 1.d-4, u_perp, svec, B_min, u_step, pitch_step)
     do i = 1, size(u_par)
       !print*,"dpar", u_par(i), dpitch_du_par(i), (pitch_step - pitch(i)) / 1.d-4, du_du_par(i), (u_step - u(i)) / 1.d-4
-      write(93,"(E18.10E3,A1,E18.10E3,A1,E18.10E3,A1,E18.10E3,A1,E18.10E3)"), &
+      write(93,"(E18.10E3,A1,E18.10E3,A1,E18.10E3,A1,E18.10E3,A1,E18.10E3)") &
               u_par(i), " ",&
               dpitch_du_par(i),  " ",&
               (pitch_step(i) - pitch(i)) / 1.d-4, " ", &
@@ -384,7 +384,7 @@ subroutine make_f_and_f_grad_along_line(u_par, u_perp, svec, f_spl, B_min, f, df
     call cyl_to_pol(u_par, u_perp + 1.d-4, svec, B_min, u_step, pitch_step)
     do i = 1, size(u_par)
       !print*, "dperp",u_perp(i), dpitch_du_perp(i), (pitch_step - pitch(i)) / 1.d-4, du_du_perp(i), (u_step - u(i)) / 1.d-4
-      write(94,"(E18.10E3,A1,E18.10E3,A1,E18.10E3,A1,E18.10E3,A1,E18.10E3)"), &
+      write(94,"(E18.10E3,A1,E18.10E3,A1,E18.10E3,A1,E18.10E3,A1,E18.10E3)") &
               u_perp(i), " ",&
               dpitch_du_perp(i), " ", &
               (pitch_step(i) - pitch(i)) / 1.d-4, " ", &
@@ -405,4 +405,4 @@ subroutine make_f_and_f_grad_along_line(u_par, u_perp, svec, f_spl, B_min, f, df
   end do
 end subroutine make_f_and_f_grad_along_line
 
-end module mod_ecfm_refr_fp_dist_utils
+end module mod_ECRad_fp_dist_utils

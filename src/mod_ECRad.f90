@@ -1,5 +1,5 @@
 
-module mod_ecfm_refr
+module mod_ECRad
 
 use f90_kind
 #ifdef OMP
@@ -7,11 +7,12 @@ use f90_kind
 #endif
 
 public :: initialize_stand_alone, &
-          initialize_ecfm, &
-          make_rays_ecfm, &
-          make_dat_model_ece_ecfm_refr, &
-          pre_initialize_ecfm, &
-          make_ece_rad_temp
+          initialize_ECRad, &
+          make_rays_ECRad, &
+          make_dat_model_ece_ECRad, &
+          pre_initialize_ECRad, &
+          make_ece_rad_temp, &
+          clean_up_ECRad
 
 private :: save_data_to_ASCII
 
@@ -23,16 +24,15 @@ subroutine initialize_stand_alone(working_dir, flag)
 ! Simulates the structure used in IDA
 ! While in the stand alone make_ece_rad_temp is only called once it is called many times in IDA
 ! Hence, to keep the structure similiar all initizalization is performed here
-use mod_ecfm_refr_types,        only: dstf, dst_data_folder, Ich_name, ray_out_folder, output_level, data_name, &
+use mod_ECRad_types,        only: dstf, dst_data_folder, Ich_name, ray_out_folder, output_level, data_name, &
                                       dstf_comp, plasma_params, warm_plasma, data_secondary_name, &
                                       data_folder, Ich_name, dstf_comp, straight, stand_alone, ffp, N_absz, &
                                       N_absz_large, new_IO, ray_init, use_ext_rays
-use mod_ecfm_refr_utils,      only: read_input_file, prepare_ECE_diag_new_IO, &
-                                    prepare_ECE_diag_old_IO, init_non_therm, &
-                                    read_external_rays
-use mod_ecfm_refr_raytrace_initialize,    only: init_raytrace
-use mod_ecfm_refr_raytrace,               only: span_svecs
-use mod_ecfm_refr_abs_Al,         only: abs_Al_init,abs_Al_clean_up
+use mod_ECRad_utils,      only: read_input_file, prepare_ECE_diag_new_IO, init_non_therm, &
+                                read_external_rays
+use mod_ECRad_raytrace_initialize,    only: init_raytrace
+use mod_ECRad_raytrace,               only: span_svecs
+use mod_ECRad_abs_Al,         only: abs_Al_init,abs_Al_clean_up
 use constants,                    only: pi
 implicit none
 character(150), intent(in)    :: working_dir
@@ -40,11 +40,7 @@ character(*),  intent(in)      :: flag
   if(.not. stand_alone) stop "This function may only be called in stand alone"
   if(trim(flag) == "init") then
     call read_input_file(working_dir)
-    if(.not. new_IO) then
-      call prepare_ECE_diag_old_IO()
-    else
-      call prepare_ECE_diag_new_IO()
-    end if
+    call prepare_ECE_diag_new_IO()
     if(use_ext_rays) call read_external_rays()
     dstf_comp = "Th"
     if(trim(dstf) == "Th") then
@@ -122,7 +118,7 @@ character(*),  intent(in)      :: flag
     if(output_level) print*,"Chosen distribution is: ", dstf
     if(output_level) flush(6)
     if(.not. new_IO) then
-      data_folder = trim(working_dir) //  "ecfm_data" // "/"
+      data_folder = trim(working_dir) //  "ECRad_data" // "/"
     else
       data_folder = trim(working_dir) //  "ECRad_data" // "/"
     end if
@@ -151,38 +147,93 @@ character(*),  intent(in)      :: flag
     !TODO: Implement clean up routine
     call abs_Al_clean_up()
   else
-    print*, "Inappropriate flag in initialize in mod_ecfm_ECE_rad"
+    print*, "Inappropriate flag in initialize in mod_ECRad_ECE_rad"
     stop "Interal error"
   end if
 end subroutine initialize_stand_alone
 
-subroutine pre_initialize_ecfm(working_dir_in, flag, ecrad_verbose, ray_tracing, ecrad_Bt_ripple, &
-                               rhopol_max_spline_knot, ecrad_weak_rel, &
-                               ecrad_ratio_for_third_harmonic, &
-                               ecrad_modes, reflec_X_mode, reflec_O_mode, ece_1O_flag, &
-                               ecrad_max_points_svec, & ! (modes = 1 -> pure X-mode, 2 -> pure O-mode, 3 both modes and filter
-                               ecrad_O2X_mode_conversion, & ! mode conversion ratio from O-X due to wall reflections
-                               ! Scaling of rhop axis for shifting on ne or Te
-                               ! Every rhop value obtained in ray tracing will be multiplied by the corresponding scaling value when evaluating Te/ne
-                               rhopol_scal_te, rhopol_scal_ne, btf_corr_fact_ext, &
-                               ecrad_ds_large, ecrad_ds_small, ecrad_R_shift, &    ! Allows shifting the equilbrium - moves entire flux matrix
-                               ecrad_z_shift, &    ! Allows shifting the equilbrium - moves entire flux matrix
-                               ecrad_N_ray, ecrad_N_freq, log_flag, parallelization_mode, &
-                               f, df, R, phi, z, tor, pol, dist_foc, width)
+subroutine pre_initialize_ECRad_f2py(ecrad_verbose, ray_tracing, ecrad_Bt_ripple, &
+                                     rhopol_max_spline_knot, ecrad_weak_rel, &
+                                     ecrad_ratio_for_third_harmonic, &
+                                     ecrad_modes, reflec_X_mode, reflec_O_mode, ece_1O_flag, &
+                                     ecrad_max_points_svec, & ! (modes = 1 -> pure X-mode, 2 -> pure O-mode, 3 both modes and filter
+                                     ecrad_O2X_mode_conversion, & ! mode conversion ratio from O-X due to wall reflections
+                                     ! Scaling of rhop axis for shifting on ne or Te
+                                     ! Every rhop value obtained in ray tracing will be multiplied by the corresponding scaling value when evaluating Te/ne
+                                     rhopol_scal_te, rhopol_scal_ne, &
+                                     ecrad_ds_large, ecrad_ds_small, ecrad_R_shift, &    ! Allows shifting the equilbrium - moves entire flux matrix
+                                     ecrad_z_shift, &    ! Allows shifting the equilbrium - moves entire flux matrix
+                                     ecrad_N_ray, ecrad_N_freq, log_flag, N_vessel, vessel_R, vessel_z, &
+                                     f, df, R, phi, z, tor, pol, dist_foc, width)
 ! Everything that is absolutely static in time is done over here
-use mod_ecfm_refr_types,      only: dstf, dst_data_folder, Ich_name, ray_out_folder, output_level, &
-                                      dstf_comp, plasma_params, N_ray, N_freq, ray_init, working_dir, &
+use mod_ECRad_types,      only: dstf, dst_data_folder, Ich_name, ray_out_folder, output_level, &
+                                dstf_comp, plasma_params, N_ray, N_freq, ray_init, working_dir, &
+                                rad, ant, data_folder, Ich_name, dstf_comp, straight, stand_alone
+use mod_ECRad_utils,      only: parse_ECRad_config, &
+                                prepare_ECE_diag
+use mod_ECRad_abs_Al,     only: abs_Al_init
+implicit none
+real(rkind), intent(in)       :: rhopol_max_spline_knot, ecrad_ratio_for_third_harmonic, &
+                                              reflec_X_mode, reflec_O_mode, ecrad_O2X_mode_conversion, &
+                                              rhopol_scal_te, rhopol_scal_ne, &
+                                              ecrad_ds_large, ecrad_ds_small, ecrad_R_shift, ecrad_z_shift
+integer(ikind), intent(in)    :: ecrad_modes, ecrad_max_points_svec, ecrad_N_ray, &
+                                              ecrad_N_freq,ece_1O_flag
+logical, intent(in)           :: ecrad_verbose, ecrad_Bt_ripple, ray_tracing, ecrad_weak_rel, log_flag
+integer(ikind), intent(in)    :: N_vessel
+real(rkind), dimension(:), intent(in) :: vessel_R, vessel_z
+real(rkind), dimension(:), intent(in), optional :: f, df, R, phi, z, tor, pol, dist_foc, width
+integer(ikind)                :: idiag
+  call parse_ECRad_config(plasma_params, &
+                          ecrad_verbose, ray_tracing, ecrad_Bt_ripple, &
+                          rhopol_max_spline_knot, ecrad_weak_rel, &
+                          ecrad_ratio_for_third_harmonic, &
+                          ecrad_modes, reflec_X_mode, reflec_O_mode, ece_1O_flag, &
+                          ecrad_max_points_svec, & ! (modes = 1 -> pure X-mode, 2 -> pure O-mode, 3 both modes and filter
+                          ecrad_O2X_mode_conversion, & ! mode conversion ratio from O-X due to wall reflections
+                          ! Scaling of rhop axis for shifting on ne or Te
+                          ! Every rhop value obtained in ray tracing will be multiplied by the corresponding scaling value when evaluating Te/ne
+                          rhopol_scal_te, rhopol_scal_ne, &
+                          ecrad_ds_large, ecrad_ds_small, ecrad_R_shift, &    ! Allows shifting the equilbrium - moves entire flux matrix
+                          ecrad_z_shift, &    ! Allows shifting the equilbrium - moves entire flux matrix
+                          ecrad_N_ray, ecrad_N_freq, log_flag, 0)
+  call prepare_ECE_diag(f=f, df=df, R=R, &
+                        phi=phi, z=z, tor=tor, pol=pol, dist_foc=dist_foc, &
+                        width=width)
+  plasma_params%m_vessel_bd = N_vessel
+  allocate(plasma_params%vessel_poly%x(plasma_params%m_vessel_bd), plasma_params%vessel_poly%y(plasma_params%m_vessel_bd))
+  plasma_params%vessel_poly%x(:) = vessel_R
+  plasma_params%vessel_poly%y(:) = vessel_z
+end subroutine pre_initialize_ECRad_f2py
+
+
+
+#ifdef IDA
+subroutine pre_initialize_ECRad_IDA(working_dir_in, flag, ecrad_verbose, ray_tracing, ecrad_Bt_ripple, &
+                                    rhopol_max_spline_knot, ecrad_weak_rel, &
+                                    ecrad_ratio_for_third_harmonic, &
+                                    ecrad_modes, reflec_X_mode, reflec_O_mode, ece_1O_flag, &
+                                    ecrad_max_points_svec, & ! (modes = 1 -> pure X-mode, 2 -> pure O-mode, 3 both modes and filter
+                                    ecrad_O2X_mode_conversion, & ! mode conversion ratio from O-X due to wall reflections
+                                    ! Scaling of rhop axis for shifting on ne or Te
+                                    ! Every rhop value obtained in ray tracing will be multiplied by the corresponding scaling value when evaluating Te/ne
+                                    rhopol_scal_te, rhopol_scal_ne, &
+                                    ecrad_ds_large, ecrad_ds_small, ecrad_R_shift, &    ! Allows shifting the equilbrium - moves entire flux matrix
+                                    ecrad_z_shift, &    ! Allows shifting the equilbrium - moves entire flux matrix
+                                    ecrad_N_ray, ecrad_N_freq, log_flag, parallelization_mode, &
+                                    f, df, R, phi, z, tor, pol, dist_foc, width)
+! Everything that is absolutely static in time is done over here
+use mod_ECRad_types,      only: dstf, dst_data_folder, Ich_name, ray_out_folder, output_level, &
+                                      dstf_comp, plasma_params, N_ray, N_freq, working_dir, &
                                       rad, ant, data_folder, Ich_name, dstf_comp, straight, stand_alone
-use mod_ecfm_refr_utils,      only: parse_ecfm_settings_from_ida, &
-                                    prepare_ECE_diag_IDA, dealloc_ant
-use mod_ecfm_refr_abs_Al,     only: abs_Al_init,abs_Al_clean_up
-use mod_ecfm_refr_raytrace,   only: dealloc_rad
-use mod_ecfm_refr_raytrace_initialize, only: dealloc_raytrace
+use mod_ECRad_utils,      only: parse_ECRad_config, &
+                                prepare_ECE_diag
+use mod_ECRad_abs_Al,     only: abs_Al_init
 implicit none
 character(*), intent(in)      :: working_dir_in, flag
 real(rkind), intent(in)       :: rhopol_max_spline_knot, ecrad_ratio_for_third_harmonic, &
                                               reflec_X_mode, reflec_O_mode, ecrad_O2X_mode_conversion, &
-                                              rhopol_scal_te, rhopol_scal_ne, btf_corr_fact_ext, &
+                                              rhopol_scal_te, rhopol_scal_ne &
                                               ecrad_ds_large, ecrad_ds_small, ecrad_R_shift, ecrad_z_shift
 integer(ikind), intent(in)    :: ecrad_modes, ecrad_max_points_svec, ecrad_N_ray, &
                                               ecrad_N_freq,ece_1O_flag
@@ -194,89 +245,160 @@ if(trim(flag) == "init" .or. trim(flag) == "load") then
 ! A few things need to be done both times
   working_dir = trim(working_dir_in)  // "/"
   if(present(parallelization_mode)) then
-    call parse_ecfm_settings_from_ida(plasma_params, &
-                                        ecrad_verbose, ray_tracing, ecrad_Bt_ripple, &
-                                        rhopol_max_spline_knot, ecrad_weak_rel, &
-                                        ecrad_ratio_for_third_harmonic, &
-                                        ecrad_modes, reflec_X_mode, reflec_O_mode, ece_1O_flag, &
-                                        ecrad_max_points_svec, & ! (modes = 1 -> pure X-mode, 2 -> pure O-mode, 3 both modes and filter
-                                        ecrad_O2X_mode_conversion, & ! mode conversion ratio from O-X due to wall reflections
-                                        ! Scaling of rhop axis for shifting on ne or Te
-                                        ! Every rhop value obtained in ray tracing will be multiplied by the corresponding scaling value when evaluating Te/ne
-                                        rhopol_scal_te, rhopol_scal_ne, btf_corr_fact_ext, &
-                                        ecrad_ds_large, ecrad_ds_small, ecrad_R_shift, &    ! Allows shifting the equilbrium - moves entire flux matrix
-                                        ecrad_z_shift, &    ! Allows shifting the equilbrium - moves entire flux matrix
-                                        ecrad_N_ray, ecrad_N_freq, log_flag, parallelization_mode)
+    call parse_ECRad_config(plasma_params, &
+                            ecrad_verbose, ray_tracing, ecrad_Bt_ripple, &
+                            rhopol_max_spline_knot, ecrad_weak_rel, &
+                            ecrad_ratio_for_third_harmonic, &
+                            ecrad_modes, reflec_X_mode, reflec_O_mode, ece_1O_flag, &
+                            ecrad_max_points_svec, & ! (modes = 1 -> pure X-mode, 2 -> pure O-mode, 3 both modes and filter
+                            ecrad_O2X_mode_conversion, & ! mode conversion ratio from O-X due to wall reflections
+                            ! Scaling of rhop axis for shifting on ne or Te
+                            ! Every rhop value obtained in ray tracing will be multiplied by the corresponding scaling value when evaluating Te/ne
+                            rhopol_scal_te, rhopol_scal_ne, &
+                            ecrad_ds_large, ecrad_ds_small, ecrad_R_shift, &    ! Allows shifting the equilbrium - moves entire flux matrix
+                            ecrad_z_shift, &    ! Allows shifting the equilbrium - moves entire flux matrix
+                            ecrad_N_ray, ecrad_N_freq, log_flag, parallelization_mode)
   else
-    call parse_ecfm_settings_from_ida(plasma_params, &
-                                        ecrad_verbose, ray_tracing, ecrad_Bt_ripple, &
-                                        rhopol_max_spline_knot, ecrad_weak_rel, &
-                                        ecrad_ratio_for_third_harmonic, &
-                                        ecrad_modes, reflec_X_mode, reflec_O_mode, ece_1O_flag, &
-                                        ecrad_max_points_svec, & ! (modes = 1 -> pure X-mode, 2 -> pure O-mode, 3 both modes and filter
-                                        ecrad_O2X_mode_conversion, & ! mode conversion ratio from O-X due to wall reflections
-                                        ! Scaling of rhop axis for shifting on ne or Te
-                                        ! Every rhop value obtained in ray tracing will be multiplied by the corresponding scaling value when evaluating Te/ne
-                                        rhopol_scal_te, rhopol_scal_ne, btf_corr_fact_ext, &
-                                        ecrad_ds_large, ecrad_ds_small, ecrad_R_shift, &    ! Allows shifting the equilbrium - moves entire flux matrix
-                                        ecrad_z_shift, &    ! Allows shifting the equilbrium - moves entire flux matrix
-                                        ecrad_N_ray, ecrad_N_freq, log_flag, 0)
+    call parse_ECRad_config(plasma_params, &
+                            ecrad_verbose, ray_tracing, ecrad_Bt_ripple, &
+                            rhopol_max_spline_knot, ecrad_weak_rel, &
+                            ecrad_ratio_for_third_harmonic, &
+                            ecrad_modes, reflec_X_mode, reflec_O_mode, ece_1O_flag, &
+                            ecrad_max_points_svec, & ! (modes = 1 -> pure X-mode, 2 -> pure O-mode, 3 both modes and filter
+                            ecrad_O2X_mode_conversion, & ! mode conversion ratio from O-X due to wall reflections
+                            ! Scaling of rhop axis for shifting on ne or Te
+                            ! Every rhop value obtained in ray tracing will be multiplied by the corresponding scaling value when evaluating Te/ne
+                            rhopol_scal_te, rhopol_scal_ne, &
+                            ecrad_ds_large, ecrad_ds_small, ecrad_R_shift, &    ! Allows shifting the equilbrium - moves entire flux matrix
+                            ecrad_z_shift, &    ! Allows shifting the equilbrium - moves entire flux matrix
+                            ecrad_N_ray, ecrad_N_freq, log_flag, 0)
   end if
   ! Hard coded since this is anyways just for testing purposes
-  data_folder = trim(working_dir) //  "ecfm_data" // "/"
-  ray_out_folder = trim(working_dir) // "ecfm_data/" // "ray/"
-  data_folder = trim(working_dir) // "ecfm_data" // "/"
-  if(output_level) print*, "ECFM data will arrive in: ", data_folder
+  data_folder = trim(working_dir) //  "ECRad_data" // "/"
+  ray_out_folder = trim(working_dir) // "ECRad_data/" // "ray/"
+  data_folder = trim(working_dir) // "ECRad_data" // "/"
+  if(output_level) print*, "ECRad data will arrive in: ", data_folder
   if(dstf == "Th") call abs_Al_init(32) ! Initializes the weights and abszissae for the gaussian quadrature
   if(trim(flag) == "init") then
     if(.not. present(f)) then
-      print*, "pre_initialize_ecfm must be called with ece_strut present if flag == init"
+      print*, "pre_initialize_ECRad_IDA must be called with ece_strut present if flag == init"
       call abort()
     end if
-    call prepare_ECE_diag_IDA(working_dir=working_dir, f=f, df=df, R=R, &
-    					  phi=phi, z=z, tor=tor, pol=pol, dist_foc=dist_foc, &
-    					  width=width)
+    call prepare_ECE_diag(working_dir=working_dir, f=f, df=df, R=R, &
+    					            phi=phi, z=z, tor=tor, pol=pol, dist_foc=dist_foc, &
+    					            width=width)
     ! parses diag info then creates two input files
   else
-    call prepare_ECE_diag_IDA(working_dir=working_dir)
+    call prepare_ECE_diag(working_dir=working_dir)
     ! load the files the routine 4 lines above creates
   end if
 else if(trim(flag) == "clean") then
-  call abs_Al_clean_up()
-  call dealloc_rad(rad)
-  call dealloc_ant(ant)
-  call dealloc_raytrace(plasma_params)
-  ray_init = .false.
+  call dealloc_ECRad()
 else
-  print*, "Inappropriate flag in initialize in mod_ecfm_ECE_rad"
+  print*, "Inappropriate flag in initialize in mod_ECRad_ECE_rad"
   stop "Internal error"
 end if
-end subroutine pre_initialize_ecfm
+end subroutine pre_initialize_ECRad_IDA
+#endif
 
-
-subroutine clean_up_ecfm()
-use mod_ecfm_refr_types,      only: plasma_params,rad, ant, ray_init
-use mod_ecfm_refr_utils,      only: dealloc_ant
-use mod_ecfm_refr_abs_Al,     only: abs_Al_clean_up
-use mod_ecfm_refr_raytrace,   only: dealloc_rad
-use mod_ecfm_refr_raytrace_initialize, only: dealloc_raytrace
+subroutine clean_up_ECRad()
+use mod_ECRad_types,      only: plasma_params, rad, ant
+use mod_ECRad_utils,      only: dealloc_ant
+use mod_ECRad_abs_Al,     only: abs_Al_clean_up
+use mod_ECRad_raytrace,   only: dealloc_rad
+use mod_ECRad_raytrace_initialize, only: dealloc_raytrace
 implicit None
   call abs_Al_clean_up()
   call dealloc_rad(rad)
   call dealloc_ant(ant)
   call dealloc_raytrace(plasma_params)
-  ray_init = .false.
-end subroutine clean_up_ecfm
+  if(allocated(plasma_params%IDA_rhop_knots_ne)) then
+    deallocate(plasma_params%IDA_rhop_knots_ne, plasma_params%IDA_n_e, &
+                 plasma_params%IDA_n_e_dx2, plasma_params%IDA_rhop_knots_Te, &
+                 plasma_params%IDA_T_e, plasma_params%IDA_T_e_dx2)
+  end if
+#ifdef USE_3D
+  !TODO deallocate 3D stuff
+#endif
+end subroutine clean_up_ECRad
 
-subroutine initialize_ecfm(flag, N_Te_spline_knots, N_ne_spline_knots, &
+subroutine initialize_ECRad_f2py(N_Te_spline_knots, N_ne_spline_knots, &
+                                 R, z, rhop, Br, Bt, Bz, R_ax, z_ax, T_e_mat, n_e_mat)
+! Hence, to keep the structure similiar all initizalization is performed here
+! Initializations that depend on time are done here
+use mod_ECRad_types,        only: dstf, dst_data_folder, Ich_name, ray_out_folder, output_level, &
+                                  dstf_comp, plasma_params, N_ray, N_freq, ray_init, warm_plasma, &
+                                  rad, ant, data_folder, Ich_name, dstf_comp, straight, stand_alone, &
+                                  use_ida_spline_Te, use_ida_spline_ne
+use mod_ECRad_raytrace_initialize, only: init_raytrace, dealloc_raytrace
+implicit none
+integer(ikind), intent(in), optional              :: N_Te_spline_knots, N_ne_spline_knots
+real(rkind), intent(in), optional                 :: R_ax, z_ax
+real(rkind), dimension(:), intent(in), optional   :: R, z
+real(rkind), dimension(:,:), intent(in), optional :: rhop, Br, Bt, Bz, T_e_mat, n_e_mat
+integer(ikind)                       :: idiag
+logical                                           :: old_straight
+  if(present(T_e_mat)) then
+    call init_raytrace(plasma_params, R, z, rhop, Br, Bt, Bz, R_ax, z_ax, T_e_mat, n_e_mat)
+  else
+    call init_raytrace(plasma_params, R, z, rhop, Br, Bt, Bz, R_ax, z_ax)
+  end if
+  allocate(plasma_params%IDA_rhop_knots_ne(N_ne_spline_knots), plasma_params%IDA_n_e(N_ne_spline_knots), &
+           plasma_params%IDA_n_e_dx2(N_ne_spline_knots), plasma_params%IDA_rhop_knots_Te(N_Te_spline_knots), &
+           plasma_params%IDA_T_e(N_Te_spline_knots), plasma_params%IDA_T_e_dx2(N_Te_spline_knots))
+end subroutine initialize_ECRad_f2py
+
+
+#ifdef USE_3D
+subroutine initialize_ECRad_3D_f2py(N_Te_spline_knots, N_ne_spline_knots, &
+                                    equilibrium_file, equilibrium_type, use_mesh, &
+                                    use_symmetry, B_ref, s_plus, s_max, &
+                                    interpolation_acc, fourier_coeff_trunc, &
+                                    h_mesh, delta_phi_mesh, vessel_filename, &
+                                    rhopol_out)
+! Hence, to keep the structure similiar all initizalization is performed here
+! Initializations that depend on time are done here
+use mod_ECRad_types,        only: plasma_params, use_3D, Vessel_bd_filename, &
+                                  straight, output_level, ray_init, warm_plasma
+use mod_ECRad_raytrace_initialize, only: init_raytrace, dealloc_raytrace
+implicit none
+integer(ikind), intent(in) :: N_Te_spline_knots, N_ne_spline_knots
+CHARACTER(*), intent(in) :: equilibrium_file
+CHARACTER(*), intent(in) :: equilibrium_type
+logical, intent(in)      :: use_mesh, use_symmetry
+real(rkind), intent(in)  :: B_ref, s_plus, s_max, h_mesh, delta_phi_mesh, &
+                            interpolation_acc, fourier_coeff_trunc
+CHARACTER(*), intent(in) :: vessel_filename
+real(rkind), dimension(:), intent(out), optional  :: rhopol_out
+integer(ikind)                                    :: idiag
+logical                                           :: old_straight
+  use_3D = .true.
+  plasma_params%Scenario%name_config = equilibrium_file
+  plasma_params%Scenario%format_config = equilibrium_type
+  plasma_params%Scenario%useMesh = use_mesh
+  plasma_params%Scenario%useSymm = use_symmetry
+  plasma_params%Scenario%B_ref = B_ref
+  plasma_params%Scenario%splus = s_plus
+  plasma_params%Scenario%smax = s_max
+  plasma_params%Scenario%accbooz = interpolation_acc
+  plasma_params%Scenario%tolharm = fourier_coeff_trunc
+  plasma_params%Scenario%hgrid = h_mesh
+  plasma_params%Scenario%dphic = delta_phi_mesh! Degrees
+  vessel_bd_filename = vessel_filename
+  call initialize_ECRad_f2py(N_Te_spline_knots, N_ne_spline_knots, rhopol_out)
+end subroutine initialize_ECRad_3D_f2py
+#endif
+
+#ifdef IDA
+subroutine initialize_ECRad_IDA(flag, N_Te_spline_knots, N_ne_spline_knots, &
                            R, z, rhop, Br, Bt, Bz, R_ax, z_ax, rhopol_out)
 ! Hence, to keep the structure similiar all initizalization is performed here
 ! Initializations that depend on time are done here
-use mod_ecfm_refr_types,        only: dstf, dst_data_folder, Ich_name, ray_out_folder, output_level, &
-                                      dstf_comp, plasma_params, N_ray, N_freq, ray_init, warm_plasma, &
-                                      rad, ant, data_folder, Ich_name, dstf_comp, straight, stand_alone, &
-                                      use_ida_spline_Te, use_ida_spline_ne
-use mod_ecfm_refr_raytrace_initialize, only: init_raytrace, dealloc_raytrace
+use mod_ECRad_types,        only: dstf, dst_data_folder, Ich_name, ray_out_folder, output_level, &
+                                  dstf_comp, plasma_params, N_ray, N_freq, ray_init, warm_plasma, &
+                                  rad, ant, data_folder, Ich_name, dstf_comp, straight, stand_alone, &
+                                  use_ida_spline_Te, use_ida_spline_ne
+use mod_ECRad_raytrace_initialize, only: init_raytrace, dealloc_raytrace
 implicit none
 character(*), intent(in)                          :: flag
 integer(ikind), intent(in), optional              :: N_Te_spline_knots, N_ne_spline_knots
@@ -287,7 +409,11 @@ real(rkind), dimension(:), intent(out), optional  :: rhopol_out
 integer(ikind)                       :: idiag
 logical                                           :: old_straight
   if(trim(flag) == "init") then
-    call init_raytrace(plasma_params, R, z, rhop, Br, Bt, Bz, R_ax, z_ax)
+    if(present(R)) then
+      call init_raytrace(plasma_params, R, z, rhop, Br, Bt, Bz, R_ax, z_ax)
+    else
+      call init_raytrace(plasma_params)
+    end if
     allocate(plasma_params%IDA_rhop_knots_ne(N_ne_spline_knots), plasma_params%IDA_n_e(N_ne_spline_knots), &
              plasma_params%IDA_n_e_dx2(N_ne_spline_knots), plasma_params%IDA_rhop_knots_Te(N_Te_spline_knots), &
              plasma_params%IDA_T_e(N_Te_spline_knots), plasma_params%IDA_T_e_dx2(N_Te_spline_knots))
@@ -296,7 +422,7 @@ logical                                           :: old_straight
       plasma_params%No_ne_te = .true.
       old_straight = straight
       straight = .True.
-      call make_rays_ecfm(rhopol_out) ! initial resonances without ray tracing
+      call make_rays_ECRad(rhopol_out) ! initial resonances without ray tracing
       plasma_params%No_ne_te = .false.
       straight = old_straight
     end if
@@ -308,110 +434,38 @@ logical                                           :: old_straight
       print*, "Use weakly relativistic cut off correction for ray tracing: ", warm_plasma
     end if
   else if(trim(flag) == "clean") then
-    !TODO: Implement clean up routine
     call dealloc_raytrace(plasma_params)
     ray_init = .false.
     deallocate(plasma_params%IDA_rhop_knots_ne, plasma_params%IDA_n_e, &
                plasma_params%IDA_n_e_dx2, plasma_params%IDA_rhop_knots_Te, &
                plasma_params%IDA_T_e, plasma_params%IDA_T_e_dx2)
   else
-    print*, "Inappropriate flag in initalize in mod_ecfm_ECE_rad"
+    print*, "Inappropriate flag in initalize in mod_ECRad_ECE_rad"
     stop "Interal error"
   end if
-end subroutine initialize_ecfm
-
-#ifdef USE_3D
-subroutine initialize_ecfm_3D(flag, N_Te_spline_knots, N_ne_spline_knots, &
-                              equilibrium_file, equilibrium_type, use_mesh, &
-                              use_symmetry, B_ref, s_plus, s_max, &
-                              interpolation_acc, fourier_coeff_trunc, &
-                              h_mesh, delta_phi_mesh, vessel_filename, &
-                              rhopol_out)
-! Hence, to keep the structure similiar all initizalization is performed here
-! Initializations that depend on time are done here
-use mod_ecfm_refr_types,        only: plasma_params, use_3D, Vessel_bd_filename, &
-									  straight, output_level, ray_init, warm_plasma
-use mod_ecfm_refr_raytrace_initialize, only: init_raytrace, dealloc_raytrace
-implicit none
-character(*), intent(in) :: flag
-integer(ikind), intent(in), optional :: N_Te_spline_knots, N_ne_spline_knots
-CHARACTER(*), intent(in) :: equilibrium_file
-CHARACTER(*), intent(in) :: equilibrium_type
-logical, intent(in)      :: use_mesh, use_symmetry
-real(rkind), intent(in)  :: B_ref, s_plus, s_max, h_mesh, delta_phi_mesh, &
-                            interpolation_acc, fourier_coeff_trunc
-CHARACTER(*), intent(in) :: vessel_filename                            
-real(rkind), dimension(:), intent(out), optional  :: rhopol_out
-integer(ikind)                                    :: idiag
-logical                                           :: old_straight
-  if(trim(flag) == "init") then
-    use_3D = .true.
-    plasma_params%Scenario%name_config = equilibrium_file
-    plasma_params%Scenario%format_config = equilibrium_type
-    plasma_params%Scenario%useMesh = use_mesh
-    plasma_params%Scenario%useSymm = use_symmetry
-    plasma_params%Scenario%B_ref = B_ref
-    plasma_params%Scenario%splus = s_plus
-    plasma_params%Scenario%smax = s_max
-    plasma_params%Scenario%accbooz = interpolation_acc
-    plasma_params%Scenario%tolharm = fourier_coeff_trunc
-    plasma_params%Scenario%hgrid = h_mesh
-    plasma_params%Scenario%dphic = delta_phi_mesh! Degrees
-    vessel_bd_filename = vessel_filename
-    call init_raytrace(plasma_params)
-    allocate(plasma_params%IDA_rhop_knots_ne(N_ne_spline_knots), plasma_params%IDA_n_e(N_ne_spline_knots), &
-             plasma_params%IDA_n_e_dx2(N_ne_spline_knots), plasma_params%IDA_rhop_knots_Te(N_Te_spline_knots), &
-             plasma_params%IDA_T_e(N_Te_spline_knots), plasma_params%IDA_T_e_dx2(N_Te_spline_knots))
-    if(present(rhopol_out)) then
-      ! straight los => Neither Te nor ne matters
-      plasma_params%No_ne_te = .true.
-      old_straight = straight
-      straight = .True.
-      call make_rays_ecfm(rhopol_out) ! initial resonances without ray tracing
-      plasma_params%No_ne_te = .false.
-      straight = old_straight
-    end if
-    ! Two modes one for shot file load one for loading from files
-    if(output_level) then
-      print*, "----- Options for raytracing ------"
-      print*, "Force straight lines of sight: ", straight
-      print*, "Include ripple: ", plasma_params%w_ripple
-      print*, "Use weakly relativistic cut off correction for ray tracing: ", warm_plasma
-    end if
-  else if(trim(flag) == "clean") then
-    !TODO: Implement clean up routine
-    call dealloc_raytrace(plasma_params)
-    ray_init = .false.
-    deallocate(plasma_params%IDA_rhop_knots_ne, plasma_params%IDA_n_e, &
-               plasma_params%IDA_n_e_dx2, plasma_params%IDA_rhop_knots_Te, &
-               plasma_params%IDA_T_e, plasma_params%IDA_T_e_dx2)
-  else
-    print*, "Inappropriate flag in initalize in mod_ecfm_ECE_rad"
-    stop "Interal error"
-  end if
-end subroutine initialize_ecfm_3D
+end subroutine initialize_ECRad_IDA
 #endif
 
-subroutine make_rays_ecfm(rhop_knots_ne, n_e, n_e_dx2, rhop_knots_Te, T_e, T_e_dx2, &
+subroutine make_rays_ECRad(rhop_knots_ne, n_e, n_e_dx2, rhop_knots_Te, T_e, T_e_dx2, &
                           rhop_res)
 ! Simulates the structure used in IDA
 ! While in the stand alone make_ece_rad_temp is only called once it is called many times in IDA
 ! Hence, to keep the structure similiar all initizalization is performed here
-use mod_ecfm_refr_types,        only: plasma_params, ant, rad, ray_init, straight, modes
-use mod_ecfm_refr_raytrace,               only: span_svecs
+use mod_ECRad_types,        only: plasma_params, ant, rad, ray_init, straight, modes
+use mod_ECRad_raytrace,               only: span_svecs
 implicit none
 real(rkind), dimension(:), intent(in), optional   :: rhop_knots_ne, n_e, n_e_dx2, rhop_knots_Te, T_e, T_e_dx2
 real(rkind), dimension(:),  intent(out), optional :: rhop_res
 integer(ikind)                          :: idiag, ich
 ! Updates the values of the splines: Te, ne
-if(.not. plasma_params%No_ne_te ) then
+if(.not. plasma_params%No_ne_te .or. plasma_params%Te_ne_mat) then
   call update_Te_ne(rhop_knots_ne, n_e, n_e_dx2, rhop_knots_Te, T_e, T_e_dx2)
 end if
 call span_svecs(plasma_params)
 ! for second harmonic (n -1)/n =(2 -1)/2 = 0.5d0
 ray_init = .true.
 if( plasma_params%No_ne_te) then
-  ! For the first run of the ecfm we need resonance positions that work best for classical ECE analysis
+  ! For the first run of the ECRad we need resonance positions that work best for classical ECE analysis
   ! Hence, we use the resonances of the X-mode and the combination of O and X mode is overwritten.
   if(modes == 3) then
     do idiag = 1, ant%N_diag
@@ -429,14 +483,14 @@ if(present(rhop_res)) then
     rhop_res = rad%diag(idiag)%ch(:)%rhop_res
   end do
 end if
-end subroutine make_rays_ecfm
+end subroutine make_rays_ECRad
 
-subroutine make_dat_model_ece_ecfm_refr(rhop_knots_ne, n_e, n_e_dx2, rhop_knots_Te, T_e, T_e_dx2, &
-                                        ne_rhop_scal, reflec_X_new, & ! in
-                                        reflec_O_new, ece_fm_flag_ch, rp_min, &
-                                        dat_model_ece, tau, set_grid_dynamic, verbose)
-use mod_ecfm_refr_types,        only: reflec_X, reflec_O, plasma_params, rad, ant, ray_init, static_grid
-use mod_ecfm_refr_utils,        only: retrieve_T_e
+subroutine make_dat_model_ece_ECRad(rhop_knots_ne, n_e, n_e_dx2, rhop_knots_Te, T_e, T_e_dx2, &
+                                    ne_rhop_scal, reflec_X_new, & ! in
+                                    reflec_O_new, ece_fm_flag_ch, rp_min, &
+                                    dat_model_ece, tau, set_grid_dynamic, verbose)
+use mod_ECRad_types,        only: reflec_X, reflec_O, plasma_params, rad, ant, ray_init, static_grid, stand_alone
+use mod_ECRad_utils,        only: retrieve_T_e
 implicit none
 real(rkind), dimension(:), intent(in)  :: rhop_knots_ne, n_e, rhop_knots_Te, T_e
 real(rkind),               intent(in)  :: ne_rhop_scal, reflec_X_new, reflec_O_new, rp_min
@@ -449,8 +503,8 @@ logical, intent(in), optional          :: set_grid_dynamic
 integer(ikind)                         :: ich
 if(.not. ray_init) then
   print*, "Something wrong with the sequencing!!"
-  print*, "make_dat_model_ece_ecfm_refr was called before make_rays_ecfm"
-  print*, "Critical error in mod_ecfm_refr.f90 - check stack trace!"
+  print*, "make_dat_model_ece_ECRad was called before make_rays_ECRad"
+  print*, "Critical error in mod_ECRad.f90 - check stack trace!"
   call abort
 end if
 if(present(set_grid_dynamic)) then
@@ -505,26 +559,26 @@ where(rad%diag(1)%ch(:)%rhop_res < 0.d0) dat_model_ece = 0.d0 ! cut off
 if(present(tau)) then
   if(size(tau) /= size(dat_model_ece)) then
     print*, "If provided tau must have the same shape as dat_model_ece"
-    print*, "Input error in make_dat_model_ece_ecfm_refr"
+    print*, "Input error in make_dat_model_ece_ECRad"
     call abort()
   end if
   tau(:) = -1.d0
   where (ece_fm_flag_ch) tau = rad%diag(1)%ch(:)%tau
 end if
-if(present(verbose)) then
+if(present(verbose) .and. stand_alone) then
   if(verbose) call save_data_to_ASCII()
 end if
 !do ich =1, ant%diag(1)%N_ch
 !  if(ece_fm_flag_ch(ich)) print*, rad%diag(1)%ch(ich)%Trad
 !end do
-end subroutine make_dat_model_ece_ecfm_refr
+end subroutine make_dat_model_ece_ECRad
 
 subroutine make_BPD_w_res_ch(idiag, ich, rhop_knots_ne, n_e, n_e_dx2, rhop_knots_Te, T_e, T_e_dx2, &
                                         ne_rhop_scal, reflec_X_new, & ! in
                                         reflec_O_new, rp_min, &
                                         rhop, BPD, rhop_res_warm)
-use mod_ecfm_refr_types,        only: rad, ant, mode_cnt, pnts_BPD
-use mod_ecfm_refr_utils,        only: retrieve_T_e
+use mod_ECRad_types,        only: rad, ant, mode_cnt, pnts_BPD
+use mod_ECRad_utils,        only: retrieve_T_e
 implicit none
 integer(ikind), intent(in)             :: idiag, ich
 real(rkind), dimension(:), intent(in)  :: rhop_knots_ne, n_e, rhop_knots_Te, T_e, n_e_dx2, T_e_dx2
@@ -536,7 +590,7 @@ real(rkind), dimension(ant%diag(idiag)%N_ch) :: dat_model_ece_dummy
 integer(ikind)                               :: imode
  ece_fm_flag_ch(:) = .false.
  ece_fm_flag_ch(ich) = .true.
- call make_dat_model_ece_ecfm_refr(rhop_knots_ne, n_e, n_e_dx2, rhop_knots_Te, T_e, T_e_dx2, &
+ call make_dat_model_ece_ECRad(rhop_knots_ne, n_e, n_e_dx2, rhop_knots_Te, T_e, T_e_dx2, &
                                    ne_rhop_scal, reflec_X_new, & ! in
                                    reflec_O_new, ece_fm_flag_ch, rp_min, &
                                    dat_model_ece_dummy, set_grid_dynamic = .true.)
@@ -559,8 +613,8 @@ integer(ikind)                               :: imode
 end subroutine make_BPD_w_res_ch
 
 subroutine update_Te_ne(rhop_knots_ne, n_e, n_e_dx2, rhop_knots_Te, T_e, T_e_dx2)
-use mod_ecfm_refr_types,               only: plasma_params, use_ida_spline_Te, use_ida_spline_ne, SOL_ne, SOL_Te
-use mod_ecfm_refr_interpol,            only: make_1d_spline
+use mod_ECRad_types,               only: plasma_params, use_ida_spline_Te, use_ida_spline_ne, SOL_ne, SOL_Te
+use mod_ECRad_interpol,            only: make_1d_spline
 use f90_kind
   implicit none
   real(rkind), dimension(:), intent(in)   :: rhop_knots_ne, n_e, rhop_knots_Te, T_e
@@ -608,12 +662,12 @@ end subroutine update_Te_ne
 
 subroutine update_svecs(rad, rhop_knots_ne, n_e, n_e_dx2, rhop_knots_Te, T_e, T_e_dx2)
   ! This routine has to be called every time before Trad is calculated.
-  use mod_ecfm_refr_types,               only: rad_type, ant, plasma_params, &
+  use mod_ECRad_types,               only: rad_type, ant, plasma_params, &
                                                N_ray, N_freq, mode_cnt, stand_alone, &
                                                use_ida_spline_Te, output_level, max_points_svec
   use f90_kind
   use constants,                         only: pi,e0, mass_e, c0
-  use mod_ecfm_refr_utils,               only: retrieve_n_e, retrieve_T_e
+  use mod_ECRad_utils,               only: retrieve_n_e, retrieve_T_e
   implicit none
   real(rkind), dimension(:), intent(in)   :: rhop_knots_ne, n_e, rhop_knots_Te, T_e
   real(rkind), dimension(:), intent(in), optional   :: n_e_dx2, T_e_dx2
@@ -667,14 +721,14 @@ subroutine update_svecs(rad, rhop_knots_ne, n_e, n_e_dx2, rhop_knots_Te, T_e, T_
 end subroutine update_svecs
 
 subroutine make_ece_rad_temp()
-use mod_ecfm_refr_types,        only: dstf, reflec_X, reflec_O, mode_cnt, N_ray, N_freq, plasma_params, &
+use mod_ECRad_types,        only: dstf, reflec_X, reflec_O, mode_cnt, N_ray, N_freq, plasma_params, &
                                       rad, ant, output_level, max_points_svec, mode_conv, reflec_model, &
                                       vessel_plasma_ratio, stand_alone
-use mod_ecfm_refr_rad_transp,   only: calculate_Trad
+use mod_ECRad_rad_transp,   only: calculate_Trad
 use constants,                  only: e0, c0, pi
-use mod_ecfm_refr_utils,        only: binary_search, bin_ray_BPD_to_common_rhop, make_warm_res_mode, bin_freq_to_ray
-use mod_ecfm_refr_raytrace,     only: reinterpolate_svec
-use mod_ecfm_refr_interpol,     only: spline_1d
+use mod_ECRad_utils,        only: binary_search, bin_ray_BPD_to_common_rhop, make_warm_res_mode, bin_freq_to_ray
+use mod_ECRad_raytrace,     only: reinterpolate_svec
+use mod_ECRad_interpol,     only: spline_1d
 implicit none
 
 real(rkind)     :: ds_small, ds_large
@@ -1205,12 +1259,12 @@ if( stand_alone .and. output_level) call save_data_to_ASCII() !output_level .and
 end subroutine make_ece_rad_temp
 
 subroutine make_BPD_and_warm_res(idiag, ich) ! to be used within IDA, calculates all birthplace distribution for one diagnostic
-use mod_ecfm_refr_types,        only: plasma_params, rad, ant, mode_cnt, N_ray, &
+use mod_ECRad_types,        only: plasma_params, rad, ant, mode_cnt, N_ray, &
                                       N_freq, pnts_BPD, max_points_svec
-use mod_ecfm_refr_rad_transp,   only: calculate_Trad, get_em_T_fast
+use mod_ECRad_rad_transp,   only: calculate_Trad, get_em_T_fast
 use constants,                  only: e0, c0, pi
-use mod_ecfm_refr_utils,        only: binary_search, bin_ray_BPD_to_common_rhop, make_warm_res_mode, bin_freq_to_ray
-use mod_ecfm_refr_raytrace,     only: reinterpolate_svec
+use mod_ECRad_utils,        only: binary_search, bin_ray_BPD_to_common_rhop, make_warm_res_mode, bin_freq_to_ray
+use mod_ECRad_raytrace,     only: reinterpolate_svec
 implicit none
 integer(ikind), intent(in) :: idiag, ich
 integer(ikind)  :: imode, ifreq, ir
@@ -1284,10 +1338,10 @@ integer(ikind)  :: imode, ifreq, ir
 end subroutine make_BPD_and_warm_res
 
 subroutine save_data_to_ASCII()
-use mod_ecfm_refr_types,        only: mode_cnt, N_ray, N_freq, data_name, output_level, &
+use mod_ECRad_types,        only: mode_cnt, N_ray, N_freq, data_name, output_level, &
                                       rad, ant, data_folder, Ich_name, dstf_comp, ray_out_folder, data_secondary_name, &
                                       output_all_ray_data, new_IO
-use mod_ecfm_refr_utils,        only: export_all_ece_data
+use mod_ECRad_utils,        only: export_all_ece_data
 use constants,                  only: c0, e0
 implicit none
 Character(200)               :: filename, ich_filename, Och_filename
@@ -1532,4 +1586,4 @@ call export_all_ECE_data()
 end subroutine save_data_to_ASCII
 !*******************************************************************************
 
-end module mod_ecfm_refr
+end module mod_ECRad

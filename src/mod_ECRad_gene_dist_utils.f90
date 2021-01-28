@@ -1,4 +1,4 @@
-module mod_ecfm_refr_gene_dist_utils
+module mod_ECRad_gene_dist_utils
   use f90_kind
   implicit none
 
@@ -13,8 +13,8 @@ module mod_ecfm_refr_gene_dist_utils
 contains
 
 subroutine setup_fgene_rhop_splines(fgene)
-  use mod_ecfm_refr_types,          only: fgene_type
-  use mod_ecfm_refr_interpol,       only: make_1d_spline
+  use mod_ECRad_types,          only: fgene_type
+  use mod_ECRad_interpol,       only: make_1d_spline
 #ifdef NAG
   USE nag_spline_1d,                only: nag_spline_1d_interp
 #endif
@@ -28,15 +28,15 @@ subroutine setup_fgene_rhop_splines(fgene)
 #endif
   do ivpar = 1, fgene%N_vpar
     do imu = 1, fgene%N_mu
-    ! No nag spline here, because wwe do not want compare linear and cubib splines
+    ! No nag spline here, because wwe do not want compare linear and cubic splines
       call make_1d_spline(fgene%g_rhop_spl(ivpar, imu), fgene%N_rhop, fgene%rhop, fgene%g(:, ivpar, imu), k = 1)
     end do
   end do
 end subroutine setup_fgene_rhop_splines
 
 subroutine make_g_inter(svec, g_spl)
-  use mod_ecfm_refr_types,          only: fgene, rad_diag_ch_mode_ray_freq_svec_type, N_absz_large, spl_type_2d
-  use mod_ecfm_refr_interpol,       only: make_rect_spline, deallocate_rect_spline, rect_spline, rect_spline_vec, spline_1d
+  use mod_ECRad_types,          only: fgene, rad_diag_ch_mode_ray_freq_svec_type, N_absz_large, spl_type_2d
+  use mod_ECRad_interpol,       only: make_rect_spline, deallocate_rect_spline, rect_spline, rect_spline_vec, spline_1d
 #ifdef NAG
   USE nag_spline_2d,                only: nag_spline_2d_interp
 #endif
@@ -67,7 +67,7 @@ subroutine make_g_inter(svec, g_spl)
 end subroutine make_g_inter
 
 subroutine v_par_mu_to_cyl(u_par, u_perp, svec, vpar, mu)
-  use mod_ecfm_refr_types,          only: fgene,rad_diag_ch_mode_ray_freq_svec_type, fgene
+  use mod_ECRad_types,          only: fgene,rad_diag_ch_mode_ray_freq_svec_type, fgene
   use constants,                    only: mass_e, pi, e0, c0
   implicit none
   real(rkind), dimension(:), intent(in)         :: u_par, u_perp!
@@ -80,9 +80,9 @@ subroutine v_par_mu_to_cyl(u_par, u_perp, svec, vpar, mu)
 end subroutine v_par_mu_to_cyl
 
 subroutine make_g_and_g_grad_along_line(u_par, u_perp, svec, g_spl, g, dg_du_par, dg_du_perp, debug)
-  use mod_ecfm_refr_types,          only: fgene, rad_diag_ch_mode_ray_freq_svec_type, spl_type_2d
+  use mod_ECRad_types,          only: fgene, rad_diag_ch_mode_ray_freq_svec_type, spl_type_2d
   use constants,                    only: mass_e, pi, e0, c0
-  use mod_ecfm_refr_interpol,       only: rect_spline_vec
+  use mod_ECRad_interpol,       only: rect_spline_vec
   implicit none
   real(rkind), dimension(:), intent(in)         :: u_par, u_perp!
   type(rad_diag_ch_mode_ray_freq_svec_type), intent(in):: svec
@@ -120,7 +120,7 @@ subroutine make_g_and_g_grad_along_line(u_par, u_perp, svec, g_spl, g, dg_du_par
     call v_par_mu_to_cyl(u_par + 1.d-4, u_perp, svec, vpar_step, mu_step)
     do i = 1, size(u_par)
       !print*,"dpar", u_par(i), dmu_du_par(i), (mu_step - mu(i)) / 1.d-4, dvpar_du_par(i), (vpar_step - vpar(i)) / 1.d-4
-      write(93,"(E18.10E3,A1,E18.10E3,A1,E18.10E3,A1,E18.10E3,A1,E18.10E3)"), &
+      write(93,"(E18.10E3,A1,E18.10E3,A1,E18.10E3,A1,E18.10E3,A1,E18.10E3)") &
               u_par(i), " ",&
               dmu_du_par(i),  " ",&
               (mu_step(i) - mu(i)) / 1.d-4, " ", &
@@ -131,7 +131,7 @@ subroutine make_g_and_g_grad_along_line(u_par, u_perp, svec, g_spl, g, dg_du_par
     call v_par_mu_to_cyl(u_par, u_perp + 1.d-4, svec, vpar_step, mu_step)
     do i = 1, size(u_par)
       !print*, "dperp",u_perp(i), dmu_du_perp(i), (mu_step - mu(i)) / 1.d-4, dvpar_du_perp(i), (vpar_step - vpar(i)) / 1.d-4
-      write(94,"(E18.10E3,A1,E18.10E3,A1,E18.10E3,A1,E18.10E3,A1,E18.10E3)"), &
+      write(94,"(E18.10E3,A1,E18.10E3,A1,E18.10E3,A1,E18.10E3,A1,E18.10E3)") &
               u_perp(i), " ",&
               dmu_du_perp(i), " ", &
               (mu_step(i) - mu(i)) / 1.d-4, " ", &
@@ -155,9 +155,9 @@ subroutine make_g_and_g_grad_along_line(u_par, u_perp, svec, g_spl, g, dg_du_par
 end subroutine make_g_and_g_grad_along_line
 
 subroutine make_gene_f_and_gene_f_grad_along_line(u_par, u_perp, svec, g_spl, f, df_du_par, df_du_perp, debug)
-  use mod_ecfm_refr_types,          only: fgene, rad_diag_ch_mode_ray_freq_svec_type, spl_type_2d
+  use mod_ECRad_types,          only: fgene, rad_diag_ch_mode_ray_freq_svec_type, spl_type_2d
   use constants,                    only: mass_e, pi, e0, c0
-  use mod_ecfm_refr_interpol,       only: rect_spline_vec
+  use mod_ECRad_interpol,       only: rect_spline_vec
   implicit none
   real(rkind), dimension(:), intent(in)         :: u_par, u_perp!
   type(rad_diag_ch_mode_ray_freq_svec_type), intent(in):: svec
@@ -207,7 +207,7 @@ subroutine make_gene_f_and_gene_f_grad_along_line(u_par, u_perp, svec, g_spl, f,
     call v_par_mu_to_cyl(u_par + 1.d-4, u_perp, svec, vpar_step, mu_step)
     do i = 1, size(u_par)
       !print*,"dpar", u_par(i), dmu_du_par(i), (mu_step - mu(i)) / 1.d-4, dvpar_du_par(i), (vpar_step - vpar(i)) / 1.d-4
-      write(93,"(E18.10E3,A1,E18.10E3,A1,E18.10E3,A1,E18.10E3,A1,E18.10E3)"), &
+      write(93,"(E18.10E3,A1,E18.10E3,A1,E18.10E3,A1,E18.10E3,A1,E18.10E3)") &
               u_par(i), " ",&
               dmu_du_par(i),  " ",&
               (mu_step(i) - mu(i)) / 1.d-4, " ", &
@@ -217,7 +217,7 @@ subroutine make_gene_f_and_gene_f_grad_along_line(u_par, u_perp, svec, g_spl, f,
     call v_par_mu_to_cyl(u_par, u_perp + 1.d-4, svec, vpar_step, mu_step)
     do i = 1, size(u_par)
       !print*, "dperp",u_perp(i), dmu_du_perp(i), (mu_step - mu(i)) / 1.d-4, dvpar_du_perp(i), (vpar_step - vpar(i)) / 1.d-4
-      write(94,"(E18.10E3,A1,E18.10E3,A1,E18.10E3,A1,E18.10E3,A1,E18.10E3)"), &
+      write(94,"(E18.10E3,A1,E18.10E3,A1,E18.10E3,A1,E18.10E3,A1,E18.10E3)") &
               u_perp(i), " ",&
               dmu_du_perp(i), " ", &
               (mu_step(i) - mu(i)) / 1.d-4, " ", &
@@ -230,9 +230,9 @@ subroutine make_gene_f_and_gene_f_grad_along_line(u_par, u_perp, svec, g_spl, f,
 end subroutine make_gene_f_and_gene_f_grad_along_line
 
 subroutine make_gene_f0_and_gene_f0_grad_along_line(u_par, u_perp, svec, f0, df0_du_par, df0_du_perp, debug)
-  use mod_ecfm_refr_types,          only: fgene, rad_diag_ch_mode_ray_freq_svec_type
+  use mod_ECRad_types,          only: fgene, rad_diag_ch_mode_ray_freq_svec_type
   use constants,                    only: mass_e, pi, e0, c0
-  use mod_ecfm_refr_interpol,       only: rect_spline_vec
+  use mod_ECRad_interpol,       only: rect_spline_vec
   implicit none
   real(rkind), dimension(:), intent(in)         :: u_par, u_perp!
   type(rad_diag_ch_mode_ray_freq_svec_type), intent(in):: svec
@@ -281,7 +281,7 @@ subroutine make_gene_f0_and_gene_f0_grad_along_line(u_par, u_perp, svec, f0, df0
     call v_par_mu_to_cyl(u_par + 1.d-4, u_perp, svec, vpar_step, mu_step)
     do i = 1, size(u_par)
       !print*,"dpar", u_par(i), dmu_du_par(i), (mu_step - mu(i)) / 1.d-4, dvpar_du_par(i), (vpar_step - vpar(i)) / 1.d-4
-      write(93,"(E18.10E3,A1,E18.10E3,A1,E18.10E3,A1,E18.10E3,A1,E18.10E3)"), &
+      write(93,"(E18.10E3,A1,E18.10E3,A1,E18.10E3,A1,E18.10E3,A1,E18.10E3)") &
               u_par(i), " ",&
               dmu_du_par(i),  " ",&
               (mu_step(i) - mu(i)) / 1.d-4, " ", &
@@ -292,7 +292,7 @@ subroutine make_gene_f0_and_gene_f0_grad_along_line(u_par, u_perp, svec, f0, df0
     call v_par_mu_to_cyl(u_par, u_perp + 1.d-4, svec, vpar_step, mu_step)
     do i = 1, size(u_par)
       !print*, "dperp",u_perp(i), dmu_du_perp(i), (mu_step - mu(i)) / 1.d-4, dvpar_du_perp(i), (vpar_step - vpar(i)) / 1.d-4
-      write(94,"(E18.10E3,A1,E18.10E3,A1,E18.10E3,A1,E18.10E3,A1,E18.10E3)"), &
+      write(94,"(E18.10E3,A1,E18.10E3,A1,E18.10E3,A1,E18.10E3,A1,E18.10E3)") &
               u_perp(i), " ",&
               dmu_du_perp(i), " ", &
               (mu_step(i) - mu(i)) / 1.d-4, " ", &
@@ -304,4 +304,4 @@ subroutine make_gene_f0_and_gene_f0_grad_along_line(u_par, u_perp, svec, f0, df0
   end if
 end subroutine make_gene_f0_and_gene_f0_grad_along_line
 
-end module mod_ecfm_refr_gene_dist_utils
+end module mod_ECRad_gene_dist_utils

@@ -3,9 +3,9 @@
 ! -> Introduce 3D equilibria, see sub_spatial_grad_N_par, sub_grad_N_par
 
 
-module mod_ecfm_refr_raytrace
+module mod_ECRad_raytrace
     use f90_kind
-    USE mod_ecfm_refr_types, only : plasma_params_type
+    USE mod_ECRad_types, only : plasma_params_type
     implicit none
     type(plasma_params_type)   :: glob_plasma_params
     real(rkind)   :: glob_omega
@@ -140,7 +140,7 @@ module mod_ecfm_refr_raytrace
 
   function func_H(N_perp, A, B, C, mode)
     USE f90_kind
-    USE mod_ecfm_refr_types , only : eps
+    USE mod_ECRad_types , only : eps
     implicit none
     real(rkind),              intent(in)  :: N_perp, A, B, C
     integer(ikind),           intent(in)  :: mode
@@ -151,7 +151,7 @@ module mod_ecfm_refr_raytrace
 
   function func_N_s_2_stix(A,  B, C, mode)
     USE f90_kind
-    USE mod_ecfm_refr_types , only : eps
+    USE mod_ECRad_types , only : eps
     implicit none
     real(rkind),              intent(in)  :: A, B, C
     integer(ikind),           intent(in)  :: mode
@@ -184,7 +184,7 @@ module mod_ecfm_refr_raytrace
 
   function func_dH_dA(A, B, C, mode)
     USE f90_kind
-    USE mod_ecfm_refr_types , only : eps
+    USE mod_ECRad_types , only : eps
     implicit none
     real(rkind),              intent(in)  :: A, B, C
     integer(ikind),           intent(in)  :: mode
@@ -197,7 +197,7 @@ module mod_ecfm_refr_raytrace
 
   function func_dH_dB(A, B, C, mode)
     USE f90_kind
-    USE mod_ecfm_refr_types , only : eps
+    USE mod_ECRad_types , only : eps
     implicit none
     real(rkind),              intent(in)  :: A, B, C
     integer(ikind),           intent(in)  :: mode
@@ -207,7 +207,7 @@ module mod_ecfm_refr_raytrace
 !
   function func_dH_dC(A, B, C, mode)
     USE f90_kind
-    USE mod_ecfm_refr_types , only : eps
+    USE mod_ECRad_types , only : eps
     implicit none
     real(rkind),              intent(in)  :: A, B, C
     integer(ikind),           intent(in)  :: mode
@@ -309,7 +309,7 @@ function func_dA_dY(X, Y)
 
   function func_dNs_sq_dX(N_abs, X, Y, N_par, mode)
   ! Calculates dN_s/ dX
-    !USE mod_ecfm_refr_types , only : h_x_glob
+    !USE mod_ECRad_types , only : h_x_glob
     USE f90_kind
     implicit None
     real(rkind),              intent(in)  :: N_abs, X, Y, N_par
@@ -324,7 +324,7 @@ function func_dA_dY(X, Y)
  function func_dNs_sq_dY2(N_abs, X, Y, N_par, mode)
   ! Calculates dNs_sq/dY^2
     USE f90_kind
-    !USE mod_ecfm_refr_types , only : h_x_glob
+    !USE mod_ECRad_types , only : h_x_glob
     implicit None
     real(rkind),              intent(in)  :: N_abs, X, Y, N_par
     integer(ikind),           intent(in)  :: mode
@@ -351,7 +351,7 @@ function func_dA_dY(X, Y)
 
   function func_dLambda_star_dX(N_abs, X, Y, N_par, mode)
   ! Calculates dN_s/ dX
-    !USE mod_ecfm_refr_types , only : h_x_glob
+    !USE mod_ECRad_types , only : h_x_glob
     USE f90_kind
     implicit None
     real(rkind),              intent(in)  :: N_abs,  X, Y, N_par
@@ -371,7 +371,7 @@ function func_dA_dY(X, Y)
 
   function func_dLambda_star_dY2(N_abs, X, Y, N_par, mode)
     USE f90_kind
-    !USE mod_ecfm_refr_types , only : h_x_glob
+    !USE mod_ECRad_types , only : h_x_glob
     implicit None
     real(rkind),              intent(in)  :: N_abs, X, Y, N_par
     integer(ikind),           intent(in)  :: mode
@@ -460,9 +460,9 @@ function func_dA_dY(X, Y)
 
   subroutine sub_spatial_grad_rhop(plasma_params, x_vec, R_vec, rhop, spatial_grad_rhop)
     USE f90_kind
-    USE mod_ecfm_refr_types , only: plasma_params_type
+    USE mod_ECRad_types , only: plasma_params_type
     USE ripple3d,                 only: grad_type
-    use mod_ecfm_refr_interpol,      only: rect_spline
+    use mod_ECRad_interpol,      only: rect_spline
     !USE nag_spline_2d             , only: nag_spline_2d_eval, &
     !                                      nag_error, nag_set_error
     implicit none
@@ -491,10 +491,10 @@ function func_dA_dY(X, Y)
 
   function func_rhop(plasma_params, x_vec)
     USE f90_kind
-    USE mod_ecfm_refr_types , only : plasma_params_type, use_3D
+    USE mod_ECRad_types , only : plasma_params_type, use_3D
     USE ripple3d,                 only: grad_type
-    USE mod_ecfm_refr_utils,        only: sub_remap_coords
-    use mod_ecfm_refr_interpol,      only: rect_spline
+    USE mod_ECRad_utils,        only: sub_remap_coords
+    use mod_ECRad_interpol,      only: rect_spline
 #ifdef USE_3D
     use magconfig,                 only: MConf_FluxLabel_Bfield, MConf_isInsideLCMS
 #endif
@@ -547,7 +547,7 @@ function func_dA_dY(X, Y)
 
   function func_B_abs(plasma_params, x_vec)
     USE f90_kind
-    USE mod_ecfm_refr_types , only : plasma_params_type
+    USE mod_ECRad_types , only : plasma_params_type
     implicit none
     type(plasma_params_type)                  :: plasma_params
     real(rkind), dimension(:)  , intent(in)   :: x_vec
@@ -559,10 +559,10 @@ function func_dA_dY(X, Y)
 
   subroutine make_B_vec(plasma_params, x_vec, B_vec)
     USE f90_kind
-    USE mod_ecfm_refr_types , only : plasma_params_type, use_3D
+    USE mod_ECRad_types , only : plasma_params_type, use_3D
     USE ripple3d,                 only: get_ripple, grad_type
-    USE mod_ecfm_refr_utils,      only: sub_remap_coords
-    use mod_ecfm_refr_interpol,      only: rect_spline
+    USE mod_ECRad_utils,      only: sub_remap_coords
+    use mod_ECRad_interpol,      only: rect_spline
 #ifdef USE_3D
     use magconfig,                 only: MConf_FluxLabel_Bfield, MConf_isInsideLCMS
 #endif
@@ -637,10 +637,10 @@ function func_dA_dY(X, Y)
 
   function func_flux_norm_vec(plasma_params, x_vec)
     USE f90_kind
-    USE mod_ecfm_refr_types , only : plasma_params_type
+    USE mod_ECRad_types , only : plasma_params_type
     USE ripple3d,                 only: get_ripple, grad_type
-    USE mod_ecfm_refr_utils,      only: sub_remap_coords
-    use mod_ecfm_refr_interpol,      only: rect_spline
+    USE mod_ECRad_utils,      only: sub_remap_coords
+    use mod_ECRad_interpol,      only: rect_spline
     implicit none
     type(plasma_params_type), intent(in)      :: plasma_params
     real(rkind), dimension(:), intent(in)     :: x_vec
@@ -660,10 +660,10 @@ function func_dA_dY(X, Y)
 
   subroutine sub_N_par(plasma_params, x_vec, N_vec, N_par, N_abs, B_abs)
     USE f90_kind
-    USE mod_ecfm_refr_types , only : plasma_params_type
+    USE mod_ECRad_types , only : plasma_params_type
     Use ripple3d,             only : grad_type,get_ripple
-    Use mod_ecfm_refr_utils,  only : sub_remap_coords
-    use mod_ecfm_refr_interpol,      only: rect_spline
+    Use mod_ECRad_utils,  only : sub_remap_coords
+    use mod_ECRad_interpol,      only: rect_spline
     implicit none
     type(plasma_params_type), intent(in)      :: plasma_params
     real(rkind), dimension(:)  , intent(in)   :: x_vec, N_vec
@@ -687,12 +687,12 @@ function func_dA_dY(X, Y)
 
   subroutine func_B_r(plasma_params, R_vec, B_R_vec)
     use f90_kind
-    USE mod_ecfm_refr_types , only : plasma_params_type
+    USE mod_ECRad_types , only : plasma_params_type
     Use ripple3d,             only : grad_type, get_ripple
 #ifdef NAG
     USE nag_spline_2d             , only: nag_spline_2d_eval
 #endif
-   use mod_ecfm_refr_interpol,      only: rect_spline
+   use mod_ECRad_interpol,      only: rect_spline
     implicit none
     type(plasma_params_type)   , intent(in)   :: plasma_params
     real(rkind), dimension(:)  , intent(in)   :: R_vec
@@ -731,9 +731,9 @@ function func_dA_dY(X, Y)
 
   function  func_B_x(plasma_params, x_vec)
     use f90_kind
-    USE mod_ecfm_refr_types , only : plasma_params_type
+    USE mod_ECRad_types , only : plasma_params_type
     Use ripple3d,             only : grad_type
-    use mod_ecfm_refr_utils,  only: sub_remap_coords
+    use mod_ECRad_utils,  only: sub_remap_coords
     implicit none
     type(plasma_params_type)   , intent(in)   :: plasma_params
     real(rkind), dimension(:)  , intent(in)   :: x_vec
@@ -746,9 +746,9 @@ function func_dA_dY(X, Y)
 
   function  func_B_y(plasma_params, x_vec)
     use f90_kind
-    USE mod_ecfm_refr_types , only : plasma_params_type
+    USE mod_ECRad_types , only : plasma_params_type
     Use ripple3d,             only : grad_type
-    use mod_ecfm_refr_utils,  only: sub_remap_coords
+    use mod_ECRad_utils,  only: sub_remap_coords
     implicit none
     type(plasma_params_type)   , intent(in)   :: plasma_params
     real(rkind), dimension(:)  , intent(in)   :: x_vec
@@ -761,9 +761,9 @@ function func_dA_dY(X, Y)
 
     function  func_B_z(plasma_params, x_vec)
     use f90_kind
-    USE mod_ecfm_refr_types , only : plasma_params_type
+    USE mod_ECRad_types , only : plasma_params_type
     Use ripple3d,             only : grad_type
-    use mod_ecfm_refr_utils,  only: sub_remap_coords
+    use mod_ECRad_utils,  only: sub_remap_coords
     implicit none
     type(plasma_params_type)   , intent(in)   :: plasma_params
     real(rkind), dimension(:)  , intent(in)   :: x_vec
@@ -776,7 +776,7 @@ function func_dA_dY(X, Y)
 
  function  func_B_x_R(plasma_params, R_vec)
     use f90_kind
-    USE mod_ecfm_refr_types , only : plasma_params_type
+    USE mod_ECRad_types , only : plasma_params_type
     Use ripple3d,             only : grad_type
     implicit none
     type(plasma_params_type)   , intent(in)   :: plasma_params
@@ -789,7 +789,7 @@ function func_dA_dY(X, Y)
 
   function  func_B_y_R(plasma_params, R_vec)
     use f90_kind
-    USE mod_ecfm_refr_types , only : plasma_params_type
+    USE mod_ECRad_types , only : plasma_params_type
     Use ripple3d,             only : grad_type
     implicit none
     type(plasma_params_type)   , intent(in)   :: plasma_params
@@ -802,7 +802,7 @@ function func_dA_dY(X, Y)
 
   function  func_B_z_R(plasma_params, R_vec)
     use f90_kind
-    USE mod_ecfm_refr_types , only : plasma_params_type
+    USE mod_ECRad_types , only : plasma_params_type
     Use ripple3d,             only : grad_type
     implicit none
     type(plasma_params_type)   , intent(in)   :: plasma_params
@@ -815,7 +815,7 @@ function func_dA_dY(X, Y)
 
   function  func_B_r_R(plasma_params, R_vec)
     use f90_kind
-    USE mod_ecfm_refr_types , only : plasma_params_type
+    USE mod_ECRad_types , only : plasma_params_type
     Use ripple3d,         only     : grad_type
     implicit none
     type(plasma_params_type)   , intent(in)   :: plasma_params
@@ -828,7 +828,7 @@ function func_dA_dY(X, Y)
 
   function  func_B_phi_R(plasma_params, R_vec)
     use f90_kind
-    USE mod_ecfm_refr_types , only : plasma_params_type
+    USE mod_ECRad_types , only : plasma_params_type
     Use ripple3d,             only : grad_type
     implicit none
     type(plasma_params_type)   , intent(in)   :: plasma_params
@@ -845,10 +845,10 @@ function func_dA_dY(X, Y)
   ! (Calculating these quantities here safes interpolations)
   ! This is the routine that would need to be extended to allow for 3D equilibria
     USE f90_kind
-    USE mod_ecfm_refr_types , only : plasma_params_type
+    USE mod_ECRad_types , only : plasma_params_type
     Use ripple3d,         only : grad_type, get_ripple_w_grad
-    USE mod_ecfm_refr_utils, only: sub_remap_coords
-    use mod_ecfm_refr_interpol,      only: rect_spline
+    USE mod_ECRad_utils, only: sub_remap_coords
+    use mod_ECRad_interpol,      only: rect_spline
     implicit none
     type(plasma_params_type)   , intent(in)   :: plasma_params
     real(rkind), dimension(:)  , intent(in)   :: x_vec
@@ -1067,7 +1067,7 @@ function func_dA_dY(X, Y)
   ! (Calculating these quantities here safes interpolations)
   ! This is the routine that would need to be extended to allow for 3D equilibria
     USE f90_kind
-    USE mod_ecfm_refr_types , only : plasma_params_type
+    USE mod_ECRad_types , only : plasma_params_type
     Use ripple3d,         only : grad_type, get_ripple_w_grad
     implicit none
     type(plasma_params_type)   , intent(in)   :: plasma_params
@@ -1128,8 +1128,8 @@ function func_dA_dY(X, Y)
 
   subroutine sub_get_grad_rhop_and_grad_B_vec(plasma_params, x_vec, in_plasma, rhop_out, B_vec, grad_rhop, grad_B_vec)
     USE f90_kind
-    USE mod_ecfm_refr_types, only : plasma_params_type, use_3D
-    USE mod_ecfm_refr_utils, only: sub_remap_coords
+    USE mod_ECRad_types, only : plasma_params_type, use_3D
+    USE mod_ECRad_utils, only: sub_remap_coords
 #ifdef USE_3D
     use magconfig,                 only: MConf_SBgradSgradBi, MConf_isInsideLCMS
 #endif
@@ -1259,10 +1259,10 @@ function func_dA_dY(X, Y)
   subroutine sub_spatial_grad_X(plasma_params, omega, x_vec, rhop, grad_rhop, X, spatial_grad_X)
   ! dX/ dx
     USE f90_kind
-    USE mod_ecfm_refr_types, only : plasma_params_type, warm_plasma, SOL_ne, SOL_Te
+    USE mod_ECRad_types, only : plasma_params_type, warm_plasma, SOL_ne, SOL_Te
     USE ripple3d,                 only: grad_type
     use constants,                 only : pi, e0, mass_e, eps0, c0
-    use mod_ecfm_refr_utils, only: retrieve_n_e, retrieve_T_e, retrieve_n_e_mat_single, retrieve_T_e_mat_single
+    use mod_ECRad_utils, only: retrieve_n_e, retrieve_T_e, retrieve_n_e_mat_single, retrieve_T_e_mat_single
     ! corresponds to flux coordinates
     implicit None
     type(plasma_params_type),    intent(in)   :: plasma_params
@@ -1307,7 +1307,7 @@ function func_dA_dY(X, Y)
 
 
   function func_X(plasma_params, omega, n_e, T_e)
-    USE mod_ecfm_refr_types, only : plasma_params_type, warm_plasma
+    USE mod_ECRad_types, only : plasma_params_type, warm_plasma
     use constants,            only: pi, e0, mass_e, eps0, c0
     implicit None
     type(plasma_params_type), intent(in)      :: plasma_params
@@ -1324,7 +1324,7 @@ function func_dA_dY(X, Y)
                                    N_par, spatial_grad_N_par, spatial_grad_B_abs, B_abs, N_grad_N_par)
   ! dN_par / dx
     USE f90_kind
-    USE mod_ecfm_refr_types, only : plasma_params_type
+    USE mod_ECRad_types, only : plasma_params_type
     implicit none
     type(plasma_params_type), intent(in)        :: plasma_params
     real(rkind), dimension(:),      intent(in)  :: x_vec, N_vec
@@ -1341,7 +1341,7 @@ function func_dA_dY(X, Y)
   end subroutine sub_spatial_grad_N_par
 
   function func_Y(plasma_params, omega, B_abs, T_e)
-    USE mod_ecfm_refr_types, only : plasma_params_type, warm_plasma
+    USE mod_ECRad_types, only : plasma_params_type, warm_plasma
     use constants,            only: pi, e0, mass_e, eps0, c0
     implicit None
     type(plasma_params_type),    intent(in)   :: plasma_params
@@ -1357,9 +1357,9 @@ function func_dA_dY(X, Y)
   subroutine sub_spatial_grad_Y(plasma_params, omega, x_vec, B_abs, spatial_grad_B_abs, rhop, grad_rhop, Y, spatial_grad_Y)
   ! dY^2 / dx
     USE f90_kind
-    USE mod_ecfm_refr_types, only : plasma_params_type, warm_plasma, SOL_ne, SOL_Te
+    USE mod_ECRad_types, only : plasma_params_type, warm_plasma, SOL_ne, SOL_Te
     use constants,            only: pi, e0, mass_e, eps0, c0
-    use mod_ecfm_refr_utils, only: retrieve_T_e, retrieve_T_e_mat_single
+    use mod_ECRad_utils, only: retrieve_T_e, retrieve_T_e_mat_single
     ! corresponds to flux coordinates
     implicit None
     type(plasma_params_type),    intent(in)   :: plasma_params
@@ -1401,10 +1401,10 @@ function func_dA_dY(X, Y)
 
  subroutine sub_grad_H(plasma_params, omega, mode, x_vec, dx_dsigma)
     USE f90_kind
-    USE mod_ecfm_refr_types, only : plasma_params_type, h_x_glob
+    USE mod_ECRad_types, only : plasma_params_type, h_x_glob
     USE ripple3d,                 only: grad_type
     USE constants,                 only : eps0, mass_e, e0, c0
-    use mod_ecfm_refr_utils, only: retrieve_n_e, retrieve_T_e, sub_remap_coords, &
+    use mod_ECRad_utils, only: retrieve_n_e, retrieve_T_e, sub_remap_coords, &
                                    retrieve_n_e_mat_single, &
                                    retrieve_T_e_mat_single
     implicit None
@@ -1655,10 +1655,10 @@ function func_dA_dY(X, Y)
 
   subroutine sub_grad_Lambda(plasma_params, omega, mode, x_vec, dxds)
     USE f90_kind
-    USE mod_ecfm_refr_types, only : plasma_params_type, h_x_glob
+    USE mod_ECRad_types, only : plasma_params_type, h_x_glob
     USE ripple3d,                 only: grad_type
     USE constants,                 only : c0, eps0, mass_e, e0
-    use mod_ecfm_refr_utils, only: retrieve_n_e, retrieve_T_e, sub_remap_coords, &
+    use mod_ECRad_utils, only: retrieve_n_e, retrieve_T_e, sub_remap_coords, &
                                    retrieve_n_e_mat_single, &
                                    retrieve_T_e_mat_single
     implicit None
@@ -1811,10 +1811,10 @@ function func_dA_dY(X, Y)
 
   subroutine sub_grad_Lambda_star(plasma_params, omega, mode, x_vec, dxds)
     USE f90_kind
-    USE mod_ecfm_refr_types, only : plasma_params_type, h_x_glob
+    USE mod_ECRad_types, only : plasma_params_type, h_x_glob
     USE ripple3d,                 only: grad_type
     USE constants,                 only : c0, eps0, mass_e, e0
-    use mod_ecfm_refr_utils, only: retrieve_n_e, retrieve_T_e, &
+    use mod_ECRad_utils, only: retrieve_n_e, retrieve_T_e, &
                                    retrieve_n_e_mat_single, &
                                    retrieve_T_e_mat_single
     implicit None
@@ -1979,7 +1979,7 @@ function func_dA_dY(X, Y)
 
   subroutine f_Lambda(m, s, x_vec, dxds)
     use f90_kind
-    USE mod_ecfm_refr_types, only : Lambda_star
+    USE mod_ECRad_types, only : Lambda_star
     implicit none
     integer          , intent(in)           :: m
     real(rkind)                             :: s
@@ -2028,7 +2028,7 @@ function func_dA_dY(X, Y)
               theta_out, Hamil_out, N_s_out, n_e_out, omega_c_out, T_e_out, rhop_out, v_g_perp, &
               work_lsoda, iwork_lsoda, istate)
     USE f90_kind
-    USE mod_ecfm_refr_types, only : Hamil, Lambda_star
+    USE mod_ECRad_types, only : Hamil, Lambda_star
     USE constants,                 only : c0, eps0, mass_e, e0
     implicit None
     real(rkind)                , intent(inout):: sigma
@@ -2124,7 +2124,7 @@ function func_dA_dY(X, Y)
       print*, "Current step size", h
       print*, "Final position", x_vec_out
       debug_level = 3
-      istate= 0
+      istate = 0
       y_vec(1:3) = x_vec
       y_vec(4:6) = N_vec
       if(Hamil == "Dani") then
@@ -2141,11 +2141,11 @@ function func_dA_dY(X, Y)
 
   subroutine sub_local_params(plasma_params, omega, x_vec, N_vec, B_vec, N_abs, n_e, omega_c, T_e, theta, rhop_out)
     USE f90_kind
-    USE mod_ecfm_refr_types, only : plasma_params_type, &
+    USE mod_ECRad_types, only : plasma_params_type, &
                                     straight, SOL_ne, SOL_Te !, h_x_glob
     USE ripple3d,                 only: grad_type
     USE constants,                 only : e0, mass_e
-    use mod_ecfm_refr_utils, only: retrieve_n_e, retrieve_T_e, &
+    use mod_ECRad_utils, only: retrieve_n_e, retrieve_T_e, &
                                    retrieve_T_e_mat_single, retrieve_n_e_mat_single
     implicit None
     type(plasma_params_type),    intent(in)   :: plasma_params ! only slice of the entire ray
@@ -2227,7 +2227,7 @@ function func_dA_dY(X, Y)
 
   function make_Snells_refraction(N_abs, total_reflection)
   USE f90_kind
-  use mod_ecfm_refr_utils,  only: sub_remap_coords
+  use mod_ECRad_utils,  only: sub_remap_coords
   use constants,            only: pi
   implicit none
   real(rkind),                 intent(in)  :: N_abs
@@ -2275,7 +2275,7 @@ function func_dA_dY(X, Y)
 
   function make_H(N_abs)
     USE f90_kind
-    USE mod_ecfm_refr_types, only : Hamil, lambda_star
+    USE mod_ECRad_types, only : Hamil, lambda_star
     USE constants,                 only : mass_e, e0
     implicit none
     real(rkind),                 intent(in)  :: N_abs
@@ -2307,7 +2307,7 @@ function func_dA_dY(X, Y)
 
   function make_Hamil_Ns(X, Y, N_abs, theta, mode)
     USE f90_kind
-    USE mod_ecfm_refr_types, only : Hamil, lambda_star, eps
+    USE mod_ECRad_types, only : Hamil, lambda_star, eps
     USE constants,                 only : mass_e, e0
     implicit none
     real(rkind),                 intent(in)  :: X, Y, N_abs, theta
@@ -2341,8 +2341,8 @@ function func_dA_dY(X, Y)
 
   subroutine sub_calculate_initial_N(plasma_params, omega, mode, x_vec, N_vec, H_init, total_reflection)
     USE f90_kind
-    USE mod_ecfm_refr_types, only : plasma_params_type, output_level
-    USE mod_ecfm_refr_utils, only : BrentRoots
+    USE mod_ECRad_types, only : plasma_params_type, output_level
+    USE mod_ECRad_utils, only : BrentRoots
 #ifdef NAG
     USE nag_nlin_eqn,             only : nag_nlin_eqn_sol
 #endif
@@ -2462,25 +2462,25 @@ function func_dA_dY(X, Y)
     !stop "sensible launch ?"
   end subroutine sub_calculate_initial_N
 
-  function func_within_plasma(plasma_params, x_vec, wall_hits, been_in_plasma)
+  function func_within_plasma(plasma_params, ray_point, omega, wall_hits, been_in_plasma)
     USE f90_kind
-    USE mod_ecfm_refr_types, only : plasma_params_type, h_check, use_3D, output_level
-    use mod_ecfm_refr_utils, only : sub_remap_coords, func_in_poly
+    USE mod_ECRad_types, only : plasma_params_type, h_check, use_3D, output_level, ray_element_full_type
+    use mod_ECRad_utils, only : sub_remap_coords, func_in_poly
     use constants,           only : pi
     implicit none
-    type(plasma_params_type)      , intent(in)      :: plasma_params
-    real(rkind), dimension(:)     , intent(in)      :: x_vec
-    integer(ikind),                 intent(inout)   :: wall_hits
-    logical,                        intent(inout)   :: been_in_plasma
-    logical                                         :: func_within_plasma
-    real(rkind), dimension(3)                       :: R_vec
-    logical                                         :: inside_vessel, inside_equilibrium
-    real(rkind)                                     :: rhop
-    integer(ikind)                                  :: j_phi
+    type(plasma_params_type)      , intent(in)                  :: plasma_params
+    type(ray_element_full_type), intent(in)                     :: ray_point
+    real(rkind), intent(in)                                     :: omega
+    integer(ikind),                 intent(inout)               :: wall_hits
+    logical,                        intent(inout)               :: been_in_plasma
+    logical                                                     :: func_within_plasma
+    real(rkind), dimension(3)                                   :: R_vec
+    logical                                                     :: inside_vessel, inside_equilibrium
+    integer(ikind)                                              :: j_phi
     func_within_plasma = .false. ! Start with True and set to false if something is wrong
 #ifdef USE_3D
     if(use_3D) then
-      call sub_remap_coords(x_vec, R_vec)
+      call sub_remap_coords(ray_point%x_vec, R_vec)
       R_vec(2) = R_vec(2) / pi * 180.d0
       j_phi = 1
       if(plasma_params%Use_3D_vessel%n_phi > 1) then
@@ -2496,19 +2496,18 @@ function func_dA_dY(X, Y)
                        plasma_params%Use_3D_vessel%vessel_data_z(:,j_phi), R_vec(1), R_vec(3))) then
         if(wall_hits == 0) wall_hits = 1
         inside_vessel = .true.
-        rhop = func_rhop(plasma_params, x_vec)
-        if(rhop < plasma_params%rhop_max .and. rhop > 0.d0) then
+        if(ray_point%rhop < plasma_params%rhop_max .and. ray_point%rhop > 0.d0) then
           been_in_plasma = .true.
           func_within_plasma = .true.
         else
           if(been_in_plasma .and. wall_hits == 1) wall_hits = 2
-          if(rhop < 0.d0 .and. debug_level > 0 .and. output_level .and. been_in_plasma) then
-            call sub_remap_coords(x_vec, R_vec)
+          if(ray_point%rhop < 0.d0 .and. debug_level > 0 .and. output_level .and. been_in_plasma) then
+            call sub_remap_coords(ray_point%x_vec, R_vec)
             print*, "Left the domain on which the flux matrix is given"
             print*, "Position",  R_vec(1), R_vec(3)
-          else if(rhop > plasma_params%rhop_max .and. debug_level > 0 .and. output_level .and. been_in_plasma) then
-            call sub_remap_coords(x_vec, R_vec)
-            print*, "Rho larger than rho_max", rhop, plasma_params%rhop_max
+          else if(ray_point%rhop > plasma_params%rhop_max .and. debug_level > 0 .and. output_level .and. been_in_plasma) then
+            call sub_remap_coords(ray_point%x_vec, R_vec)
+            print*, "Rho larger than rho_max", ray_point%rhop, plasma_params%rhop_max
             print*, "Position",  R_vec(1), R_vec(3)
           end if
         end if
@@ -2517,7 +2516,7 @@ function func_dA_dY(X, Y)
         if(wall_hits == 1) then
           wall_hits = 2
           if(debug_level > 0 .and. output_level ) then
-            call sub_remap_coords(x_vec, R_vec)
+            call sub_remap_coords(ray_point%x_vec, R_vec)
             print*, "Passed through port out of the vessel"
             print*, "Position",  R_vec(1), R_vec(3)
           end if
@@ -2526,7 +2525,7 @@ function func_dA_dY(X, Y)
       return
     end if
 #endif
-    call sub_remap_coords(x_vec, R_vec)
+    call sub_remap_coords(ray_point%x_vec, R_vec)
     ! Check if inside flux matrix
     if(R_vec(1) - plasma_params%h < plasma_Params%R_min .or. &
        R_vec(1) + plasma_params%h > plasma_Params%R_max .or. &
@@ -2535,32 +2534,32 @@ function func_dA_dY(X, Y)
        if(wall_hits == 1) wall_hits =  2
        if(debug_level > 0 .and. output_level .and. wall_hits > 0) print*, "Left the domain on which the flux matrix is given"
        if(debug_level > 0 .and. output_level .and. wall_hits > 0) print*, "Position",  R_vec(1), R_vec(3)
+       return
     end if
     if(func_in_poly(plasma_params%vessel_poly%x, plasma_params%vessel_poly%y, R_vec(1), R_vec(3))) then
-      if(wall_hits == 0) then ! entered/left machine
-        wall_hits =  1
+      if(wall_hits == 0) then
+        wall_hits =  1  ! entered machine
         if(debug_level > 0 .and. output_level) print*, "Entered the plasma through port"
         if(debug_level > 0 .and. output_level) print*, "Position",  R_vec(1), R_vec(3)
       end if
     else
-      if(wall_hits == 1) then ! entered/left machine
-        wall_hits =  2
+      if(wall_hits == 1) then
+        wall_hits =  2 ! left machine
         if(debug_level > 0 .and. output_level) print*, "Passed through port out of the vessel"
         if(debug_level > 0 .and. output_level) print*, "Position",  R_vec(1), R_vec(3)
+        return
       end if
     end if
-    if(wall_hits > 1) return
-    rhop = func_rhop(plasma_params, x_vec)
     ! Check if rhop good -> should be if the above is true
-    if(rhop == -1.d0 .and. wall_hits == 1) then
+    if(ray_point%rhop == -1.d0 .and. wall_hits == 1) then
       if(debug_level > 0 .and. output_level) print*, "Rhop not useful anymore stopping propagation"
       if(debug_level > 0 .and. output_level) print*, "Position",  R_vec(1), R_vec(3)
       wall_hits =  2 ! Pretend a second wall hit when already propagating to pass consistency test at end of raytracing
     ! Check if rhop small enough to be useful for provided profiles
-    else if (rhop < plasma_params%rhop_entry .and. rhop >= 0.d0) then
+    else if (ray_point%rhop < plasma_params%rhop_max .and. ray_point%rhop >= 0.d0) then
       func_within_plasma  = .true.
-      if(rhop <  plasma_params%rhop_inside) been_in_plasma = .true. ! Inside closed flux surfaces rhop < 0.99d
-    else if (been_in_plasma .and. rhop > plasma_params%rhop_exit) then
+      if(ray_point%rhop <  plasma_params%rhop_inside) been_in_plasma = .true. ! Inside closed flux surfaces rhop < 0.99d
+    else if (been_in_plasma .and. ray_point%rhop >= plasma_params%rhop_exit) then
       if(debug_level > 0 .and. output_level) print*, "Rhop now larger than rhop_exit after pass through plasma"
       if(debug_level > 0 .and. output_level) print*, "Position",  R_vec(1), R_vec(3)
       if(wall_hits == 1) wall_hits =  2 ! Pretend a second wall hit when already propagating to pass consistency test at end of raytracing
@@ -2570,8 +2569,8 @@ function func_dA_dY(X, Y)
 
   function func_distance_to_vessel(plasma_params, x_vec)
     USE f90_kind
-    USE mod_ecfm_refr_types, only : plasma_params_type, h_check, use_3D
-    USE mod_ecfm_refr_utils, only : sub_remap_coords, distance_to_poly
+    USE mod_ECRad_types, only : plasma_params_type, h_check, use_3D
+    USE mod_ECRad_utils, only : sub_remap_coords, distance_to_poly
     use constants,           only : pi
     implicit none
     type(plasma_params_type)      , intent(in)      :: plasma_params
@@ -2612,12 +2611,12 @@ function func_dA_dY(X, Y)
   ! this approach is brute force and therefore very slow
   ! FIXME :  Use geometry to find the intersection between LOS and first wall
     USE f90_kind
-    USE mod_ecfm_refr_types, only : plasma_params_type, ray_element_full_type, use_3D, &
+    USE mod_ECRad_types, only : plasma_params_type, ray_element_full_type, use_3D, &
                                           straight, max_points_svec, output_level, SOL_ne, SOL_Te
-    USE mod_ecfm_refr_utils, only : sub_remap_coords, func_in_poly
+    USE mod_ECRad_utils, only : sub_remap_coords, func_in_poly
     USE constants,                 only : mass_e, e0, eps0
     implicit none
-    type(plasma_params_type)          , intent(in)                                  :: plasma_params
+    type(plasma_params_type)          , intent(in)  :: plasma_params
     real(rkind), intent(in)                         :: omega
     integer(ikind), intent(in)                      :: mode
     integer(ikind), intent(out)                     :: last_N, wall_hits
@@ -2671,17 +2670,6 @@ function func_dA_dY(X, Y)
         !stop "Increase MAXIT in sub_make_ray in mod_rayrace.f90"
         return
       end if
-      if(func_within_plasma(plasma_params, ray_segment(N)%x_vec, wall_hits, been_in_plasma)) then! Reached point in plasma
-          if(wall_hits == 2) then
-             if(debug_level > 0  .and. output_level) print*, "Passed through port out of the plasma while straight line"
-            print*, "Something wrong with rhop spline in mod_ecfm_refr_raytrace.f90"
-            print*, ray_segment(1:N)%rhop
-            print*, "Critical error during ray tracing - no plasma on LOS"
-            call abort
-          else
-            exit
-          end if
-      end if
       if(wall_hits == 0) then
         R_last = R_cur
         R_cur = func_distance_to_vessel(plasma_params, ray_segment(N)%x_vec)
@@ -2715,10 +2703,14 @@ function func_dA_dY(X, Y)
                              (ray_segment(N + 1)%x_vec(3) - ray_segment(N)%x_vec(3))**2)
       ray_segment(N + 1)%N_vec = ray_segment(N)%N_vec
       !if(mod(N - 1, 50) == 0) print*, ray_segment(N)%N_s
-      if (ray_segment(N)%rhop /= -1.d0) then
-        if((ray_segment(N)%rhop < plasma_params%rhop_entry .or. &
-          plasma_params%X_entry < func_X(plasma_params, omega, ray_segment(N)%n_e, ray_segment(N)%T_e)) .and. &
-          ray_segment(N)%rhop < plasma_params%rhop_max) then
+      if(func_within_plasma(plasma_params, ray_segment(N), omega, wall_hits, been_in_plasma)) then! Reached point in plasma
+        if(wall_hits == 2) then
+           if(debug_level > 0  .and. output_level) print*, "Passed through port out of the plasma while straight line"
+          print*, "Something wrong with rhop spline in mod_ECRad_raytrace.f90"
+          print*, ray_segment(1:N)%rhop
+          print*, "Critical error during ray tracing - no plasma on LOS"
+          call abort
+        else
           plasma_prop = .true.
         end if
       end if
@@ -2726,7 +2718,7 @@ function func_dA_dY(X, Y)
     end do
     call sub_remap_coords(ray_segment(N)%x_vec, ray_segment(N)%R_vec)
     ray_segment(N)%omega_c = func_B_abs(plasma_params, ray_segment(N)%x_vec) * e0 / mass_e
-!    if(.not. func_within_plasma(plasma_params, ray_segment(N)%x_vec, wall_hits, been_in_plasma) ) then
+!    if(.not. func_within_plasma(plasma_params, ray_segment(N), wall_hits, been_in_plasma) ) then
 !          print*, "first point in plasma has no equilibrium"
 !          print*, "R, z",ray_segment(N)%R_vec(1), ray_segment(N)%R_vec(3)
 !          print*, "R_min, R_max, z_min, z_max given by eq:", plasma_params%R_min, plasma_params%R_max,plasma_params%z_min,plasma_params%z_max
@@ -2745,12 +2737,12 @@ function func_dA_dY(X, Y)
 
   subroutine make_ray_segment(distance, plasma_params, omega, mode, ray_segment, last_N, wall_hits, been_in_plasma, No_plasma, N_start)
     USE f90_kind
-    USE mod_ecfm_refr_types, only : plasma_params_type, ray_element_full_type, Hamil, &
+    USE mod_ECRad_types, only : plasma_params_type, ray_element_full_type, Hamil, &
                                     straight, max_points_svec, output_level, UH_stop
-    USE mod_ecfm_refr_utils, only : sub_remap_coords
+    USE mod_ECRad_utils, only : sub_remap_coords
     USE constants,                 only : pi, mass_e, e0, eps0
     implicit none
-    type(plasma_params_type)          , intent(in)                                  :: plasma_params
+    type(plasma_params_type)          , intent(in)  :: plasma_params
     real(rkind), intent(in)                         :: omega, distance
     integer(ikind), intent(in)                      :: mode
     integer(ikind), intent(out)                     :: last_N
@@ -2763,6 +2755,7 @@ function func_dA_dY(X, Y)
     integer(ikind)                                                   :: N, i, istate, first_N
     real(rkind), dimension(3)                                        :: R_vec, x_vec_max
     real(rkind)                                                      :: first_s, X, Y, angle_change, delta_s_step
+    type(ray_element_full_type)                                      :: ray_point
     real(rkind), dimension(118)               :: work_lsoda
     integer(ikind), dimension(26)             :: iwork_lsoda
     iwork_lsoda(:) = 0.d0
@@ -2788,7 +2781,6 @@ function func_dA_dY(X, Y)
     ray_segment(:)%theta = 0.d0
     istate = 1
     !print*, "Initial wall hits", wall_hits
-!    open(96, file= "k_out_ecfm")
     !print*, "-----------------Ray trace init-------------"
     work_lsoda(6) = 2.d0 * plasma_params%h ! Never allow more than 2 h as the step size
     do while(propagating)
@@ -2797,7 +2789,10 @@ function func_dA_dY(X, Y)
       ! Check, whether the furtherst point that lsoda is allowed to reach in next step is still in plasma
       ! This is just a guess as N_vec could change during the lsoda step
       ! Nevertheless this should stop lsoda from stepping outside the domain where flux sufrace information is available
-      propagating = func_within_plasma(plasma_params, x_vec_max, wall_hits, been_in_plasma)
+      ray_point = ray_segment(N)
+      ray_point%x_vec = x_vec_max
+      ray_point%rhop = func_rhop(plasma_params, x_vec_max)
+      propagating = func_within_plasma(plasma_params, ray_point, omega, wall_hits, been_in_plasma)
       if(.not. propagating) exit
       if(N + 1 > max_points_svec) then
         print*,"WARNING ! Maximum step count exceeded!"
@@ -2918,12 +2913,12 @@ function func_dA_dY(X, Y)
   ! The cold resonance is detected automatically and the step size is choosen correspondingly.
   ! i referst to the svec, while N refers to the ray_segment
   ! This routine also controls the step size.
-  use mod_ecfm_refr_types,        only: rad_diag_ch_mode_ray_freq_svec_type, plasma_params_type, &
+  use mod_ECRad_types,        only: rad_diag_ch_mode_ray_freq_svec_type, plasma_params_type, &
                                         ray_element_full_type, max_points_svec, &
                                         spl_type_1d, eps_svec_max_length, rad_diag_ch_mode_ray_freq_type
-  use mod_ecfm_refr_utils,        only: binary_search
+  use mod_ECRad_utils,        only: binary_search
   use f90_kind
-  use mod_ecfm_refr_interpol,     only: make_1d_spline, deallocate_1d_spline, spline_1d_get_roots
+  use mod_ECRad_interpol,     only: make_1d_spline, deallocate_1d_spline, spline_1d_get_roots
   implicit none
   type(plasma_params_type), intent(in)                                       :: plasma_params
   real(rkind), intent(in)                                                    :: omega
@@ -3099,13 +3094,13 @@ function func_dA_dY(X, Y)
   end subroutine make_s_grid
 
   subroutine interpolate_svec(plasma_params, svec, ray, omega, total_LOS_points, N, rad_ray_freq, svec_extra_output)
-  use mod_ecfm_refr_types,        only: rad_diag_ch_mode_ray_freq_svec_type, plasma_params_type, &
+  use mod_ECRad_types,        only: rad_diag_ch_mode_ray_freq_svec_type, plasma_params_type, &
                                         ray_element_full_type, max_points_svec, &
                                         SOL_ne, SOL_Te, spl_type_1d, rad_diag_ch_mode_ray_freq_type, &
                                         rad_diag_ch_mode_ray_freq_svec_extra_output_type
-  use mod_ecfm_refr_interpol,     only: make_1d_spline, deallocate_1d_spline, spline_1d
+  use mod_ECRad_interpol,     only: make_1d_spline, deallocate_1d_spline, spline_1d
   use constants,                  only: pi, e0, mass_e, eps0, c0
-  use mod_ecfm_refr_utils,        only: sub_remap_coords, binary_search
+  use mod_ECRad_utils,        only: sub_remap_coords, binary_search
   use f90_kind
   implicit none
   type(plasma_params_type), intent(in)                                       :: plasma_params
@@ -3176,7 +3171,7 @@ function func_dA_dY(X, Y)
   svec(:)%rhop = -1.d0
   svec(i1:i2)%rhop = flush_svec_y(1:i2 - i1 + 1)
   if(present(rad_ray_freq)) then
-    if(rad_ray_freq%s_res < 0.d0 .or. rad_ray_freq%s_res > maxval(flush_ray_s(1:N))) then
+    if(rad_ray_freq%s_res < 0.d0 .or. rad_ray_freq%s_res > maxval(flush_ray_s(1:N_plasma))) then
       rad_ray_freq%rhop_res = -1.d0
     else
       call spline_1d(spl, rad_ray_freq%s_res, rad_ray_freq%rhop_res)
@@ -3243,11 +3238,11 @@ function func_dA_dY(X, Y)
   subroutine span_svecs(plasma_params)
   ! Creates the svecs for a all diags
   ! Also allocates all vectors related to output_level = .true.
-  use mod_ecfm_refr_types,        only: rad, ant, rad_diag_type, plasma_params_type, &
+  use mod_ECRad_types,        only: rad, ant, rad_diag_type, plasma_params_type, &
                                         N_ray, N_freq, modes, mode_cnt, output_level, pnts_BPD, &
                                         max_points_svec, Hamil, straight, largest_svec, &
                                         ray_element_full_type, use_ext_rays, ext_rays
-  use mod_ecfm_refr_utils,       only: deallocate_ext_rays
+  use mod_ECRad_utils,       only: deallocate_ext_rays
   use f90_kind
   use constants,                  only: pi,e0, mass_e
 #ifdef OMP
@@ -3343,6 +3338,7 @@ function func_dA_dY(X, Y)
               N_init = last_N
               if(debug_level > 0 .and. output_level .and. .not. No_plasma) then
                 print*, "First point in plasma",ray_segment(last_N)%R_vec
+                print*, "Corresponding rho poloidal",ray_segment(last_N)%rhop
               end if
               if(last_N  + 1 <= max_points_svec .and. .not. No_plasma) then
                 call make_ray_segment(20.d0, plasma_params, omega, mode, ray_segment, last_N, &
@@ -3373,7 +3369,7 @@ function func_dA_dY(X, Y)
                 print*, "Ray in span_svecs did not end at a wall"
                 print*, ray_segment(1)%R_vec(1), ray_segment(1)%R_vec(2), ray_segment(1)%R_vec(3)
                 print*, ray_segment(last_N)%R_vec(1), ray_segment(last_N)%R_vec(2), ray_segment(last_N)%R_vec(3)
-                print*, "Traveled distance", ray_segment(last_N)%s - ray_segment(N_init)%s
+                print*, "Distance traveled in plasma", ray_segment(last_N)%s - ray_segment(N_init)%s
                 stop "Error with rays in mod_raytrace.f90"
               end if
            else
@@ -3596,7 +3592,7 @@ function func_dA_dY(X, Y)
 
   subroutine reinterpolate_svec(svec, max_points_svec_reached, total_LOS_points, omega,  mode, plasma_params, ds1, ds2, svec_extra_output)
   use f90_kind
-  use mod_ecfm_refr_types,        only: rad_diag_ch_mode_ray_freq_svec_type, &
+  use mod_ECRad_types,        only: rad_diag_ch_mode_ray_freq_svec_type, &
                                         plasma_params_type, output_level, &
                                         ray_element_full_type, &
                                         rad_diag_ch_mode_ray_freq_svec_extra_output_type
@@ -3668,7 +3664,7 @@ function func_dA_dY(X, Y)
         svec(1:total_LOS_points)%s = ray_segment%s
       print*, "Flagging this channel as at maximum amount of steps and continuing"
       print*, "------------------------------------------------------------------------------------------"
-      print*, "|  Warning: ECFM encountered irresolvable numerical difficulties in radiation transport!  |"
+      print*, "|  Warning: ECRad encountered irresolvable numerical difficulties in radiation transport!  |"
       print*, "|   Since this problem might not affect the final result of IDA, computation continues!   |"
       print*, "------------------------------------------------------------------------------------------"
     end if
@@ -3693,7 +3689,7 @@ function func_dA_dY(X, Y)
 
 
   subroutine dealloc_rad(rad)
-  use mod_ecfm_refr_types,        only: rad_type, ant, ray_init, N_ray, N_freq, mode_cnt, stand_alone, output_level
+  use mod_ECRad_types,        only: rad_type, ant, ray_init, N_ray, N_freq, mode_cnt, stand_alone, output_level
   use f90_kind
   use constants,                  only: pi,e0, mass_e, c0
   implicit none
@@ -3703,6 +3699,8 @@ function func_dA_dY(X, Y)
     print*, "There is no reason to call dealloc_rad in mod_raytrace.f90 in stand_alone mode"
     stop "stand_alone = T in dealloc_rad"
   end if
+  ! Reset on clean ECRad should not cause a crash
+  if(.not. allocated(rad%diag)) return
   do idiag = 1, ant%N_diag
     do ich = 1, ant%diag(idiag)%N_ch
       do imode = 1, mode_cnt
@@ -3765,4 +3763,4 @@ function func_dA_dY(X, Y)
   deallocate(rad%diag)
   end subroutine dealloc_rad
 
-end module mod_ecfm_refr_raytrace
+end module mod_ECRad_raytrace

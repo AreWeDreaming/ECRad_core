@@ -1,6 +1,6 @@
-module mod_ecfm_refr_raytrace_initialize
+module mod_ECRad_raytrace_initialize
     use f90_kind
-    use mod_ecfm_refr_types,       only: spl_type_2d
+    use mod_ECRad_types,       only: spl_type_2d
     implicit none
     ! Two interfaces to allow interpolation of Te and ne using both single rhop values and vectors of rhop values
     type(spl_type_2d)                       :: Psi_spline
@@ -23,9 +23,9 @@ module mod_ecfm_refr_raytrace_initialize
   subroutine get_psi_ax(R, z, i_ax, j_ax, R_ax, z_ax)
   ! Interpolates
     use f90_kind
-    use mod_ecfm_refr_types,       only: output_level
+    use mod_ECRad_types,       only: output_level
     use nr_mod,                    only: powell ! Minimizer -> Psi_ax has to be a minimum
-    use mod_ecfm_refr_interpol,    only: rect_spline
+    use mod_ECRad_interpol,    only: rect_spline
     implicit none
     real(rkind), dimension(:), intent(in)  :: R, z
     integer(ikind)           , intent(in)  :: i_ax, j_ax
@@ -50,7 +50,7 @@ module mod_ecfm_refr_raytrace_initialize
 
   function eval_Psi(R)
     use f90_kind
-    use mod_ecfm_refr_interpol,    only: rect_spline
+    use mod_ECRad_interpol,    only: rect_spline
     implicit none
     real(rkind), dimension(:), intent(in)   :: R
     real(rkind)                             :: eval_Psi
@@ -59,8 +59,8 @@ module mod_ecfm_refr_raytrace_initialize
 
   subroutine read_topfile(plasma_params, R, z, rhop, Br, Bt, Bz, itime)
       use f90_kind
-      use mod_ecfm_refr_types,       only: plasma_params_type, data_folder, output_level
-      use mod_ecfm_refr_interpol,    only: make_rect_spline, deallocate_rect_spline
+      use mod_ECRad_types,       only: plasma_params_type, data_folder, output_level
+      use mod_ECRad_interpol,    only: make_rect_spline, deallocate_rect_spline
       implicit none
       type(plasma_params_type) , intent(inout) :: plasma_params
       real(rkind), dimension(:), allocatable, intent(out) :: R, z
@@ -142,7 +142,7 @@ module mod_ecfm_refr_raytrace_initialize
 
   subroutine read_Te_ne_matrix(plasma_params, R, z, Te, ne)
       use f90_kind
-      use mod_ecfm_refr_types,       only: plasma_params_type, data_folder, min_density, max_Te, min_Te
+      use mod_ECRad_types,       only: plasma_params_type, data_folder, min_density, max_Te, min_Te
       implicit none
       type(plasma_params_type) , intent(inout) :: plasma_params
       real(rkind), dimension(:), allocatable, intent(in) :: R, z
@@ -205,7 +205,7 @@ module mod_ecfm_refr_raytrace_initialize
   
   subroutine read_3D_vessel_file(plasma_params)
   use f90_kind
-    use mod_ecfm_refr_types,       only: Vessel_bd_filename, plasma_params_type
+    use mod_ECRad_types,       only: Vessel_bd_filename, plasma_params_type
     implicit none
     type(plasma_params_type), intent(inout) :: plasma_params
     integer(ikind) :: i, j
@@ -237,7 +237,7 @@ module mod_ecfm_refr_raytrace_initialize
 
   subroutine make_topfile(R, z, rhop, Br, Bt, Bz, itime)
     use f90_kind
-    use mod_ecfm_refr_types,       only: data_folder
+    use mod_ECRad_types,       only: data_folder
     implicit none
     real(rkind), dimension(:), allocatable, intent(in) :: R, z
     real(rkind), dimension(:,:), allocatable, intent(in) ::  Br, Bt, Bz
@@ -274,16 +274,16 @@ module mod_ecfm_refr_raytrace_initialize
     close(70)
   end subroutine make_topfile
 
-  subroutine setup_plasma_params(plasma_params, R_in, z_in, rhop_in, B_r_in, B_t_in, B_z_in, R_ax, z_ax)
+  subroutine setup_plasma_params(plasma_params, R_in, z_in, rhop_in, B_r_in, B_t_in, B_z_in, R_ax, z_ax, T_e_mat_in, n_e_mat_in)
     use f90_kind
 #ifdef NAG
-    use mod_ecfm_refr_types,        only: double_check_splines, plasma_params_type, h_x_glob, h_check, &
+    use mod_ECRad_types,        only: double_check_splines, plasma_params_type, h_x_glob, h_check, &
                                           stand_alone, vessel_bd_filename, use_3D, working_dir
 #else
-    use mod_ecfm_refr_types,        only: plasma_params_type, h_x_glob, h_check, &
+    use mod_ECRad_types,        only: plasma_params_type, h_x_glob, h_check, &
                                           stand_alone, vessel_bd_filename, use_3D, working_dir
 #endif
-    use mod_ecfm_refr_interpol,     only: make_rect_spline, make_1d_spline, rect_spline
+    use mod_ECRad_interpol,     only: make_rect_spline, make_1d_spline, rect_spline
     use constants,                  only: pi
     use quadrature,                 only: cdgqf
 #ifdef NAG
@@ -302,9 +302,9 @@ module mod_ecfm_refr_raytrace_initialize
     implicit none
     type(plasma_params_type), intent(inout)     :: plasma_params
 	  real(rkind), dimension(:), intent(in), optional :: R_in, z_in
-    real(rkind), dimension(:,:), intent(in), optional :: rhop_in, B_r_in, B_t_in, B_z_in
+    real(rkind), dimension(:,:), intent(in), optional :: rhop_in, B_r_in, B_t_in, B_z_in, T_e_mat_in, n_e_mat_in
     real(rkind), intent(in), optional                 :: R_ax, z_ax
-    real(rkind), dimension(:,:), allocatable    :: B_r, B_t, B_z, T_e, n_e
+    real(rkind), dimension(:,:), allocatable    :: B_r, B_t, B_z, T_e_mat, n_e_mat
     integer(ikind), dimension(:), allocatable   :: R_index_lower, z_index_lower, R_index_upper, z_index_upper
     real(rkind)                                 :: B_last, B_vac_R0
     integer(ikind)                              :: i
@@ -316,7 +316,7 @@ module mod_ecfm_refr_raytrace_initialize
     if(plasma_params%int_step_cnt == 0) then
         print*, "For some reason plasma_params%int_step_cnt is zero!"
         print*, "This makes no sense since it would mean that you split the radiation transport into N * 0 steps"
-        print*, "Please check setup_plasma_params in mod_ecfm_refr_raytrace_initialize"
+        print*, "Please check setup_plasma_params in mod_ECRad_raytrace_initialize"
         print*, plasma_params%rad_trans_sections, plasma_params%rad_transp_solver_order
         call abort()
     end if
@@ -377,7 +377,7 @@ module mod_ecfm_refr_raytrace_initialize
     if(.not. present(R_in)) then
       call read_topfile(plasma_params, plasma_params%R, plasma_params%z, plasma_params%rhop, B_r, B_t, B_z)
       if(plasma_params%Te_ne_mat) then
-        call read_Te_ne_matrix(plasma_params, plasma_params%R, plasma_params%z, T_e, n_e)
+        call read_Te_ne_matrix(plasma_params, plasma_params%R, plasma_params%z, T_e_mat, n_e_mat)
         plasma_params%rhop_max = plasma_params%rhop_entry !
       end if
     else
@@ -389,6 +389,10 @@ module mod_ecfm_refr_raytrace_initialize
                B_r(plasma_params%m,plasma_params%n), &
                B_t(plasma_params%m,plasma_params%n), &
                B_z(plasma_params%m,plasma_params%n))
+      if(present(T_e_mat_in)) then
+        allocate(T_e_mat(plasma_params%m,plasma_params%n), &
+                 n_e_mat(plasma_params%m,plasma_params%n))
+      end if
       plasma_params%R=R_in
       plasma_params%z=z_in
       do i =1, plasma_params%m
@@ -396,6 +400,10 @@ module mod_ecfm_refr_raytrace_initialize
         B_r(i,:) = B_r_in(i,:)
         B_t(i,:) = B_t_in(i,:)
         B_z(i,:) = B_z_in(i,:)
+        if(present(T_e_mat_in)) then
+          T_e_mat(i,:) = T_e_mat_in(i,:)
+          n_e_mat(i,:) = n_e_mat_in(i,:)
+        end if
       end do
       plasma_params%R_ax = R_ax
       plasma_params%z_ax = z_ax
@@ -412,9 +420,9 @@ module mod_ecfm_refr_raytrace_initialize
     call make_rect_spline(plasma_params%B_t_spline, int(plasma_params%m, 4), int(plasma_params%n, 4), plasma_params%R, plasma_params%z, B_t)
     call make_rect_spline(plasma_params%B_z_spline, int(plasma_params%m, 4), int(plasma_params%n, 4), plasma_params%R, plasma_params%z, B_z)
     if(plasma_params%Te_ne_mat) then
-      call make_rect_spline(plasma_params%T_e_spline_2D, int(plasma_params%m, 4), int(plasma_params%n, 4), plasma_params%R, plasma_params%z, log(T_e))
+      call make_rect_spline(plasma_params%T_e_spline_2D, int(plasma_params%m, 4), int(plasma_params%n, 4), plasma_params%R, plasma_params%z, log(T_e_mat))
       ! Warning: ne is scaled down to avoid numerical problems!
-      call make_rect_spline(plasma_params%n_e_spline_2D, int(plasma_params%m, 4), int(plasma_params%n, 4), plasma_params%R, plasma_params%z, log(n_e * 1.e-19))
+      call make_rect_spline(plasma_params%n_e_spline_2D, int(plasma_params%m, 4), int(plasma_params%n, 4), plasma_params%R, plasma_params%z, log(n_e_mat * 1.e-19))
 #ifdef NAG
       if(double_check_splines .and. output_level) then
         call nag_spline_2d_interp(plasma_params%R, plasma_params%z, log(T_e), plasma_params%Te_spline_nag_2D)
@@ -452,21 +460,23 @@ module mod_ecfm_refr_raytrace_initialize
     z_index_upper(:) = plasma_params%n
     plasma_params%int_step_cnt = plasma_params%rad_trans_sections * plasma_params%rad_transp_solver_order
     deallocate(B_r, B_z, B_t, R_index_lower,z_index_lower,R_index_upper,z_index_upper)!, B_t
-    if(plasma_params%Te_ne_mat) deallocate(T_e, n_e)
-    ! Load the polygon describing the vessel wall
-    open(66, file = vessel_bd_filename)
-    read(66, "(I7.7)") plasma_params%m_vessel_bd
-    allocate(plasma_params%vessel_poly%x(plasma_params%m_vessel_bd), plasma_params%vessel_poly%y(plasma_params%m_vessel_bd))
-    do i = 1, plasma_params%m_vessel_bd
-      read(66,"(E19.12E2A1E19.12E2)") plasma_params%vessel_poly%x(i), sep,  plasma_params%vessel_poly%y(i)
-    end do
-    close(66)
+    if(plasma_params%Te_ne_mat) deallocate(T_e_mat, n_e_mat)
+    if(stand_alone) then
+      ! Load the polygon describing the vessel wall
+      open(66, file = vessel_bd_filename)
+      read(66, "(I7.7)") plasma_params%m_vessel_bd
+      allocate(plasma_params%vessel_poly%x(plasma_params%m_vessel_bd), plasma_params%vessel_poly%y(plasma_params%m_vessel_bd))
+      do i = 1, plasma_params%m_vessel_bd
+        read(66,"(E19.12E2A1E19.12E2)") plasma_params%vessel_poly%x(i), sep,  plasma_params%vessel_poly%y(i)
+      end do
+      close(66)
+     end if
   end subroutine setup_plasma_params
 
   subroutine read_input_lists(plasma_params)
   ! Read the input data n_e, T_e and wall file
-    use mod_ecfm_refr_types,       only: plasma_params_type, n_e_filename, T_e_filename, &
-                                         min_density, min_Te, max_Te
+    use mod_ECRad_types,       only: plasma_params_type, n_e_filename, T_e_filename, &
+                                     min_density, min_Te, max_Te, output_level
     use f90_kind
     use constants, only               : pi
     implicit none
@@ -535,6 +545,10 @@ module mod_ecfm_refr_raytrace_initialize
       rhop_max_Te = maxval(plasma_params%rhop_vec_Te, dim = 1)
       rhop_max_ne = maxval(plasma_params%rhop_vec_ne, dim = 1)
       plasma_params%rhop_max = min(rhop_max_te, rhop_max_ne)
+      if(output_level) print*, "Largest rhopol in profiles", plasma_params%rhop_max
+      if(plasma_params%rhop_exit > plasma_params%rhop_max-plasma_params%delta_rhop_exit) then
+        plasma_params%rhop_exit = plasma_params%rhop_max-plasma_params%delta_rhop_exit
+      end if
       close(66)
       if(plasma_params%m_T_e_prof < 40 .or. plasma_params%m_n_e_prof < 40) then
         print*, "points for density and Te profile:", plasma_params%m_T_e_prof
@@ -543,14 +557,14 @@ module mod_ecfm_refr_raytrace_initialize
     end if
   end subroutine read_input_lists
 
-  subroutine init_raytrace(plasma_params, R, z, rhop, Br, Bt, Bz, R_ax, z_ax)
+  subroutine init_raytrace(plasma_params, R, z, rhop, Br, Bt, Bz, R_ax, z_ax, T_e_mat, n_e_mat)
     use f90_kind
-    use mod_ecfm_refr_types,       only: plasma_params_type, stand_alone, use_3D, eq_mode
+    use mod_ECRad_types,       only: plasma_params_type, stand_alone, use_3D, eq_mode
     Use constants                , only : pi
     implicit none
     type(plasma_params_type), intent(inout)           :: plasma_params
     real(rkind), dimension(:), intent(in), optional   :: R, z
-    real(rkind), dimension(:,:), intent(in), optional :: rhop, Br, Bt, Bz
+    real(rkind), dimension(:,:), intent(in), optional :: rhop, Br, Bt, Bz, T_e_mat, n_e_mat
     real(rkind), intent(in), optional                 :: R_ax, z_ax
     if(eq_mode == "2D") then
       plasma_params%Te_ne_mat = .true.
@@ -559,22 +573,27 @@ module mod_ecfm_refr_raytrace_initialize
       if(.not. plasma_params%Te_ne_mat) call read_input_lists(plasma_params)
       call setup_plasma_params(plasma_params)
     else
-      call setup_plasma_params(plasma_params, R, z, rhop, Br, Bt, Bz, R_ax, z_ax)
+      if(present(T_e_mat)) then
+        call setup_plasma_params(plasma_params, R, z, rhop, Br, Bt, Bz, R_ax, z_ax, T_e_mat, n_e_mat)
+      else
+        call setup_plasma_params(plasma_params, R, z, rhop, Br, Bt, Bz, R_ax, z_ax)
+      end if
     end if
   end subroutine init_raytrace
 
   subroutine dealloc_raytrace(plasma_params)
   use f90_kind
 #ifdef NAG
-  use mod_ecfm_refr_types,       only: plasma_params_type, stand_alone, double_check_splines, &
-                                       Use_3D
+  use mod_ECRad_types,       only: plasma_params_type, stand_alone, double_check_splines, &
+                                   Use_3D, ray_init
   USE nag_lib_support,           only : nag_deallocate
 #else
-  use mod_ecfm_refr_types,       only: plasma_params_type, stand_alone, Use_3D
+  use mod_ECRad_types,       only: plasma_params_type, stand_alone, Use_3D, ray_init
 #endif
-  use mod_ecfm_refr_interpol,       only: deallocate_rect_spline, deallocate_1d_spline
+  use mod_ECRad_interpol,       only: deallocate_rect_spline, deallocate_1d_spline
   implicit none
   type(plasma_params_type), intent(inout)                    :: plasma_params
+    if(.not. (allocated(plasma_params%R) .or. allocated(plasma_params%Use_3D_vessel%vessel_data_R))) return
     if(stand_alone) then
       deallocate(plasma_params%n_e_prof, plasma_params%rhop_vec_ne)
       deallocate(plasma_params%T_e_prof, plasma_params%rhop_vec_Te)
@@ -614,6 +633,7 @@ module mod_ecfm_refr_raytrace_initialize
   if(Use_3D) deallocate(plasma_params%Use_3D_vessel%vessel_data_R, &
                         plasma_params%Use_3D_vessel%vessel_data_z, &
                         plasma_params%Use_3D_vessel%phi)
+  ray_init = .false.
   end subroutine dealloc_raytrace
 
-end module mod_ecfm_refr_raytrace_initialize
+end module mod_ECRad_raytrace_initialize

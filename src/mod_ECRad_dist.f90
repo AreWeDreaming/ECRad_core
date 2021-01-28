@@ -1,4 +1,4 @@
-module mod_ecfm_radiation_dist
+module mod_ECRad_radiation_dist
   use f90_kind
   implicit none
   logical                            :: fall_back_thermal
@@ -19,13 +19,13 @@ module mod_ecfm_radiation_dist
   contains
 
 subroutine prepare_dist(svec, Int_absz_many, Int_weights_many, f_spl, dist_params)
-    use mod_ecfm_refr_types,            only: dstf, rad_diag_ch_mode_ray_freq_svec_type, min_level_log_ne, &
+    use mod_ECRad_types,            only: dstf, rad_diag_ch_mode_ray_freq_svec_type, min_level_log_ne, &
                                              bi_max, drift_m, Spitzer, multi_slope, runaway, ffp, fgene, Spitzer, &
                                              spl_type_2d, non_therm_params_type
     use constants,                      only: pi, e0, mass_e, eps0, c0
-    use mod_ecfm_refr_fp_dist_utils,    only: make_B_min_and_f_inter
-    use mod_ecfm_refr_gene_dist_utils,  only: make_g_inter
-    use mod_ecfm_refr_interpol,         only: spline_1d
+    use mod_ECRad_fp_dist_utils,    only: make_B_min_and_f_inter
+    use mod_ECRad_gene_dist_utils,  only: make_g_inter
+    use mod_ECRad_interpol,         only: spline_1d
     implicit none
     type(rad_diag_ch_mode_ray_freq_svec_type), intent(in)  :: svec
     real(rkind), dimension(:), intent(in) :: Int_absz_many, Int_weights_many
@@ -145,7 +145,7 @@ subroutine prepare_dist(svec, Int_absz_many, Int_weights_many, f_spl, dist_param
 end subroutine prepare_dist
 
 subroutine make_norm_multi_slope(svec, mu, Int_absz_many, Int_weights_many, dist_params) !
-    use mod_ecfm_refr_types,        only: rad_diag_ch_mode_ray_freq_svec_type, &
+    use mod_ECRad_types,        only: rad_diag_ch_mode_ray_freq_svec_type, &
                                           non_therm_params_type
     use constants,                  only: pi
     implicit none
@@ -199,9 +199,9 @@ subroutine make_norm_multi_slope(svec, mu, Int_absz_many, Int_weights_many, dist
 
   subroutine make_f_and_Rf_along_line(u_par, u_perp, gamma, m_omega_bar, N_par, mu, svec, f_spl, dist_params, dstf, f, Rf)
     use constants,                   only: pi, e0,c0, mass_e
-    use mod_ecfm_refr_types,         only: spl_type_2d, rad_diag_ch_mode_ray_freq_svec_type, non_therm_params_type, multi_slope
-    use mod_ecfm_refr_fp_dist_utils, only: make_f_and_f_grad_along_line
-    use mod_ecfm_refr_gene_dist_utils, only: make_gene_f_and_gene_f_grad_along_line, &
+    use mod_ECRad_types,         only: spl_type_2d, rad_diag_ch_mode_ray_freq_svec_type, non_therm_params_type, multi_slope
+    use mod_ECRad_fp_dist_utils, only: make_f_and_f_grad_along_line
+    use mod_ECRad_gene_dist_utils, only: make_gene_f_and_gene_f_grad_along_line, &
                                              make_gene_f0_and_gene_f0_grad_along_line
     implicit none
     real(rkind), dimension(:),  intent(in)            :: u_par, u_perp, gamma
@@ -287,7 +287,7 @@ end subroutine make_f_and_Rf_along_line
 
 function radiation_dist_f_u(u_par, u_perp, gamma, mu, svec, dist_params)
     use constants,                   only: pi, e0, mass_e, c0
-    use mod_ecfm_refr_types,         only: dstf, non_therm_params_type, &
+    use mod_ECRad_types,         only: dstf, non_therm_params_type, &
                                           rad_diag_ch_mode_ray_freq_svec_type, multi_slope, runaway
     implicit none
     real(rkind), dimension(:),  intent(in)            :: u_par, u_perp, gamma
@@ -410,7 +410,7 @@ function radiation_dist_f_u(u_par, u_perp, gamma, mu, svec, dist_params)
 
   function radiation_dist_Rf(u_par, u_perp, gamma, m_omega_bar, N_par, mu, svec, dist_params)
     use constants,                   only: pi, e0,c0, mass_e
-    use mod_ecfm_refr_types,         only: dstf, non_therm_params_type, &
+    use mod_ECRad_types,         only: dstf, non_therm_params_type, &
                                           rad_diag_ch_mode_ray_freq_svec_type, multi_slope, runaway
     implicit none
     real(rkind), dimension(:),  intent(in)  :: u_par, u_perp, gamma
@@ -481,7 +481,7 @@ function radiation_dist_bi_maxJ(u_par, u_perp, gamma, Te_par, Te_perp)
 ! By I. Pastor, J. Guasp, R.F., et al.
 ! Published in Nuclear Fusion 52 (2012)
     use constants,                  only: pi, e0, mass_e, eps0, c0
-    use mod_ecfm_refr_types,        only: bi_max
+    use mod_ECRad_types,        only: bi_max
     implicit none
     real(rkind), dimension(:),  intent(in)            :: u_par, u_perp, gamma
     real(rkind), intent(in), optional :: Te_perp, Te_par
@@ -521,7 +521,7 @@ end function radiation_dist_bi_maxw
 #ifdef NAG
 function radiation_dist_drift_m(u_par, u_perp, gamma, Te_par, Te_perp, u_par_drift, u_perp_drift)
     use constants,                  only: pi, e0, mass_e, eps0, c0
-    use mod_ecfm_refr_types,        only: drift_m
+    use mod_ECRad_types,        only: drift_m
     implicit none
     real(rkind), dimension(:),  intent(in)            :: u_par, u_perp, gamma
     real(rkind), dimension(size(u_par))         :: radiation_dist_drift_m
@@ -555,7 +555,7 @@ end function radiation_dist_Spitzer
 #ifdef NAG
 function radiation_dist_drifting_maxwellian(u_par, u_perp, Te_par, Te_perp, u_par_drift, u_perp_drift)
     use constants,                  only: pi, e0, mass_e, eps0, c0
-    use mod_ecfm_refr_types,        only: drift_m
+    use mod_ECRad_types,        only: drift_m
     use nag_err_fun,                only: nag_erf
     implicit none
     real(rkind), dimension(:),  intent(in) :: u_par, u_perp
@@ -588,7 +588,7 @@ end function radiation_dist_drifting_maxwellian
 
 function radiation_dist_bi_maxJ_Rf(u_par, u_perp,gamma,n_omega_bar, N_par, Te_par, Te_perp)
     use constants,                  only: pi, e0, mass_e, eps0, c0
-    use mod_ecfm_refr_types,        only: bi_max
+    use mod_ECRad_types,        only: bi_max
     implicit none
     real(rkind), dimension(:),  intent(in) :: u_par, u_perp, gamma
     real(rkind), intent(in)            :: n_omega_bar, N_par
@@ -629,7 +629,7 @@ function radiation_dist_drift_m_Rf(u_par, u_perp,gamma, n_omega_bar, &
                                   N_par, Te_par, Te_perp, u_par_drift, &
                                   u_perp_drift)
     use constants,                  only: pi, e0, mass_e, eps0, c0
-    use mod_ecfm_refr_types,        only: drift_m
+    use mod_ECRad_types,        only: drift_m
     implicit none
     real(rkind), dimension(:),  intent(in) :: u_par, u_perp, gamma
     real(rkind), intent(in)            :: n_omega_bar, N_par
@@ -660,7 +660,7 @@ function radiation_dist_drift_m_Rf(u_par, u_perp,gamma, n_omega_bar, &
     !                            (2 * n_omega_bar * (u_perp + drift_m%u_perp_ECRH_drift) / u_perp &
     !                            + N_par * (2 * u_par - drift_m%u_par_ECRH_drift))
 end function radiation_dist_drift_m_Rf
-#endif NAg
+#endif
 function radiation_dist_Spitzer_Rf(u, mu, gamma, u_perp, vd) ! u = u_par here
 ! This function computes the non-thermal Spitzer-Deformation Term
     use constants,                  only: pi, e0, mass_e, eps0, c0
@@ -682,4 +682,4 @@ function radiation_dist_Spitzer_Rf(u, mu, gamma, u_perp, vd) ! u = u_par here
         chain_rule * 0.7619 * (4.d0 * 0.09476232*v**3 -3.d0 * 0.08852586*v**3 + &
           2.d0 * 1.32003051*v - 0.19511956)
 end function radiation_dist_Spitzer_Rf
-end module mod_ecfm_radiation_dist
+end module mod_ECRad_radiation_dist

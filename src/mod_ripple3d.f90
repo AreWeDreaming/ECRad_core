@@ -25,7 +25,7 @@ contains
     implicit none
     real(rkind), intent(in)           :: R0, Btf0
     ! Btf0 vacuum toroidal magnetic field at R0
-    if(abs(Btf0) > 20.d0 .or. abs(Btf0) < 20.d-3 .or. R0 < 0.d0) then
+    if(abs(Btf0) > 100.d0 .or. abs(Btf0) < 20.d-3 .or. R0 < 0.d0) then
       print*, "Nonsensical Btf0 or R0 in init_ripple in mod_ripple3d.f90"
       print*, "R0 [m], Btf0 [T]", R0, Btf0
       stop "Input error in init_ripple in mod_ripple3d.f90"

@@ -2,7 +2,7 @@
 !******************************************************************************
 !******************************************************************************
 
-module mod_ecfm_refr_types
+module mod_ECRad_types
 ! Many of the values set here are overwritten during intialization
 ! values marked with a * are hardcoded here
 use f90_kind
@@ -449,6 +449,8 @@ type plasma_params_type
   real(rkind)                                       :: rhop_entry = 1.2d0 !*
   real(rkind)                                       :: rhop_inside = 0.99d0, rhop_exit = 1.05d0 !* Stop if rhop > rhop exit
                                                                                                 !  and rhop_inside was reached before
+  real(rkind)                                       :: delta_rhop_exit = 0.02 !* Used to trigger an early exit of raytracing
+                                                                               ! in case of profiles that stop at the LCFS
   real(rkind)                                       :: X_entry = 0.04 !*
   real(rkind)                                       :: rhop_emit = 1.03 !* Specifies upper limit for the fine grid
                                                        ! This avoids having the small grid for channels with resonances in the SOL
@@ -469,7 +471,6 @@ type plasma_params_type
   real(rkind)                                       :: angle_threshold = 90.d0 / 180.d0 * pi !2.d0 * pi !90.d0 / 180.d0 * pi !* maximum allowed rotation of wave vector k with respect to the launch
                                                        ! 2.d0 * pi ! no threshhold
                                                        ! propagation with respect to launch (avoids internal reflections)
-  real(rkind)                                       :: btf_corr_fact_ext = -1.d0 ! Scaling factor for B_t -> Deprecated, does nothing
   real(rkind)                                       :: rp_min
   logical                                           :: No_ne_te = .false. ! True for initialization with straight rays
   logical                                           :: prof_log_flag = .true. ! If True Te and ne interpolated by Exp(Spl) instead of Spl directly
@@ -553,7 +554,7 @@ end type plasma_params_type
   logical                            :: double_check_splines = .false. !*
   logical                            :: output_all_ray_data = .true.
   ! The next two options are overwritten if ida is used
-  logical                            :: stand_alone = .true. !* Whether the model is used as part of IDA or as a standalone program
+  logical                            :: stand_alone = .false. !* Whether the model is used as part of IDA or as a standalone program
   logical                            :: use_ida_spline_Te = .false., use_ida_spline_ne = .false.  !* whether IDA splines are used
   integer(ikind)                     :: eval, not_eval
   real(rkind)                        :: tau_ignore  = 1.d-8!* Threshold that decides whether the absorption of current point is considered
@@ -563,5 +564,5 @@ end type plasma_params_type
   integer(ikind)                     :: N_absz = 24, N_absz_large = 128
   logical                            :: new_IO = .false. ! Will be true if the new IO from ECRad_GUI will be used
   logical                            :: use_3D = .false.
-end module mod_ecfm_refr_types
+end module mod_ECRad_types
 

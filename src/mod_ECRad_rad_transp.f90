@@ -1,4 +1,4 @@
-! module mod_ecfm_refr_rad_transp
+! module mod_ECRad_rad_transp
 !        subroutine benchmark_abs_and_N, calculate_Irad
 
 
@@ -6,7 +6,7 @@
 !******************************************************************************
 !******************************************************************************
 
-module mod_ecfm_refr_rad_transp
+module mod_ECRad_rad_transp
 
   use f90_kind
   implicit none
@@ -21,10 +21,10 @@ contains
 subroutine evaluate_em_ab_single(rad_freq, j, omega, mode, ds2, eval_pol_coeff, x_launch, &
                                  em, ab, em_secondary, ab_secondary, pol_coeff, pol_coeff_secondary)
 ! Wrapper function for em, ab, .... since a lot of if clauses regarding dstf and dstf_comp are required this subroutine cleans up the code below.
-use mod_ecfm_refr_types,        only: rad_diag_ch_mode_ray_freq_type, &
+use mod_ECRad_types,        only: rad_diag_ch_mode_ray_freq_type, &
                                       output_level, dstf, ignore_Te, ignore_ne, ne_max
 use constants,                  only: pi, e0, mass_e, eps0, c0
-use mod_ecfm_refr_abs_Al,           only: abs_Albajar, abs_Albajar_fast, abs_Al_Fa_abs, func_N_cold, func_rel_N
+use mod_ECRad_abs_Al,           only: abs_Albajar, abs_Albajar_fast, abs_Al_Fa_abs, func_N_cold, func_rel_N
 implicit none
 type(rad_diag_ch_mode_ray_freq_type), intent(inout) :: rad_freq
 integer(ikind),             intent(in)    :: j
@@ -106,12 +106,12 @@ subroutine calculate_Trad(rad_ray_freq, freq, x_vec_launch, mode, Trad, Trad_sec
 ! Tau is calculated with the rapezoid method. It is desireable to replace this method by a more sophisticated technique.
 
 
-use mod_ecfm_refr_types,        only: rad_diag_ch_mode_ray_freq_type, output_level, &
+use mod_ECRad_types,        only: rad_diag_ch_mode_ray_freq_type, output_level, &
                                       dstf, ffp, mode_cnt, tau_thick, ignore_Te, &
                                       static_grid, plasma_vac_boundary, spl_type_1d
 use constants,                  only: pi, e0, mass_e, eps0, c0
-use mod_ecfm_refr_abs_Al,       only: func_N_cold, func_rel_N
-use mod_ecfm_refr_interpol,     only: make_1d_spline, spline_1d_integrate, deallocate_1d_spline
+use mod_ECRad_abs_Al,       only: func_N_cold, func_rel_N
+use mod_ECRad_interpol,     only: make_1d_spline, spline_1d_integrate, deallocate_1d_spline
 implicit none
 type(rad_diag_ch_mode_ray_freq_type), intent(inout) :: rad_ray_freq
 real(rkind),                intent(in)    :: freq
@@ -422,10 +422,10 @@ end subroutine calculate_Trad
 
 
 subroutine get_em_T_fast(rad_ray_freq, freq, x_vec_launch, mode)
-use mod_ecfm_refr_types,        only: rad_diag_ch_mode_ray_freq_type, spl_type_1d
+use mod_ECRad_types,        only: rad_diag_ch_mode_ray_freq_type, spl_type_1d
 use constants,                  only: pi, e0, mass_e, eps0, c0
-use mod_ecfm_refr_abs_Al,       only: func_N_cold, func_rel_N
-use mod_ecfm_refr_interpol,     only: make_1d_spline, spline_1d_integrate, deallocate_1d_spline
+use mod_ECRad_abs_Al,       only: func_N_cold, func_rel_N
+use mod_ECRad_interpol,     only: make_1d_spline, spline_1d_integrate, deallocate_1d_spline
 implicit none
 type(rad_diag_ch_mode_ray_freq_type), intent(inout) :: rad_ray_freq
 real(rkind),                intent(in)    :: freq
@@ -462,4 +462,4 @@ call deallocate_1d_spline(ab_spline)
 end subroutine get_em_T_fast
 
 
-end module mod_ecfm_refr_rad_transp
+end module mod_ECRad_rad_transp

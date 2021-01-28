@@ -37,8 +37,12 @@ make USE_3D=True DEBUG=True
 make USE_3D=True
 make USE_3D=True DEBUG=True OPEN_MP=True
 make USE_3D=True OPEN_MP=True
-#f2py -c --fcompiler=gnu95 ../src/ECRad_python.f90 --build-dir modgOMP -m ECRad_python -ImodgOMP/ --f90flags=-openmp -lgomp -L../fitpack/ -lFITPack -L../odepack/ -lODEPack -L/mnt/c/Users/Severin/git/augd_ecrad/ubuntu_19_04/ -lECRadOMP
+cd $SYS
+python -m numpy.f2py  -c --fcompiler=gnu95 ../src/ECRad_python.f90 -m ECRad_python -ImodgOMP/ --f90flags=-openmp -lgomp -L./ -lECRadOMP -L../fitpack/ -lFITPack -L../odepack/ -lODEPack
+python -m numpy.f2py  -c --fcompiler=gnu95 ../src/ECRad_python.f90 -m ECRad_python -Imodg/ --f90flags=-g -L./ -lECRaddb -L../fitpack/ -lFITPack -L../odepack/ -lODEPack
+python -m numpy.f2py  -c --fcompiler=gnu95 ../src/ECRad_python_3D_extension.f90 -m ECRad_python_3D_extension -ImodgOMPUSE3D/ --f90flags=-openmp -lgomp -L./ -lECRadOMPUSE3D -L../fitpack/ -lFITPack -L../odepack/ -lODEPack -L../../Mconf/lib/ -lmconf64 -lpthread -lstdc++ -llapack -lblas 
+#f2py3.7 -c --fcompiler=gnu95 ../src/ECRad_python.f90 -m ECRad_python -ImodgOMP/ --f90flags=-openmp -lgomp -L../fitpack/ -lFITPack -L../odepack/ -lODEPack -L./ -lECRadOMP
 #f2py -c --fcompiler=gnu95 ../src/ECRad_python.f90 --build-dir modiOMP -m ECRad_python -ImodiOMP/ -lECRadOMP --f90flags=-openmp -lgomp -L../..fitpack/ -lfit
 #f2py -c --fcompiler=intelem ../src/ECRad_python.f90 -m ECRad_python -I$SYS/modiOMPUSE3D/ --f90flags="-qopenmp -fpp -DOMP -O2" -liomp5 -L../fitpack/ -L../odepack/ -L$SYS -lECRadOMP -lFITPack -lODEPack
-#f2py -c --fcompiler=intelem src/ECRad_python.f90 -m ECRad_python -I$SYS/modiOMPUSE3D/ --f90flags="-qopenmp -fpp -DOMP -DUSE3D -O2" -liomp5 -L../netlib/fitpack/ -L../Mconf/lib/ -L$SYS -lECRadOMPUSE3D -lfit -lmconf64
+python -m numpy.f2py -c --fcompiler=gnu95 src/ECRad_python.f90 -m ECRad_python -I$SYS/modiOMPUSE3D/ --f90flags="-qopenmp -fpp -DOMP -DUSE3D -O2"  -L$SYS  -lECRadOMPUSE3D -L../netlib/fitpack/ -L../Mconf/lib/ -lfit -lmconf64 -liomp5
 #f2py -c --fcompiler=intelem src/ECRad_python.f90 -m ECRad_python -I$SYS/modiUSE3D/ --f90flags="-fpp -DUSE3D -g -traceback" -liomp5 -L../netlib/fitpack/ -L../Mconf/lib/ -L$SYS -lECRadUSE3Ddb -lfit -lmconf64
