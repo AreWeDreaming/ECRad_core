@@ -1,12 +1,1 @@
-/*
-!/src
-!/fitpack
-!/odepack
-!/Fitpack_ODEpack_makefiles
-!/build.sh
-!/build.tcsh
-!/ECRad_submit.bsub
-!/makefile
-!/compile_ECRad_python.sh
-!/compile_ECRad_python_gfortran.sh
-!/update_fit_ode_pack.sh
+./id
