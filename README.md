@@ -1,4 +1,4 @@
-ECRad is a code for the predection of electron cyclotron emission measurements of thermal and non-thermal plasmas
+ECRad is a code for the predection of electron cyclotron emission measurements of thermal and non-thermal magnetic confinement fusion plasmas.
 
 ## References
 At the moment [this paper](https://doi.org/10.1016/j.cpc.2020.107175) is the reference for ECRad.
