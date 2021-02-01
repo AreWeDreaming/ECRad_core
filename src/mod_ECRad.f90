@@ -7,10 +7,19 @@ use f90_kind
 #endif
 
 public :: initialize_stand_alone, &
-          initialize_ECRad, &
-          make_rays_ECRad, &
-          make_dat_model_ece_ECRad, &
-          pre_initialize_ECRad, &
+          initialize_ECRad_f2py, &
+          initialize_ECRad_IDA, &
+          make_rays_ECRad_f2py, &
+          make_rays_ECRad_IDA, &
+          make_dat_model_ece_ECRad_IDA, &
+          make_dat_model_ece_ECRad_f2py, &
+          pre_initialize_ECRad_f2py, &
+          pre_initialize_ECRad_IDA, &
+          get_Trad_resonances_basic_f2py, &
+          get_Trad_resonances_extra_output_f2py, &
+          get_BPD_f2py, &
+          get_ray_length_f2py, &
+          get_ray_data_f2py, &
           make_ece_rad_temp, &
           clean_up_ECRad
 
@@ -152,11 +161,11 @@ character(*),  intent(in)      :: flag
   end if
 end subroutine initialize_stand_alone
 
-subroutine pre_initialize_ECRad_f2py(ecrad_verbose, ray_tracing, ecrad_Bt_ripple, &
+subroutine pre_initialize_ECRad_f2py(ecrad_verbose, dstf_in, ray_tracing, ecrad_Bt_ripple, &
                                      rhopol_max_spline_knot, ecrad_weak_rel, &
                                      ecrad_ratio_for_third_harmonic, &
                                      ecrad_modes, reflec_X_mode, reflec_O_mode, ece_1O_flag, &
-                                     ecrad_max_points_svec, & ! (modes = 1 -> pure X-mode, 2 -> pure O-mode, 3 both modes and filter
+                                     ecrad_max_points_svec, N_BPD_pnts, & ! (modes = 1 -> pure X-mode, 2 -> pure O-mode, 3 both modes and filter
                                      ecrad_O2X_mode_conversion, & ! mode conversion ratio from O-X due to wall reflections
                                      ! Scaling of rhop axis for shifting on ne or Te
                                      ! Every rhop value obtained in ray tracing will be multiplied by the corresponding scaling value when evaluating Te/ne
@@ -166,18 +175,17 @@ subroutine pre_initialize_ECRad_f2py(ecrad_verbose, ray_tracing, ecrad_Bt_ripple
                                      ecrad_N_ray, ecrad_N_freq, log_flag, N_vessel, vessel_R, vessel_z, &
                                      f, df, R, phi, z, tor, pol, dist_foc, width)
 ! Everything that is absolutely static in time is done over here
-use mod_ECRad_types,      only: dstf, dst_data_folder, Ich_name, ray_out_folder, output_level, &
-                                dstf_comp, plasma_params, N_ray, N_freq, ray_init, working_dir, &
-                                rad, ant, data_folder, Ich_name, dstf_comp, straight, stand_alone
+use mod_ECRad_types,      only: plasma_params, N_absz, N_absz_large, dstf, pnts_BPD
 use mod_ECRad_utils,      only: parse_ECRad_config, &
                                 prepare_ECE_diag
 use mod_ECRad_abs_Al,     only: abs_Al_init
 implicit none
+character(*), intent(in)        :: dstf_in
 real(rkind), intent(in)       :: rhopol_max_spline_knot, ecrad_ratio_for_third_harmonic, &
                                               reflec_X_mode, reflec_O_mode, ecrad_O2X_mode_conversion, &
                                               rhopol_scal_te, rhopol_scal_ne, &
                                               ecrad_ds_large, ecrad_ds_small, ecrad_R_shift, ecrad_z_shift
-integer(ikind), intent(in)    :: ecrad_modes, ecrad_max_points_svec, ecrad_N_ray, &
+integer(ikind), intent(in)    :: ecrad_modes, ecrad_max_points_svec, N_BPD_pnts, ecrad_N_ray, &
                                               ecrad_N_freq,ece_1O_flag
 logical, intent(in)           :: ecrad_verbose, ecrad_Bt_ripple, ray_tracing, ecrad_weak_rel, log_flag
 integer(ikind), intent(in)    :: N_vessel
@@ -185,7 +193,7 @@ real(rkind), dimension(:), intent(in) :: vessel_R, vessel_z
 real(rkind), dimension(:), intent(in), optional :: f, df, R, phi, z, tor, pol, dist_foc, width
 integer(ikind)                :: idiag
   call parse_ECRad_config(plasma_params, &
-                          ecrad_verbose, ray_tracing, ecrad_Bt_ripple, &
+                          ecrad_verbose, dstf_in, ray_tracing, ecrad_Bt_ripple, &
                           rhopol_max_spline_knot, ecrad_weak_rel, &
                           ecrad_ratio_for_third_harmonic, &
                           ecrad_modes, reflec_X_mode, reflec_O_mode, ece_1O_flag, &
@@ -197,9 +205,15 @@ integer(ikind)                :: idiag
                           ecrad_ds_large, ecrad_ds_small, ecrad_R_shift, &    ! Allows shifting the equilbrium - moves entire flux matrix
                           ecrad_z_shift, &    ! Allows shifting the equilbrium - moves entire flux matrix
                           ecrad_N_ray, ecrad_N_freq, log_flag, 0)
+  pnts_BPD = N_BPD_pnts
   call prepare_ECE_diag(f=f, df=df, R=R, &
                         phi=phi, z=z, tor=tor, pol=pol, dist_foc=dist_foc, &
                         width=width)
+  if(dstf == "numeric" .or. trim(dstf) == "gene" .or. trim(dstf) == "gcomp") then
+      call abs_Al_init(N_absz_large) ! Initializes the weights and abszissae for the gaussian quadrature
+    else
+      call abs_Al_init(N_absz) ! Initializes the weights and abszissae for the gaussian quadrature
+    end if
   plasma_params%m_vessel_bd = N_vessel
   allocate(plasma_params%vessel_poly%x(plasma_params%m_vessel_bd), plasma_params%vessel_poly%y(plasma_params%m_vessel_bd))
   plasma_params%vessel_poly%x(:) = vessel_R
@@ -246,7 +260,7 @@ if(trim(flag) == "init" .or. trim(flag) == "load") then
   working_dir = trim(working_dir_in)  // "/"
   if(present(parallelization_mode)) then
     call parse_ECRad_config(plasma_params, &
-                            ecrad_verbose, ray_tracing, ecrad_Bt_ripple, &
+                            ecrad_verbose, "Th", ray_tracing, ecrad_Bt_ripple, &
                             rhopol_max_spline_knot, ecrad_weak_rel, &
                             ecrad_ratio_for_third_harmonic, &
                             ecrad_modes, reflec_X_mode, reflec_O_mode, ece_1O_flag, &
@@ -446,8 +460,9 @@ logical                                           :: old_straight
 end subroutine initialize_ECRad_IDA
 #endif
 
-subroutine make_rays_ECRad(rhop_knots_ne, n_e, n_e_dx2, rhop_knots_Te, T_e, T_e_dx2, &
-                          rhop_res)
+subroutine make_rays_ECRad_f2py(rhop_knots_ne, n_e, n_e_dx2, rhop_knots_Te, T_e, T_e_dx2, &
+                           rhop_res)
+! At the moment to identical routines for f2py and IDA. This is mainly a preparation for the future.
 ! Simulates the structure used in IDA
 ! While in the stand alone make_ece_rad_temp is only called once it is called many times in IDA
 ! Hence, to keep the structure similiar all initizalization is performed here
@@ -464,31 +479,68 @@ end if
 call span_svecs(plasma_params)
 ! for second harmonic (n -1)/n =(2 -1)/2 = 0.5d0
 ray_init = .true.
-if( plasma_params%No_ne_te) then
-  ! For the first run of the ECRad we need resonance positions that work best for classical ECE analysis
-  ! Hence, we use the resonances of the X-mode and the combination of O and X mode is overwritten.
-  if(modes == 3) then
-    do idiag = 1, ant%N_diag
-      do ich = 1, ant%diag(idiag)%N_ch
-        rad%diag(idiag)%ch(ich)%s_res = rad%diag(idiag)%ch(ich)%mode(1)%s_res
-        rad%diag(idiag)%ch(ich)%R_res = rad%diag(idiag)%ch(ich)%mode(1)%R_res
-        rad%diag(idiag)%ch(ich)%z_res = rad%diag(idiag)%ch(ich)%mode(1)%z_res
-        rad%diag(idiag)%ch(ich)%rhop_res = rad%diag(idiag)%ch(ich)%mode(1)%rhop_res
-      end do
+! For the first run of the ECRad we need resonance positions that work best for classical ECE analysis
+! Hence, we use the resonances of the X-mode and the combination of O and X mode is overwritten.
+if(modes == 3) then
+  do idiag = 1, ant%N_diag
+    do ich = 1, ant%diag(idiag)%N_ch
+      rad%diag(idiag)%ch(ich)%s_res = rad%diag(idiag)%ch(ich)%mode(1)%s_res
+      rad%diag(idiag)%ch(ich)%R_res = rad%diag(idiag)%ch(ich)%mode(1)%R_res
+      rad%diag(idiag)%ch(ich)%z_res = rad%diag(idiag)%ch(ich)%mode(1)%z_res
+      rad%diag(idiag)%ch(ich)%rhop_res = rad%diag(idiag)%ch(ich)%mode(1)%rhop_res
     end do
-  end if
+  end do
 end if
 if(present(rhop_res)) then
   do idiag = 1, ant%N_diag
+    print*, rad%diag(idiag)%ch(:)%rhop_res
     rhop_res = rad%diag(idiag)%ch(:)%rhop_res
   end do
 end if
-end subroutine make_rays_ECRad
+end subroutine make_rays_ECRad_f2py
 
-subroutine make_dat_model_ece_ECRad(rhop_knots_ne, n_e, n_e_dx2, rhop_knots_Te, T_e, T_e_dx2, &
-                                    ne_rhop_scal, reflec_X_new, & ! in
-                                    reflec_O_new, ece_fm_flag_ch, rp_min, &
-                                    dat_model_ece, tau, set_grid_dynamic, verbose)
+subroutine make_rays_ECRad_IDA(rhop_knots_ne, n_e, n_e_dx2, rhop_knots_Te, T_e, T_e_dx2, &
+                               rhop_res)
+! Simulates the structure used in IDA
+! While in the stand alone make_ece_rad_temp is only called once it is called many times in IDA
+! Hence, to keep the structure similiar all initizalization is performed here
+use mod_ECRad_types,        only: plasma_params, ant, rad, ray_init, straight, modes
+use mod_ECRad_raytrace,               only: span_svecs
+implicit none
+real(rkind), dimension(:), intent(in), optional   :: rhop_knots_ne, n_e, n_e_dx2, rhop_knots_Te, T_e, T_e_dx2
+real(rkind), dimension(:),  intent(out), optional :: rhop_res
+integer(ikind)                          :: idiag, ich
+! Updates the values of the splines: Te, ne
+if(.not. plasma_params%No_ne_te .or. plasma_params%Te_ne_mat) then
+  call update_Te_ne(rhop_knots_ne, n_e, n_e_dx2, rhop_knots_Te, T_e, T_e_dx2)
+end if
+call span_svecs(plasma_params)
+! for second harmonic (n -1)/n =(2 -1)/2 = 0.5d0
+ray_init = .true.
+! For the first run of the ECRad we need resonance positions that work best for classical ECE analysis
+! Hence, we use the resonances of the X-mode and the combination of O and X mode is overwritten.
+if(modes == 3) then
+  do idiag = 1, ant%N_diag
+    do ich = 1, ant%diag(idiag)%N_ch
+      rad%diag(idiag)%ch(ich)%s_res = rad%diag(idiag)%ch(ich)%mode(1)%s_res
+      rad%diag(idiag)%ch(ich)%R_res = rad%diag(idiag)%ch(ich)%mode(1)%R_res
+      rad%diag(idiag)%ch(ich)%z_res = rad%diag(idiag)%ch(ich)%mode(1)%z_res
+      rad%diag(idiag)%ch(ich)%rhop_res = rad%diag(idiag)%ch(ich)%mode(1)%rhop_res
+    end do
+  end do
+end if
+if(present(rhop_res)) then
+  do idiag = 1, ant%N_diag
+    print*, rad%diag(idiag)%ch(:)%rhop_res
+    rhop_res = rad%diag(idiag)%ch(:)%rhop_res
+  end do
+end if
+end subroutine make_rays_ECRad_IDA
+
+subroutine make_dat_model_ece_ECRad_f2py(rhop_knots_ne, n_e, n_e_dx2, rhop_knots_Te, T_e, T_e_dx2, &
+                                         ne_rhop_scal, reflec_X_new, & ! in
+                                         reflec_O_new, ece_fm_flag_ch, rp_min, &
+                                         dat_model_ece, tau, set_grid_dynamic, verbose)
 use mod_ECRad_types,        only: reflec_X, reflec_O, plasma_params, rad, ant, ray_init, static_grid, stand_alone
 use mod_ECRad_utils,        only: retrieve_T_e
 implicit none
@@ -571,9 +623,97 @@ end if
 !do ich =1, ant%diag(1)%N_ch
 !  if(ece_fm_flag_ch(ich)) print*, rad%diag(1)%ch(ich)%Trad
 !end do
-end subroutine make_dat_model_ece_ECRad
+end subroutine make_dat_model_ece_ECRad_f2py
 
-subroutine make_BPD_w_res_ch(idiag, ich, rhop_knots_ne, n_e, n_e_dx2, rhop_knots_Te, T_e, T_e_dx2, &
+subroutine make_dat_model_ece_ECRad_IDA(rhop_knots_ne, n_e, n_e_dx2, rhop_knots_Te, T_e, T_e_dx2, &
+                                        ne_rhop_scal, reflec_X_new, & ! in
+                                        reflec_O_new, ece_fm_flag_ch, rp_min, &
+                                        dat_model_ece, tau, set_grid_dynamic, verbose)
+use mod_ECRad_types,        only: reflec_X, reflec_O, plasma_params, rad, ant, ray_init, static_grid, stand_alone
+use mod_ECRad_utils,        only: retrieve_T_e
+implicit none
+real(rkind), dimension(:), intent(in)  :: rhop_knots_ne, n_e, rhop_knots_Te, T_e
+real(rkind),               intent(in)  :: ne_rhop_scal, reflec_X_new, reflec_O_new, rp_min
+real(rkind), dimension(:), intent(in), optional  :: n_e_dx2, T_e_dx2
+logical,     dimension(:), intent(in)  :: ece_fm_flag_ch
+real(rkind), dimension(:), intent(out) :: dat_model_ece
+real(rkind), dimension(:), intent(out), optional  :: tau
+logical,      intent(in), optional     :: verbose
+logical, intent(in), optional          :: set_grid_dynamic
+integer(ikind)                         :: ich
+if(.not. ray_init) then
+  print*, "Something wrong with the sequencing!!"
+  print*, "make_dat_model_ece_ECRad was called before make_rays_ECRad"
+  print*, "Critical error in mod_ECRad.f90 - check stack trace!"
+  call abort
+end if
+if(present(set_grid_dynamic)) then
+  if(set_grid_dynamic) then
+    static_grid = .false.
+  else
+    static_grid = .true.
+  end if
+else
+  static_grid = .true.
+end if
+reflec_X = reflec_X_new
+reflec_O = reflec_O_new
+rad%diag(1)%ch(:)%eval_ch = ece_fm_flag_ch
+plasma_params%rp_min = rp_min
+plasma_params%rhop_scale_ne =  ne_rhop_scal
+if(.not. present(T_e_dx2) .and. .not. present(n_e_dx2)) then
+! Use univariate spline for both
+   call update_svecs(rad, rhop_knots_ne=rhop_knots_ne, n_e=n_e, &
+                     rhop_knots_Te=rhop_knots_Te, T_e=T_e)
+else if(.not. present(T_e_dx2)) then
+! Use IDA spline for ne but univariate spline for Te
+  call update_svecs(rad, rhop_knots_ne, n_e, n_e_dx2, rhop_knots_Te, T_e)
+else if(.not. present(n_e_dx2)) then
+! Use IDA spline for Te but univariate spline  for ne -> important ne in units of 1.e19 m^-3
+   call update_svecs(rad, rhop_knots_ne, n_e, rhop_knots_Te, T_e, T_e_dx2)
+else
+  call update_svecs(rad, rhop_knots_ne, n_e, n_e_dx2, rhop_knots_Te, T_e, T_e_dx2)
+end if
+! Perform the classical analysis using the resonance of the X-mode
+if(any(ece_fm_flag_ch .eqv. .false.)) then
+  call retrieve_T_e(plasma_params, abs(rad%diag(1)%ch(:)%rhop_res), dat_model_ece)
+  if(any(dat_model_ece /= dat_model_ece)) then
+    print*, "Nan in ECE forward model with classical analysis"
+    print*, "Used rho_pol"
+    print*, rad%diag(1)%ch(:)%rhop_res
+    print*, dat_model_ece
+    call abort
+  end if
+end if
+if(any(ece_fm_flag_ch)) then
+  call make_ece_rad_temp()
+  if(any(rad%diag(1)%ch(:)%Trad /= rad%diag(1)%ch(:)%Trad)) then
+    print*, "Nan in ECE forward model with forward modeled Trad"
+    print*, rad%diag(1)%ch(:)%Trad
+    call save_data_to_ASCII()
+    call abort
+  end if
+end if
+where (ece_fm_flag_ch) dat_model_ece = rad%diag(1)%ch(:)%Trad
+where(rad%diag(1)%ch(:)%rhop_res < 0.d0) dat_model_ece = 0.d0 ! cut off
+if(present(tau)) then
+  if(size(tau) /= size(dat_model_ece)) then
+    print*, "If provided tau must have the same shape as dat_model_ece"
+    print*, "Input error in make_dat_model_ece_ECRad"
+    call abort()
+  end if
+  tau(:) = -1.d0
+  where (ece_fm_flag_ch) tau = rad%diag(1)%ch(:)%tau
+end if
+if(present(verbose) .and. stand_alone) then
+  if(verbose) call save_data_to_ASCII()
+end if
+!do ich =1, ant%diag(1)%N_ch
+!  if(ece_fm_flag_ch(ich)) print*, rad%diag(1)%ch(ich)%Trad
+!end do
+end subroutine make_dat_model_ece_ECRad_IDA
+
+subroutine make_BPD_w_res_ch_IDA(idiag, ich, rhop_knots_ne, n_e, n_e_dx2, rhop_knots_Te, T_e, T_e_dx2, &
                                         ne_rhop_scal, reflec_X_new, & ! in
                                         reflec_O_new, rp_min, &
                                         rhop, BPD, rhop_res_warm)
@@ -590,7 +730,7 @@ real(rkind), dimension(ant%diag(idiag)%N_ch) :: dat_model_ece_dummy
 integer(ikind)                               :: imode
  ece_fm_flag_ch(:) = .false.
  ece_fm_flag_ch(ich) = .true.
- call make_dat_model_ece_ECRad(rhop_knots_ne, n_e, n_e_dx2, rhop_knots_Te, T_e, T_e_dx2, &
+ call make_dat_model_ece_ECRad_IDA(rhop_knots_ne, n_e, n_e_dx2, rhop_knots_Te, T_e, T_e_dx2, &
                                    ne_rhop_scal, reflec_X_new, & ! in
                                    reflec_O_new, ece_fm_flag_ch, rp_min, &
                                    dat_model_ece_dummy, set_grid_dynamic = .true.)
@@ -610,7 +750,7 @@ integer(ikind)                               :: imode
   end if
   deallocate(rad%diag(idiag)%ch(ich)%mode_extra_output)
   rhop_res_warm = rad%diag(idiag)%ch(ich)%rel_rhop_res
-end subroutine make_BPD_w_res_ch
+end subroutine make_BPD_w_res_ch_IDA
 
 subroutine update_Te_ne(rhop_knots_ne, n_e, n_e_dx2, rhop_knots_Te, T_e, T_e_dx2)
 use mod_ECRad_types,               only: plasma_params, use_ida_spline_Te, use_ida_spline_ne, SOL_ne, SOL_Te
@@ -720,6 +860,16 @@ subroutine update_svecs(rad, rhop_knots_ne, n_e, n_e_dx2, rhop_knots_Te, T_e, T_
   end do
 end subroutine update_svecs
 
+subroutine set_for_single_eval()
+! Replacement routine for make_dat_model for single run moodeling
+use mod_ECRad_types,        only: rad, static_grid
+implicit none
+integer(ikind) :: idiag
+idiag = 1
+rad%diag(idiag)%ch(:)%eval_ch = .true.
+static_grid = .false.
+end subroutine set_for_single_eval
+
 subroutine make_ece_rad_temp()
 use mod_ECRad_types,        only: dstf, reflec_X, reflec_O, mode_cnt, N_ray, N_freq, plasma_params, &
                                       rad, ant, output_level, max_points_svec, mode_conv, reflec_model, &
@@ -798,8 +948,10 @@ do idiag = 1, ant%N_diag
                      ant%diag(idiag)%ch(ich)%freq(ifreq), &
                      ant%diag(idiag)%ch(ich)%ray_launch(ir)%x_vec, &
                      rad%diag(idiag)%ch(ich)%mode(imode)%mode, &
-                     rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%Trad, rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%Trad_secondary, &
-                     rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%tau, rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%tau_secondary, &
+                     rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%Trad, &
+                     rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%Trad_secondary, &
+                     rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%tau, &
+                     rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%tau_secondary, &
                      tau_array, tau_secondary_array, &
                      error)
               if(error < 0) then
@@ -808,8 +960,10 @@ do idiag = 1, ant%N_diag
                     ant%diag(idiag)%ch(ich)%freq(ifreq), &
                     ant%diag(idiag)%ch(ich)%ray_launch(ir)%x_vec, &
                     rad%diag(idiag)%ch(ich)%mode(imode)%mode, &
-                    rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%Trad, rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%Trad_secondary, &
-                    rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%tau, rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%tau_secondary, &
+                    rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%Trad, *
+                    rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%Trad_secondary, &
+                    rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%tau, &
+                    rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%tau_secondary, &
                     tau_array, tau_secondary_array, &
                     error, debug = .true.)
                 call abort
@@ -819,17 +973,22 @@ do idiag = 1, ant%N_diag
                    ant%diag(idiag)%ch(ich)%freq(ifreq), &
                    ant%diag(idiag)%ch(ich)%ray_launch(ir)%x_vec, &
                    rad%diag(idiag)%ch(ich)%mode(imode)%mode, &
-                   rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%Trad, rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%Trad_secondary, &
-                   rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%tau, rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%tau_secondary, &
+                   rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%Trad, &
+                   rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%Trad_secondary, &
+                   rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%tau, &
+                   rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%tau_secondary, &
                    tau_array, tau_secondary_array, &
                    error)
               if(error < 0) then
+                print*, "An error occured while solving radiation transport"
                 call calculate_Trad(rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq), &
                    ant%diag(idiag)%ch(ich)%freq(ifreq), &
                    ant%diag(idiag)%ch(ich)%ray_launch(ir)%x_vec, &
                    rad%diag(idiag)%ch(ich)%mode(imode)%mode, &
-                   rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%Trad, rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%Trad_secondary, &
-                   rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%tau, rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%tau_secondary, &
+                   rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%Trad, &
+                   rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%Trad_secondary, &
+                   rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%tau, &
+                   rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%tau_secondary, &
                    tau_array, tau_secondary_array, &
                    error)
                 call abort
@@ -1072,8 +1231,8 @@ do idiag = 1, ant%N_diag
       if(mode_cnt == 2) then
         if(rad%diag(idiag)%ch(ich)%Trad > 0.d0) then
           rad%diag(idiag)%ch(ich)%mode(imode)%Trad_mode_frac = rad%diag(idiag)%ch(ich)%mode(imode)%Trad * &
-                           rad%diag(idiag)%ch(ich)%mode(imode)%pol_coeff / &
-                           rad%diag(idiag)%ch(ich)%Trad
+                                                               rad%diag(idiag)%ch(ich)%mode(imode)%pol_coeff / &
+                                                               rad%diag(idiag)%ch(ich)%Trad
         else
           rad%diag(idiag)%ch(ich)%mode(imode)%Trad_mode_frac = 0.d0 ! Because 0.d0 Trad means zero contribution of either mode
         end if
@@ -1336,6 +1495,168 @@ integer(ikind)  :: imode, ifreq, ir
     end if
   end do !imode
 end subroutine make_BPD_and_warm_res
+
+subroutine get_Trad_resonances_basic_f2py(imode, N_ch, Trad, tau, s_res, R_res, z_res, rho_res)
+use mod_ECRad_types,        only: rad
+implicit None
+integer, intent(in)   :: imode, N_ch
+! <= 0 -> average over modes
+! > 0 corresponding to imode in ECRad
+real(kind=8), dimension(N_ch), intent(out) :: Trad, tau, s_res, R_res, z_res, rho_res
+
+integer :: idiag, ich
+  idiag = 1
+  if(imode <= 0) then
+    Trad(:) = rad%diag(idiag)%ch(:)%Trad
+    tau(:) = rad%diag(idiag)%ch(:)%tau
+    s_res(:) = rad%diag(idiag)%ch(:)%s_res
+    R_res(:) = rad%diag(idiag)%ch(:)%R_res
+    z_res(:) = rad%diag(idiag)%ch(:)%z_res
+    rho_res(:) = rad%diag(idiag)%ch(:)%rhop_res
+  else
+    do ich = 1, N_ch
+      Trad(ich) = rad%diag(idiag)%ch(ich)%mode(imode)%Trad
+      tau(ich) = rad%diag(idiag)%ch(ich)%mode(imode)%tau
+      s_res(ich) = rad%diag(idiag)%ch(ich)%mode(imode)%s_res
+      R_res(ich) = rad%diag(idiag)%ch(ich)%mode(imode)%R_res
+      z_res(ich) = rad%diag(idiag)%ch(ich)%mode(imode)%z_res
+      rho_res(ich) = rad%diag(idiag)%ch(ich)%mode(imode)%rhop_res
+    end do
+  end if
+end subroutine get_Trad_resonances_basic_f2py
+
+subroutine get_Trad_resonances_extra_output_f2py(imode, Trad_secondary, tau_secondary, &
+                                                 rel_s_res, rel_rho_res, &
+                                                 rel_R_res, rel_z_res, &
+                                                 rel_s_res_secondary, rel_rho_res_secondary, &
+                                                 rel_R_res_secondary, rel_z_res_secondary)
+use mod_ECRad_types,        only: rad, ant
+implicit None
+integer, intent(in)   :: imode
+! <= 0 -> average over modes
+! > 0 corresponding to imode in ECRad
+real(kind=8), dimension(:), intent(inout) :: Trad_secondary, tau_secondary ,&
+                                             rel_s_res, rel_rho_res, rel_R_res, rel_z_res, &
+                                             rel_s_res_secondary, rel_rho_res_secondary, &
+                                             rel_R_res_secondary, rel_z_res_secondary
+integer(kind=8) :: idiag, ich
+  idiag = 1
+  if(imode <= 0) then
+    Trad_secondary(:) = rad%diag(idiag)%ch(:)%Trad_secondary
+    tau_secondary(:) = rad%diag(idiag)%ch(:)%tau_secondary
+    rel_s_res(:) = rad%diag(idiag)%ch(:)%rel_s_res
+    rel_rho_res(:) = rad%diag(idiag)%ch(:)%rel_rhop_res
+    rel_R_res(:) = rad%diag(idiag)%ch(:)%rel_R_res
+    rel_z_res(:) = rad%diag(idiag)%ch(:)%rel_z_res
+    rel_s_res_secondary(:) = rad%diag(idiag)%ch(:)%rel_s_res_secondary
+    rel_rho_res_secondary(:) = rad%diag(idiag)%ch(:)%rel_rhop_res_secondary
+    rel_R_res_secondary(:) = rad%diag(idiag)%ch(:)%rel_R_res_secondary
+    rel_z_res_secondary(:) = rad%diag(idiag)%ch(:)%rel_z_res_secondary
+  else
+    do ich = 1, ant%diag(idiag)%N_ch
+      Trad_secondary(ich) = rad%diag(idiag)%ch(ich)%mode(imode)%Trad_secondary
+      tau_secondary(ich) = rad%diag(idiag)%ch(ich)%mode(imode)%tau_secondary
+      rel_s_res(ich) = rad%diag(idiag)%ch(ich)%mode(imode)%rel_s_res
+      rel_rho_res(ich) = rad%diag(idiag)%ch(ich)%mode(imode)%rel_rhop_res
+      rel_R_res(ich) = rad%diag(idiag)%ch(ich)%mode(imode)%rel_R_res
+      rel_z_res(ich) = rad%diag(idiag)%ch(ich)%mode(imode)%rel_z_res
+      rel_s_res_secondary(ich) = rad%diag(idiag)%ch(ich)%mode(imode)%rel_s_res_secondary
+      rel_rho_res_secondary(ich) = rad%diag(idiag)%ch(ich)%mode(imode)%rel_rhop_res_secondary
+      rel_R_res_secondary(ich) = rad%diag(idiag)%ch(ich)%mode(imode)%rel_R_res_secondary
+      rel_z_res_secondary(ich) = rad%diag(idiag)%ch(ich)%mode(imode)%rel_z_res_secondary
+    end do
+  end if
+end subroutine get_Trad_resonances_extra_output_f2py
+
+subroutine get_BPD_f2py(ich, imode, rho, BPD, BPD_second)
+use mod_ECRad_types,        only: rad
+implicit None
+integer, intent(in)   :: ich, imode
+real(kind=8), dimension(:), intent(inout) :: rho, BPD, BPD_second
+integer :: idiag
+  idiag = 1
+  rho = rad%diag(idiag)%ch(ich)%mode_extra_output(imode)%rhop_BPD
+  BPD = rad%diag(idiag)%ch(ich)%mode_extra_output(imode)%BPD
+  BPD_second = rad%diag(idiag)%ch(ich)%mode_extra_output(imode)%BPD_secondary
+end subroutine get_BPD_f2py
+
+subroutine get_ray_length_f2py(ich, imode, ir, N_LOS)
+use mod_ECRad_types,        only: rad
+implicit None
+integer, intent(in)   :: ich, imode, ir
+integer, intent(out)  :: N_LOS
+integer               :: idiag
+  idiag = 1
+  N_LOS = rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(1)%total_LOS_points
+end subroutine get_ray_length_f2py
+
+subroutine get_ray_data_f2py(ich, imode, ir, s, x, y, z, Nx, Ny, Nz, &
+                        Bx, By, Bz, rho, T_e, n_e, theta, N_cold, H, v_g_perp, &
+                        Trad, Trad_secondary, em, em_secondary, ab, ab_secondary, T, &
+                        T_secondary, BPD, BPD_secondary)
+use mod_ECRad_types,    only: rad
+implicit None
+integer, intent(in)   :: ich, imode, ir
+real(kind=8), dimension(:), intent(inout) :: s, x, y, z, Nx, Ny, Nz, Bx, By, Bz, rho, &
+                                           T_e, n_e, theta, N_cold, H, v_g_perp, &
+                                           Trad, Trad_secondary, em, em_secondary, &
+                                           ab, ab_secondary, T, T_secondary, BPD, BPD_secondary
+integer            :: idiag, ifreq, N_LOS
+  idiag = 1
+  ifreq = 1
+  N_LOS = rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%total_LOS_points
+  s(1:N_LOS) = rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(1)%svec(1:N_LOS)%s
+  x(1:N_LOS) = rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(1)%svec(1:N_LOS)%x_vec(1)
+  y(1:N_LOS) = rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(1)%svec(1:N_LOS)%x_vec(2)
+  z(1:N_LOS) = rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(1)%svec(1:N_LOS)%x_vec(3)
+  Nx(1:N_LOS) = rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(1)%svec(1:N_LOS)%N_vec(1)
+  Ny(1:N_LOS) = rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(1)%svec(1:N_LOS)%N_vec(1)
+  Nz(1:N_LOS) = rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(1)%svec(1:N_LOS)%N_vec(1)
+  Bx(1:N_LOS) = rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(1)%svec(1:N_LOS)%B_vec(1)
+  By(1:N_LOS) = rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(1)%svec(1:N_LOS)%B_vec(2)
+  Bz(1:N_LOS) = rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(1)%svec(1:N_LOS)%B_vec(3)
+  rho(1:N_LOS) = rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(1)%svec(1:N_LOS)%rhop
+  T_e(1:N_LOS) = rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(1)%svec(1:N_LOS)%Te
+  n_e(1:N_LOS) = rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(1)%svec(1:N_LOS)%ne
+  theta(1:N_LOS) = rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(1)%svec(1:N_LOS)%theta
+  N_cold(1:N_LOS) = rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(1)%svec(1:N_LOS)%N_cold
+  H(1:N_LOS) = rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%H(1:N_LOS)
+  v_g_perp(1:N_LOS) = rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(1)%svec(1:N_LOS)%v_g_perp
+  Trad(1:N_LOS) = rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%Trad(1:N_LOS)
+  Trad_secondary(1:N_LOS) = rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%Trad_secondary(1:N_LOS)
+  em(1:N_LOS) = rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%em(1:N_LOS)
+  em_secondary(1:N_LOS) = rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%em_secondary(1:N_LOS)
+  ab(1:N_LOS) = rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%ab(1:N_LOS)
+  ab_secondary(1:N_LOS) = rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%ab_secondary(1:N_LOS)
+  T(1:N_LOS) = rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%T(1:N_LOS)
+  T_secondary(1:N_LOS) = rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%T_secondary(1:N_LOS)
+  BPD(1:N_LOS) = rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%BPD(1:N_LOS)
+  BPD_secondary(1:N_LOS) = rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%BPD_secondary(1:N_LOS)
+end subroutine get_ray_data_f2py
+
+
+
+subroutine get_mode_weights_f2py(N_ch, imode, pol_coeff, pol_coeff_secondary)
+  use mod_ECRad_types,        only:  rad
+  implicit none
+  integer, intent(in) :: N_ch, imode
+  real(kind=8), dimension(:), intent(inout) :: pol_coeff, pol_coeff_secondary
+  integer :: ich, idiag
+  idiag = 1
+    do ich = 1, N_ch
+      pol_coeff(ich) = rad%diag(idiag)%ch(ich)%mode(imode)%pol_coeff
+      pol_coeff_secondary(ich) = rad%diag(idiag)%ch(ich)%mode(imode)%pol_coeff_secondary
+    end do
+end subroutine get_mode_weights_f2py
+
+subroutine get_weights_f2py(ich, ray_weights, freq_weights)
+use mod_ECRad_types,        only:  ant
+implicit none
+  integer, intent(in) :: ich
+  real(kind=8), dimension(:), intent(inout) :: ray_weights, freq_weights
+  ray_weights(:) = ant%diag(1)%ch(ich)%ray_launch(:)%weight
+  freq_weights(:) = ant%diag(1)%ch(ich)%freq_weight(:)
+end subroutine get_weights_f2py
 
 subroutine save_data_to_ASCII()
 use mod_ECRad_types,        only: mode_cnt, N_ray, N_freq, data_name, output_level, &

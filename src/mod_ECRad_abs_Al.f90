@@ -470,7 +470,7 @@ contains
     end if
     if(present(pol_coeff)) then
       pol_coeff = get_filter_transmittance(omega, X, Y, svec%cos_theta, svec%sin_theta, mode, &
-        svec%x_vec, svec%N_vec, svec%B_vec, x_launch)
+                                           svec%x_vec, svec%N_vec, svec%B_vec, x_launch)
     end if
     if(present(pol_coeff) .and. svec%Te < ignore_Te) then
       c_abs = 0.d0
@@ -536,7 +536,6 @@ contains
         stop "Nan in c_abs Albajar"
       end if
     end do
-!    c_abs  = c_abs * 2.d0 ! REMOVE THIS AFTER THE TEST
     if(output_level) then
       m_0 = get_upper_limit_tau(svec,  omega, ds2)
       if(m_0 > 1.d-30 .and. c_abs > 1.d-30 .and. dstf == "relamax") then

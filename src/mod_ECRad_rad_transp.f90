@@ -402,7 +402,7 @@ if( last_index_inside == -1) then
   return
 end if
 if(.not. rad_ray_freq%use_external_pol_coeff .and. mode_cnt > 1) then
-  call evaluate_em_ab_single(rad_ray_freq, last_index_inside, omega, mode, ds2, .True.,  x_vec_launch, &
+  call evaluate_em_ab_single(rad_ray_freq, last_index_inside, omega, mode, ds2, .True., x_vec_launch, &
                          em(1), ab(1), em_secondary(1), ab_secondary(1), rad_ray_freq%pol_coeff, &
                          rad_ray_freq%pol_coeff_secondary)
 end if

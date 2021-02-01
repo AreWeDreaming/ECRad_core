@@ -328,7 +328,7 @@ real(rkind)                       :: dummy
 end subroutine read_input_file
 
 subroutine parse_ECRad_config(plasma_params, &
-                              ecrad_verbose, ray_tracing, ecrad_Bt_ripple, &
+                              ecrad_verbose, dstf_in, ray_tracing, ecrad_Bt_ripple, &
                               rhopol_max_spline_knot, ecrad_weak_rel, &
                               ecrad_ratio_for_third_harmonic, &
                               ecrad_modes, reflec_X_mode, reflec_O_mode, ece_1O_flag, &
@@ -345,8 +345,9 @@ use mod_ECRad_types,        only : plasma_params_type, ant, rad, output_level, &
                                    straight, ratio_for_third_harmonic, reflec_X, reflec_O, warm_plasma, &
                                    modes, mode_cnt, mode_conv, vessel_bd_filename, &
                                    stand_alone, dstf_comp, use_ida_spline_Te, use_ida_spline_ne, &
-                                   max_points_svec, reflec_model, data_name, data_secondary_name
+                                   max_points_svec, reflec_model, data_name, data_secondary_name, ffp
 implicit none
+character(*), intent(in)  :: dstf_in
 type(plasma_params_type), intent(inout)    :: plasma_params
 real(rkind), intent(in)                    :: rhopol_max_spline_knot, ecrad_ratio_for_third_harmonic, &
                                               reflec_X_mode, reflec_O_mode, ecrad_O2X_mode_conversion, &
@@ -362,8 +363,37 @@ integer(ikind)                             :: istat
   ant%N_diag = 1
   allocate(ant%diag(ant%N_diag), rad%diag(ant%N_diag))
   output_level = ecrad_verbose
-  dstf = "Th"
-  dstf_comp = "DF"
+  if(trim(dstf_in) == "Th") then
+    dstf = "Th"
+    dstf_comp = "DF"! Second absorption coefficient according to D. Farina's paper
+  else if(trim(dstf_in) == "Re") then
+    dstf = "numeric"
+    ffp%LUKE = .false.
+  else if(trim(dstf_in) == "Lu") then
+    dstf = "numeric"
+    ffp%LUKE = .true.
+  else if(trim(dstf_in) == "Ge") then
+    dstf = "gene"
+  else if(trim(dstf_in) == "GB") then
+    dstf = "gcomp"
+  else if(trim(dstf_in) == "SH") then
+    dstf = "Spitzer"
+  else if(trim(dstf_in) == "BJ") then
+    dstf = "Bi_MaxJ"
+  else if(trim(dstf_in) == "BM") then
+    dstf = "Bi_Maxw"
+  else if(trim(dstf_in) == "DM") then
+    dstf = "drift_m"
+  else if(trim(dstf_in) == "MS") then
+    dstf = "multi_s"
+  else if(trim(dstf_in) == "RA") then
+    dstf = "runaway"
+  else if(trim(dstf_in) == "Ta") then
+    dstf = "Tanalyt"
+  else
+    print*, "Invalid flag for dstf: ", dstf
+    stop "Input Error"
+  end if
   plasma_params%eq_diag = "IDA"
   data_name = "TRadM_therm.dat"
   data_secondary_name = "TRadM_TBeam.dat"

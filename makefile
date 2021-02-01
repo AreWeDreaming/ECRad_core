@@ -250,7 +250,6 @@ $(MODECRad)/mod_ECRad$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).o: \
 	$(SRCP)/mod_ECRad_utils.f90
 
 $(MODECRad)/ECRad_python$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).o: \
-	$(SRCP)/mod_ECRad_types.f90 \
 	$(SRCP)/mod_ECRad.f90
 
 clean:
