@@ -1,5 +1,6 @@
-module mod_ecfm_refr_abs_Fa
+module mod_ECRad_abs_Fa
 ! All credit for these routines goes to Daniela Farina and Lorenzo Figini
+! Based on Farina, Daniela. "Relativistic dispersion relation of electron cyclotron waves." Fusion science and technology 53.1 (2008): 130-138.
 #ifdef OMP
   use omp_lib
 #endif
@@ -1300,4 +1301,4 @@ contains
   end subroutine warmdamp
 
 
-end module mod_ecfm_refr_abs_Fa
+end module mod_ECRad_abs_Fa

@@ -1,10 +1,10 @@
 program ECRad
     use f90_kind
-    use mod_ecfm_refr_types,        only: rad, data_folder, output_level, &
+    use mod_ECRad_types,        only: rad, data_folder, output_level, &
                                           ant, stand_alone, eval, not_eval, &
                                           data_name, modes
-    use mod_ecfm_refr, only : initialize_stand_alone, make_ece_rad_temp!, simulate_ida
-    use mod_ecfm_refr_utils, only : export_all_ece_data
+    use mod_ECRad, only : initialize_stand_alone, make_ece_rad_temp!, simulate_ida
+    use mod_ECRad_utils, only : export_all_ece_data
 #ifdef OMP
     use omp_lib
 #endif
@@ -13,7 +13,7 @@ program ECRad
     Character(len=200) :: working_dir
     integer(ikind) :: idiag, ich!, ifreq, ir
     call getarg(1, working_dir)
-    ! To test the ecfm integration into ida
+    ! To test the ECRad integration into ida
     ! For stand alone usage comment out the following line
     stand_alone = .True.
     !stand_alone = .False.

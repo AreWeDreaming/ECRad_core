@@ -1,7 +1,7 @@
 ! Possible Upgrades:
 ! - Add support for first harmonic emission: -> See subroutine abs_Albajar
 
-module mod_ecfm_refr_abs_Al
+module mod_ECRad_abs_Al
 ! This routine calculates the absorption using the formalism from the article [1]:
 ! Electron-cyclotron absorption in high-temperature plasmas:
 ! quasi-exact analytical evaluation and comparative numerical analysis"
@@ -90,8 +90,8 @@ contains
     USE nag_error_handling
 #endif
     use quadrature,                 only: cdgqf
-    use mod_ecfm_refr_abs_Fa,       only: set_extv
-    use mod_ecfm_refr_types,        only: dstf_comp
+    use mod_ECRad_abs_Fa,       only: set_extv
+    use mod_ECRad_types,        only: dstf_comp
     implicit none
     integer(ikind)                         :: N_absz
 #ifdef NAG
@@ -134,7 +134,7 @@ contains
 
   function func_N_cold( omega, svec,mode) ! Following [2]
     use constants,                  only: pi, e0, mass_e, eps0, c0
-    use mod_ecfm_refr_types,        only: rad_diag_ch_mode_ray_freq_svec_type
+    use mod_ECRad_types,        only: rad_diag_ch_mode_ray_freq_svec_type
     implicit none
     real(rkind), intent(in)       :: omega
     type(rad_diag_ch_mode_ray_freq_svec_type), intent(in)    :: svec
@@ -169,7 +169,7 @@ contains
 
   function func_rel_N( omega, svec,mode) ! Following [2]
     use constants,                  only: pi, e0, mass_e, eps0, c0
-    use mod_ecfm_refr_types,        only: rad_diag_ch_mode_ray_freq_svec_type
+    use mod_ECRad_types,        only: rad_diag_ch_mode_ray_freq_svec_type
     implicit none
     real(rkind), intent(in)       :: omega
     type(rad_diag_ch_mode_ray_freq_svec_type), intent(in)    :: svec
@@ -262,11 +262,11 @@ contains
 
   function abs_Al_Fa_abs(svec, omega, mode, Nr, pol_coeff_secondary, pol_vec, x_launch) ! note that this routine uses angular frequency
   ! Calculates the absorption coefficient using Grays warm_disp routine. Note that this always includes both 2nd and 3rd harmonic.
-    use mod_ecfm_refr_types,        only: rad_diag_ch_mode_ray_freq_svec_type, &
+    use mod_ECRad_types,        only: rad_diag_ch_mode_ray_freq_svec_type, &
                                           ratio_for_third_harmonic, dstf, straight, Hamil, &
                                           ignore_Te, ignore_ne
     use constants,                  only: pi, e0, mass_e, eps0, c0
-    use mod_ecfm_refr_abs_Fa,       only: warmdamp
+    use mod_ECRad_abs_Fa,       only: warmdamp
     implicit none
     type(rad_diag_ch_mode_ray_freq_svec_type), intent(in)    :: svec
     real(rkind), intent(in)       :: omega
@@ -338,7 +338,7 @@ contains
   ! estimation for the upper limit
   ! The integration was carried out with mathematica
   ! Considers n=2 and n=3
-  use mod_ecfm_refr_types,        only: ratio_for_third_harmonic, rad_diag_ch_mode_ray_freq_svec_type
+  use mod_ECRad_types,        only: ratio_for_third_harmonic, rad_diag_ch_mode_ray_freq_svec_type
   use constants,                  only: pi, e0, mass_e, eps0, c0
   type(rad_diag_ch_mode_ray_freq_svec_type), intent(in)    :: svec
   real(rkind), intent(in)       :: omega, ds2
@@ -410,12 +410,12 @@ contains
     ! This algorithm is developed according to F. Albajar et al (2006) [1]
     ! Note that an arbitrary propagation direction and a polarization filter in phi (tokamak) direction is considered.
     ! Does not support the fundamental
-    use mod_ecfm_refr_types,        only: rad_diag_ch_mode_ray_freq_svec_type, dstf, output_level,&
+    use mod_ECRad_types,        only: rad_diag_ch_mode_ray_freq_svec_type, dstf, output_level,&
                                           ratio_for_third_harmonic, not_eval, eval, warm_plasma, &
                                           tau_ignore, spl_type_2d, non_therm_params_type, &
                                           ignore_Te, ignore_ne
     use constants,                  only: pi, e0, mass_e, eps0, c0
-    use mod_ecfm_radiation_dist,    only: prepare_dist
+    use mod_ECRad_radiation_dist,    only: prepare_dist
     implicit none
     type(rad_diag_ch_mode_ray_freq_svec_type), intent(in)    :: svec
     real(rkind), intent(in)       :: omega, ds2
@@ -470,7 +470,7 @@ contains
     end if
     if(present(pol_coeff)) then
       pol_coeff = get_filter_transmittance(omega, X, Y, svec%cos_theta, svec%sin_theta, mode, &
-        svec%x_vec, svec%N_vec, svec%B_vec, x_launch)
+                                           svec%x_vec, svec%N_vec, svec%B_vec, x_launch)
     end if
     if(present(pol_coeff) .and. svec%Te < ignore_Te) then
       c_abs = 0.d0
@@ -536,7 +536,6 @@ contains
         stop "Nan in c_abs Albajar"
       end if
     end do
-!    c_abs  = c_abs * 2.d0 ! REMOVE THIS AFTER THE TEST
     if(output_level) then
       m_0 = get_upper_limit_tau(svec,  omega, ds2)
       if(m_0 > 1.d-30 .and. c_abs > 1.d-30 .and. dstf == "relamax") then
@@ -553,7 +552,7 @@ contains
 
   subroutine abs_Albajar_fast(svec, omega, mode, ds2, c_abs)
     ! Calculates the absorption coefficient -> reduced version of abs_Albajar for faster evaluation
-    use mod_ecfm_refr_types,        only: rad_diag_ch_mode_ray_freq_svec_type, ratio_for_third_harmonic, eval, not_eval, tau_ignore
+    use mod_ECRad_types,        only: rad_diag_ch_mode_ray_freq_svec_type, ratio_for_third_harmonic, eval, not_eval, tau_ignore
     use constants,                  only: pi, e0, mass_e, eps0, c0
     implicit none
     type(rad_diag_ch_mode_ray_freq_svec_type), intent(in)    :: svec
@@ -618,9 +617,9 @@ contains
 
 
   subroutine abs_Al_integral_nume(svec, f_spl, dist_params, X, Y, omega_bar, m_0, N_abs, cos_theta, sin_theta, e, mode, m,c_abs, j, c_abs_secondary, j_secondary, debug)
-    Use mod_ecfm_refr_types,        only: rad_diag_ch_mode_ray_freq_svec_type, dstf, ffp, spl_type_2d, non_therm_params_type
+    Use mod_ECRad_types,        only: rad_diag_ch_mode_ray_freq_svec_type, dstf, ffp, spl_type_2d, non_therm_params_type
     use constants,                  only: pi,e0, mass_e ,c0
-    use mod_ecfm_radiation_dist,    only: radiation_dist_f_norm, make_f_and_Rf_along_line
+    use mod_ECRad_radiation_dist,    only: radiation_dist_f_norm, make_f_and_Rf_along_line
     implicit none
     type(rad_diag_ch_mode_ray_freq_svec_type), intent(in)   :: svec
     type(spl_type_2d), intent(in)                           :: f_spl
@@ -650,12 +649,12 @@ contains
       print*, "Nan in u_par encountered"
       print*, "N_par", N_par
       print*, "m_0", m_0
-      stop "Nan in resonance (u_par) in mod_ecfm_refr_abs_Alb.f90"
+      stop "Nan in resonance (u_par) in mod_ECRad_abs_Alb.f90"
     end if
     u_perp_sq(:) =    ((real(m,8)/m_0)**2 - 1.d0) *(1.d0 - Int_absz(:)**2)
     if(any(u_perp_sq < 0)) then
       print*, "u_perp_sq smaller zero", u_perp_sq
-      stop "Nan in resonance (u_perp)  in mod_ecfm_refr_abs_Alb.f90"
+      stop "Nan in resonance (u_perp)  in mod_ECRad_abs_Alb.f90"
     end if
     gamma(:) = sqrt(1.d0 + u_par(:)**2 + u_perp_sq(:))
     call abs_Al_pol_fact(svec, Int_absz, X, Y, omega_bar, m_0, N_abs, cos_theta, sin_theta, e, mode,  m, pol_fact)
@@ -719,7 +718,7 @@ contains
   end subroutine abs_Al_integral_nume
 
   subroutine abs_Al_integral_nume_fast(svec, X, Y, omega_bar, m_0, N_abs, cos_theta, sin_theta, e,  m,c_abs)
-    Use mod_ecfm_refr_types,        only: rad_diag_ch_mode_ray_freq_svec_type
+    Use mod_ECRad_types,        only: rad_diag_ch_mode_ray_freq_svec_type
     use constants,                  only: pi,e0, mass_e ,c0
     implicit none
     type(rad_diag_ch_mode_ray_freq_svec_type), intent(in)   :: svec
@@ -752,7 +751,7 @@ contains
   ! According to formula (2a and 2c) in [1]
   ! The 1D ECE is slightly oblique and the Inline and imagining systems are very oblique,
   ! hence the approximation of N_par = 0 is not appropriate
-    use mod_ecfm_refr_types,        only: rad_diag_ch_mode_ray_freq_svec_type
+    use mod_ECRad_types,        only: rad_diag_ch_mode_ray_freq_svec_type
     use constants,                  only: pi, e0, mass_e, eps0, c0
     implicit none
     type(rad_diag_ch_mode_ray_freq_svec_type), intent(in)   :: svec
@@ -924,8 +923,8 @@ subroutine get_E_factors(X, Y, N_abs, cos_theta, sin_theta, e, E_mat )
   !    6. Calculate the Jones vector behing the filter.
   !    7. Calculate the passing intensity.
     use constants,                  only: pi, e0, mass_e, eps0, c0
-    use mod_ecfm_refr_utils,        only: sub_remap_coords
-    use mod_ecfm_refr_types,        only: output_level
+    use mod_ECRad_utils,        only: sub_remap_coords
+    use mod_ECRad_types,        only: output_level
     implicit none
     real(rkind), intent(in)               :: omega, X, Y, cos_theta, sin_theta
     integer(ikind), intent(in)            :: mode
@@ -1077,5 +1076,5 @@ subroutine get_E_factors(X, Y, N_abs, cos_theta, sin_theta, e, E_mat )
     end if
   end function get_filter_transmittance
 
-end module mod_ecfm_refr_abs_Al
+end module mod_ECRad_abs_Al
 

@@ -55,10 +55,8 @@ END TYPE Scenario_type
    END FUNCTION mcLoadEFIT
 
    INTEGER(8) FUNCTION mcClone(mconf)
-
     INTEGER(8) :: mconf
-
-   END FUNCTION
+   END FUNCTION mcClone
    !
    INTEGER(4) FUNCTION mcIsOK(mconf) 
      INTEGER(8) :: mconf

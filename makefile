@@ -83,7 +83,7 @@ LIBS = -L$(ECRadLIBDir) -l$(ECRadLIB)$(OMPFLAG)$(USE3DFLAG)$(DB) \
 		$(NAGF90LIB) $(NAGFLIB) $(FITPACK) $(ODEPACK) \
 	    $(LIBFLAG)
 ifeq ($(USE_3D),True)
- 	LIBS += $(ROOTDIR)/../Mconf/lib/libmconf64.a
+ 	LIBS += $(ROOTDIR)/../MConf/lib/libmconf64.a
 #   LIBS += $(ROOTDIR)/../magconf/lib/libmconf64.a
 #../Mconf/unix/mconf_matlab64.so
 	LIBS += -lpthread -lstdc++
@@ -120,20 +120,21 @@ OBJECTS += \
 	quadrature$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).o \
 	mod_contour$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).o \
 	magconfig3D$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).o \
-	mod_ecfm_refr_types$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).o \
-	mod_ecfm_refr_interpol$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).o \
-	mod_ecfm_refr_abs_Fa$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).o \
-	mod_ecfm_refr_fp_dist_utils$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).o \
-	mod_ecfm_refr_gene_dist_utils$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).o \
-	mod_ecfm_refr_utils$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).o \
-	mod_ecfm_refr_dist$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).o \
-	mod_ecfm_refr_abs_Al$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).o \
+	mod_ECRad_types$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).o \
+	mod_ECRad_interpol$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).o \
+	mod_ECRad_abs_Fa$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).o \
+	mod_ECRad_fp_dist_utils$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).o \
+	mod_ECRad_gene_dist_utils$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).o \
+	mod_ECRad_utils$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).o \
+	mod_ECRad_dist$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).o \
+	mod_ECRad_abs_Al$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).o \
 	mod_ripple3d$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).o \
-	mod_ecfm_refr_raytrace_initialize$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).o \
-	mod_ecfm_refr_raytrace$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).o \
-	mod_ecfm_refr_rad_transp$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).o \
-	mod_ecfm_refr$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).o #\
-	Fortran_Stop_Handler$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).o \
+	mod_ECRad_raytrace_initialize$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).o \
+	mod_ECRad_raytrace$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).o \
+	mod_ECRad_rad_transp$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).o \
+	mod_ECRad$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).o \
+	ECRad_python$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).o
+	#Fortran_Stop_Handler$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).o \
 
 OBJS := $(addprefix $(MODECRad)/, $(OBJECTS))
 
@@ -177,76 +178,79 @@ $(MODECRad)/%$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).o: $(SRCP)/%.f90
 
 $(MODECRad)/mod_contour$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).o: $(STDPLIB)
 
-$(MODECRad)/mod_ecfm_refr_types$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).o: $(STDPLIB) \
+$(MODECRad)/mod_ECRad_types$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).o: $(STDPLIB) \
 	$(SRCP)/magconfig3D.f90
 
-$(MODECRad)/mod_ecfm_refr_interpol$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).o: $(STDPLIB) \
-	$(SRCP)/mod_ecfm_refr_types.f90
+$(MODECRad)/mod_ECRad_interpol$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).o: $(STDPLIB) \
+	$(SRCP)/mod_ECRad_types.f90
 
-$(MODECRad)/mod_ecfm_refr_abs_Fa$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).o: $(STDPLIB)
+$(MODECRad)/mod_ECRad_abs_Fa$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).o: $(STDPLIB)
 
-$(MODECRad)/mod_ecfm_refr_fp_dist_utils$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).o: $(STDPLIB) \
-	$(SRCP)/mod_ecfm_refr_types.f90 \
-	$(SRCP)/mod_ecfm_refr_interpol.f90 \
+$(MODECRad)/mod_ECRad_fp_dist_utils$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).o: $(STDPLIB) \
+	$(SRCP)/mod_ECRad_types.f90 \
+	$(SRCP)/mod_ECRad_interpol.f90 \
 	$(SRCP)/mod_contour.f90
 
-$(MODECRad)/mod_ecfm_refr_gene_dist_utils$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).o: $(STDPLIB) \
-	$(SRCP)/mod_ecfm_refr_types.f90 \
-	$(SRCP)/mod_ecfm_refr_interpol.f90
+$(MODECRad)/mod_ECRad_gene_dist_utils$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).o: $(STDPLIB) \
+	$(SRCP)/mod_ECRad_types.f90 \
+	$(SRCP)/mod_ECRad_interpol.f90
 
-$(MODECRad)/mod_ecfm_refr_dist$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).o: $(STDPLIB) \
-	$(SRCP)/mod_ecfm_refr_fp_dist_utils.f90 \
-	$(SRCP)/mod_ecfm_refr_gene_dist_utils.f90 \
-  $(SRCP)/mod_ecfm_refr_interpol.f90
+$(MODECRad)/mod_ECRad_dist$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).o: $(STDPLIB) \
+	$(SRCP)/mod_ECRad_fp_dist_utils.f90 \
+	$(SRCP)/mod_ECRad_gene_dist_utils.f90 \
+  $(SRCP)/mod_ECRad_interpol.f90
 
-$(MODECRad)/mod_ecfm_refr_utils$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).o: $(STDPLIB) \
+$(MODECRad)/mod_ECRad_utils$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).o: $(STDPLIB) \
 	$(SRCP)/quadrature.f90 \
-	$(SRCP)/mod_ecfm_refr_types.f90 \
-	$(SRCP)/mod_ecfm_refr_interpol.f90 \
-	$(SRCP)/mod_ecfm_refr_fp_dist_utils.f90 \
-	$(SRCP)/mod_ecfm_refr_gene_dist_utils.f90
+	$(SRCP)/mod_ECRad_types.f90 \
+	$(SRCP)/mod_ECRad_interpol.f90 \
+	$(SRCP)/mod_ECRad_fp_dist_utils.f90 \
+	$(SRCP)/mod_ECRad_gene_dist_utils.f90
 
-$(MODECRad)/mod_ecfm_refr_abs_Al$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).o: $(STDPLIB) \
+$(MODECRad)/mod_ECRad_abs_Al$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).o: $(STDPLIB) \
 	$(SRCP)/quadrature.f90 \
-	$(SRCP)/mod_ecfm_refr_types.f90 \
-	$(SRCP)/mod_ecfm_refr_utils.f90 \
-	$(SRCP)/mod_ecfm_refr_fp_dist_utils.f90 \
-	$(SRCP)/mod_ecfm_refr_gene_dist_utils.f90 \
-	$(SRCP)/mod_ecfm_refr_dist.f90 \
-	$(SRCP)/mod_ecfm_refr_abs_Fa.f90
+	$(SRCP)/mod_ECRad_types.f90 \
+	$(SRCP)/mod_ECRad_utils.f90 \
+	$(SRCP)/mod_ECRad_fp_dist_utils.f90 \
+	$(SRCP)/mod_ECRad_gene_dist_utils.f90 \
+	$(SRCP)/mod_ECRad_dist.f90 \
+	$(SRCP)/mod_ECRad_abs_Fa.f90
 
 $(MODECRad)/mod_ripple3d$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).o: $(STDPLIB) \
-	$(SRCP)/mod_ecfm_refr_types.f90 
+	$(SRCP)/mod_ECRad_types.f90 
 
-$(MODECRad)/mod_ecfm_refr_raytrace_initialize$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).o: $(STDPLIB) \
+$(MODECRad)/mod_ECRad_raytrace_initialize$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).o: $(STDPLIB) \
 	$(SRCP)/magconfig3D.f90 \
-	$(SRCP)/mod_ecfm_refr_types.f90 \
+	$(SRCP)/mod_ECRad_types.f90 \
 	$(SRCP)/mod_ripple3d.f90 \
-	$(SRCP)/mod_ecfm_refr_interpol.f90 \
-	$(SRCP)/mod_ecfm_refr_utils.f90
+	$(SRCP)/mod_ECRad_interpol.f90 \
+	$(SRCP)/mod_ECRad_utils.f90
 
-$(MODECRad)/mod_ecfm_refr_raytrace$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).o: $(STDPLIB) \
+$(MODECRad)/mod_ECRad_raytrace$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).o: $(STDPLIB) \
 	$(SRCP)/magconfig3D.f90 \
-	$(SRCP)/mod_ecfm_refr_types.f90 \
+	$(SRCP)/mod_ECRad_types.f90 \
 	$(SRCP)/mod_ripple3d.f90 \
-	$(SRCP)/mod_ecfm_refr_raytrace_initialize.f90 \
-	$(SRCP)/mod_ecfm_refr_interpol.f90 \
-	$(SRCP)/mod_ecfm_refr_utils.f90
+	$(SRCP)/mod_ECRad_raytrace_initialize.f90 \
+	$(SRCP)/mod_ECRad_interpol.f90 \
+	$(SRCP)/mod_ECRad_utils.f90
 
-$(MODECRad)/mod_ecfm_refr_rad_transp$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).o: $(STDPLIB) \
-	$(SRCP)/mod_ecfm_refr_types.f90 \
-	$(SRCP)/mod_ecfm_refr_utils.f90 \
-	$(SRCP)/mod_ecfm_refr_abs_Al.f90 \
-	$(SRCP)/mod_ecfm_refr_raytrace.f90
+$(MODECRad)/mod_ECRad_rad_transp$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).o: $(STDPLIB) \
+	$(SRCP)/mod_ECRad_types.f90 \
+	$(SRCP)/mod_ECRad_utils.f90 \
+	$(SRCP)/mod_ECRad_abs_Al.f90 \
+	$(SRCP)/mod_ECRad_raytrace.f90
 
-$(MODECRad)/mod_ecfm_refr$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).o: \
-	$(SRCP)/mod_ecfm_refr_types.f90 \
-	$(SRCP)/mod_ecfm_refr_rad_transp.f90 \
-	$(SRCP)/mod_ecfm_refr_abs_Al.f90 \
-	$(SRCP)/mod_ecfm_refr_raytrace_initialize.f90 \
-	$(SRCP)/mod_ecfm_refr_raytrace.f90 \
-	$(SRCP)/mod_ecfm_refr_interpol.f90 \
-	$(SRCP)/mod_ecfm_refr_utils.f90
+$(MODECRad)/mod_ECRad$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).o: \
+	$(SRCP)/mod_ECRad_types.f90 \
+	$(SRCP)/mod_ECRad_rad_transp.f90 \
+	$(SRCP)/mod_ECRad_abs_Al.f90 \
+	$(SRCP)/mod_ECRad_raytrace_initialize.f90 \
+	$(SRCP)/mod_ECRad_raytrace.f90 \
+	$(SRCP)/mod_ECRad_interpol.f90 \
+	$(SRCP)/mod_ECRad_utils.f90
+
+$(MODECRad)/ECRad_python$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).o: \
+	$(SRCP)/mod_ECRad.f90
 
 clean:
 ifneq ($(ROOTDIR),$(ECRadLIBDir))
