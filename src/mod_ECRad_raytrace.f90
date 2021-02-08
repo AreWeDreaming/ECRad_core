@@ -12,9 +12,11 @@ module mod_ECRad_raytrace
     real(rkind), dimension(:), allocatable :: x_loc_vec, N_loc_vec !  dimension(3)
     integer(ikind)          :: glob_mode, debug_level
     integer(ikind)          :: thread_num = 1
-    !$OMP THREADPRIVATE(glob_omega, &
-    !$OMP               x_loc_vec, N_loc_vec, &
-    !$OMP               glob_mode, debug_level, thread_num)
+#ifdef OMP
+  !$omp THREADPRIVATE(glob_omega, &
+  !$omp               x_loc_vec, N_loc_vec, &
+  !$omp               glob_mode, debug_level, thread_num)
+#endif
     public ::  span_svecs, dealloc_rad, reinterpolate_svec
     private :: glob_plasma_params, glob_omega, x_loc_vec, N_loc_vec, &
                func_Delta, func_N_s_2, func_N_s_star_2, &
@@ -3282,19 +3284,20 @@ function func_dA_dY(X, Y)
   do idiag = 1, ant%N_diag
 #ifdef OMP
     !$omp parallel private(ich, imode, ir, ifreq, &
-    !$omp                 N_init, last_N, wall_hits, been_in_plasma, N, &
-    !$omp                 omega, temp, X, Y, No_plasma, cur_ray, &
-    !$omp                 ray_segment, mode) default(shared)
+    !$omp                  N_init, last_N, wall_hits, been_in_plasma, N, &
+    !$omp                  omega, temp, X, Y, No_plasma, cur_ray, &
+    !$omp                  ray_segment, mode) default(shared)
+#endif
+#ifdef OMP
+      thread_num = omp_get_thread_num() + 1 ! Starts from 0!
+      print*, "I am thread number", thread_num
 #endif
     allocate(ray_segment(max_points_svec), x_loc_vec(3), N_loc_vec(3))
 #ifdef OMP
     !$omp do
 #endif
     do ich = 1, ant%diag(idiag)%N_ch
-#ifdef OMP
-      thread_num = omp_get_thread_num() + 1 ! Starts from 0!
-!      print*, "I am thread number", thread_num
-#endif
+
       debug_level = plasma_params%debug_level
       do imode = 1, mode_cnt
         if(Hamil == "Dani") then

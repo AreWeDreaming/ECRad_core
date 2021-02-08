@@ -38,7 +38,7 @@ make USE_3D=True
 make USE_3D=True DEBUG=True OPEN_MP=True
 make USE_3D=True OPEN_MP=True
 cd $SYS
-python -m numpy.f2py  -c --fcompiler=gnu95 ../src/ECRad_python.f90 -m ECRad_python -ImodgOMP/ --f90flags=-openmp -lgomp -L./ -lECRadOMP -L../fitpack/ -lFITPack -L../odepack/ -lODEPack
+python -m numpy.f2py  -c --fcompiler=gnu95 ../src/ECRad_python.f90 -m ECRad_pythonMP -ImodgOMP/ --f90flags=-fopenmp -lgomp -L./ -lECRadOMP -L../fitpack/ -lFITPack -L../odepack/ -lODEPack
 python -m numpy.f2py  -c --fcompiler=gnu95 ../src/ECRad_python.f90 -m ECRad_python -Imodg/ --f90flags=-g -L./ -lECRaddb -L../fitpack/ -lFITPack -L../odepack/ -lODEPack
 python -m numpy.f2py  -c --fcompiler=gnu95 ../src/ECRad_python_3D_extension.f90 -m ECRad_python_3D_extension -ImodgOMPUSE3D/ --f90flags=-openmp -lgomp -L./ -lECRadOMPUSE3D -L../fitpack/ -lFITPack -L../odepack/ -lODEPack -L../../Mconf/lib/ -lmconf64 -lpthread -lstdc++ -llapack -lblas 
 #f2py3.7 -c --fcompiler=gnu95 ../src/ECRad_python.f90 -m ECRad_python -ImodgOMP/ --f90flags=-openmp -lgomp -L../fitpack/ -lFITPack -L../odepack/ -lODEPack -L./ -lECRadOMP

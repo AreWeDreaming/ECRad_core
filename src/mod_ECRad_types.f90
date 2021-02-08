@@ -525,12 +525,15 @@ end type plasma_params_type
   integer(ikind)                     :: N_freq, N_ray ! Number of frequencies in IF, number of rays
   integer(ikind)                     :: max_points_svec! Maximum allowed points on LOS
   integer(ikind)                     :: largest_svec ! Stores largest svecs -> currently only computed but not output
+#ifdef OMP
+  integer(ikind)                     :: OMP_thread_count
+#endif
   logical                            :: warm_plasma ! Input
   real(rkind)                        :: mode_conv = -1.d0 ! conversion coefficient from O- to X-mode for wall reflections
   integer(ikind)                     :: modes = 0 ! whichs mode(s) are considered
                                                              ! 1 -> X, 2 -> O, 3 -> O, X
   integer(ikind)                     :: mode_cnt ! 1,2
-  character(2)                       :: eq_mode
+  character(2)                       :: eq_mode ! 1D -> Normal case with 1D profiles, 2D -> 2D profiles, 3D -> 3D equilibrium
   real(rkind)                        :: plasma_vac_boundary = 1.05d0 ! boundary at which the polarization of X and O-mode will be calculated
   character(3), dimension(:), allocatable :: diagnostics ! Separates individual channel bunches into separate diagnostics
   real(rkind)                        :: h_x_glob = 1.d-5 !*

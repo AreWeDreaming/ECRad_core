@@ -1,1 +1,14 @@
-./id
+*
+!.gitignore
+!src/**
+!odepack
+!fitpack
+!Fitpack_ODEpack_makefiles
+!references/**
+!build.*
+!compile_*
+!ECRad_submit.bsub
+!license
+!makefile
+!README.md
+!update_fit_ode_pack.sh

@@ -452,7 +452,7 @@ module mod_ECRad_raytrace_initialize
     plasma_params%B_ax = Sqrt(plasma_params%B_ax)
     B_vac_R0 = B_t(plasma_params%m, int(plasma_params%n/2)) ! Outer most point of Bt -> pure vacuum
     B_vac_R0 = B_vac_R0 * plasma_params%R(plasma_params%m) / plasma_params%R_ax
-    call init_ripple(plasma_params%R_ax, B_vac_R0) ! This should only be vacuum Bt -> Fix!
+    if(plasma_params%w_ripple) call init_ripple(plasma_params%R_ax, B_vac_R0)
     allocate(R_index_lower(plasma_params%n), z_index_lower(plasma_params%m), R_index_upper(plasma_params%n), z_index_upper(plasma_params%m))
     R_index_lower(:) = 1
     z_index_lower(:) = 1

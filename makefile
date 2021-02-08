@@ -26,8 +26,8 @@ else
 endif
 
 ifeq ($(F90),gfortran)
-	F90OPTFLAGS = -O2 -mavx -ffree-form -fpic -ffree-line-length-none -fPIC
-	F90DBGFLAGS = -g -ffree-form -fpic -ffree-line-length-none
+	F90OPTFLAGS = -O2 -mavx -ffree-form -ffree-line-length-none -fPIC
+	F90DBGFLAGS = -g -ffree-form-ffree-line-length-none -fPIC
 	F90PARFLAGS = -fopenmp
 	FFPFLAGS = -cpp
 	MODULEFLAG = -mhle	
@@ -71,7 +71,7 @@ else
 endif
 ifeq ($(OPEN_MP),True)
   # Parallelisation
-  F90FLAGS += $(F90OPTFLAGS)
+  F90FLAGS += $(F90PARFLAGS)
 endif
 # Debugging parallelisation
 #F90FLAGS = -c -g -O0 -shared-libgcc -traceback -check bounds  -check all -u -warn all -diag-disable 7712 -check uninit -fp-model source -warn interfaces -fpe3 -qopenmp -qopenmp-report -DTBB_USE_DEBUG

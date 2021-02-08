@@ -220,7 +220,15 @@ integer(ikind)                :: idiag
   plasma_params%vessel_poly%y(:) = vessel_z
 end subroutine pre_initialize_ECRad_f2py
 
-
+#ifdef OMP
+subroutine set_omp_threads_ECRad_f2py(thread_count)
+use mod_ECRad_types,      only: OMP_thread_count
+implicit None
+integer(ikind), intent(in) ::  thread_count
+OMP_thread_count = thread_count
+call omp_set_num_threads(OMP_thread_count)
+end subroutine set_omp_threads_ECRad_f2py
+#endif
 
 #ifdef IDA
 subroutine pre_initialize_ECRad_IDA(working_dir_in, flag, ecrad_verbose, ray_tracing, ecrad_Bt_ripple, &
@@ -343,7 +351,7 @@ subroutine initialize_ECRad_f2py(N_Te_spline_knots, N_ne_spline_knots, &
 use mod_ECRad_types,        only: dstf, dst_data_folder, Ich_name, ray_out_folder, output_level, &
                                   dstf_comp, plasma_params, N_ray, N_freq, ray_init, warm_plasma, &
                                   rad, ant, data_folder, Ich_name, dstf_comp, straight, stand_alone, &
-                                  use_ida_spline_Te, use_ida_spline_ne
+                                  use_ida_spline_Te, use_ida_spline_ne, eq_mode
 use mod_ECRad_raytrace_initialize, only: init_raytrace, dealloc_raytrace
 implicit none
 integer(ikind), intent(in), optional              :: N_Te_spline_knots, N_ne_spline_knots
@@ -353,6 +361,7 @@ real(rkind), dimension(:,:), intent(in), optional :: rhop, Br, Bt, Bz, T_e_mat, 
 integer(ikind)                       :: idiag
 logical                                           :: old_straight
   if(present(T_e_mat)) then
+    eq_mode = "2D"
     call init_raytrace(plasma_params, R, z, rhop, Br, Bt, Bz, R_ax, z_ax, T_e_mat, n_e_mat)
   else
     call init_raytrace(plasma_params, R, z, rhop, Br, Bt, Bz, R_ax, z_ax)
@@ -879,16 +888,19 @@ use constants,                  only: e0, c0, pi
 use mod_ECRad_utils,        only: binary_search, bin_ray_BPD_to_common_rhop, make_warm_res_mode, bin_freq_to_ray
 use mod_ECRad_raytrace,     only: reinterpolate_svec
 use mod_ECRad_interpol,     only: spline_1d
+#ifdef OMP
+use omp_lib,                only: omp_get_thread_num
+#endif
 implicit none
 
 real(rkind)     :: ds_small, ds_large
-integer(ikind)  :: idiag, ich, imode, ifreq, ir, error
+integer(ikind)  :: idiag, ich, imode, ifreq, ir, error, id
 real(rkind), dimension(max_points_svec) :: tau_array, tau_secondary_array
 real(rkind) :: I0_X, I0_O, I_X, I_O, T_X, T_O
 character(120)  :: out_str
 do idiag = 1, ant%N_diag
 #ifdef OMP
-  !$omp parallel private(ich, imode, ir, ifreq, error, ds_small, ds_large)  &
+  !$omp parallel private(id, ich, imode, ir, ifreq, error, ds_small, ds_large)  &
   !$omp          firstprivate(out_str, tau_array, tau_secondary_array) default(shared)
   !$omp do schedule(static)
 #endif
@@ -960,7 +972,7 @@ do idiag = 1, ant%N_diag
                     ant%diag(idiag)%ch(ich)%freq(ifreq), &
                     ant%diag(idiag)%ch(ich)%ray_launch(ir)%x_vec, &
                     rad%diag(idiag)%ch(ich)%mode(imode)%mode, &
-                    rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%Trad, *
+                    rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%Trad, &
                     rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%Trad_secondary, &
                     rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%tau, &
                     rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%tau_secondary, &
@@ -1410,6 +1422,8 @@ do idiag = 1, ant%N_diag
   end do !ich
 #ifdef OMP
   !$omp end do
+!  id = omp_get_thread_num()
+!  print*, "Brought to you by thread", id
   !$omp end parallel
 #endif
 end do ! N_diag

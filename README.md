@@ -41,3 +41,5 @@ At the moment all contributions should be discussed. Pull requests will be welco
 
 ## License
 [MIT](https://choosealicense.com/licenses/mit/)
+
+ECRad contains modified versions of fitpack and odepack from the scipy python package. The corresponding license can be found in the respective folders.
