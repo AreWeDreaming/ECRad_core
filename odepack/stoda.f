@@ -30,6 +30,7 @@ clll. optimize
       common /lsa001/ rownd2, pdest, pdlast, ratio, cm1(12), cm2(5),
      1   pdnorm,
      2   iownd2(3), icount, irflag, jtyp, mused, mxordn, mxords
+!$omp THREADPRIVATE(/ls0001/, /lsa001/)
       data sm1/0.5d0, 0.575d0, 0.55d0, 0.45d0, 0.35d0, 0.25d0,
      1   0.20d0, 0.15d0, 0.10d0, 0.075d0, 0.050d0, 0.025d0/
 c-----------------------------------------------------------------------

@@ -4,6 +4,7 @@ c this routine resets the print control flag mflag.
 c
       integer mflag, mesflg, lunit
       common /eh0001/ mesflg, lunit
+!$omp THREADPRIVATE(/eh0001/)
 c
       if (mflag .eq. 0 .or. mflag .eq. 1) mesflg = mflag
       return

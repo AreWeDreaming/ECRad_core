@@ -274,7 +274,8 @@ module mod_ECRad_raytrace_initialize
     close(70)
   end subroutine make_topfile
 
-  subroutine setup_plasma_params(plasma_params, R_in, z_in, rhop_in, B_r_in, B_t_in, B_z_in, R_ax, z_ax, T_e_mat_in, n_e_mat_in)
+  subroutine setup_plasma_params(plasma_params, R_in, z_in, rhop_in, B_r_in, &
+                                 B_t_in, B_z_in, R_ax, z_ax, T_e_mat_in, n_e_mat_in)
     use f90_kind
 #ifdef NAG
     use mod_ECRad_types,        only: double_check_splines, plasma_params_type, h_x_glob, h_check, &
@@ -378,7 +379,6 @@ module mod_ECRad_raytrace_initialize
       call read_topfile(plasma_params, plasma_params%R, plasma_params%z, plasma_params%rhop, B_r, B_t, B_z)
       if(plasma_params%Te_ne_mat) then
         call read_Te_ne_matrix(plasma_params, plasma_params%R, plasma_params%z, T_e_mat, n_e_mat)
-        plasma_params%rhop_max = plasma_params%rhop_entry !
       end if
     else
       plasma_params%m = size(R_in)
@@ -408,6 +408,8 @@ module mod_ECRad_raytrace_initialize
       plasma_params%R_ax = R_ax
       plasma_params%z_ax = z_ax
     end if
+    ! No information on where the profiles start to be good go with the default value
+    if(plasma_params%Te_ne_mat) plasma_params%rhop_max = plasma_params%rhop_entry !
     h_check = h_x_glob * (1.d0 + 1.e-5)
     plasma_params%R_min = plasma_params%R(1)
     plasma_params%R_max = plasma_params%R(plasma_params%m)
@@ -593,6 +595,10 @@ module mod_ECRad_raytrace_initialize
   use mod_ECRad_interpol,       only: deallocate_rect_spline, deallocate_1d_spline
   implicit none
   type(plasma_params_type), intent(inout)                    :: plasma_params
+  ! Need to do this first since we can have this allocated but not anything else
+  if(.not. use_3D) then
+    if(allocated(plasma_params%vessel_poly%x)) deallocate(plasma_params%vessel_poly%x, plasma_params%vessel_poly%y)
+  end if
     if(.not. (allocated(plasma_params%R) .or. allocated(plasma_params%Use_3D_vessel%vessel_data_R))) return
     if(stand_alone) then
       deallocate(plasma_params%n_e_prof, plasma_params%rhop_vec_ne)
@@ -608,7 +614,6 @@ module mod_ECRad_raytrace_initialize
       call deallocate_1d_spline(plasma_params%ne_spline)
     end if
     deallocate(plasma_params%Int_absz, plasma_params%Int_weights)
-    if(.not. use_3D) deallocate(plasma_params%vessel_poly%x, plasma_params%vessel_poly%y)
     deallocate(plasma_params%R, plasma_params%z, plasma_params%rhop)
     call deallocate_rect_spline(plasma_params%rhop_spline)
     call deallocate_rect_spline(plasma_params%B_R_spline)

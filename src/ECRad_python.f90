@@ -42,13 +42,6 @@ call pre_initialize_ECRad_f2py(ecrad_verbose, dstf, ray_tracing, ecrad_Bt_ripple
                                f, df, R, phi, z, tor, pol, dist_foc, width)
 end subroutine pre_initialize_ECRad
 
-subroutine set_ECRad_thread_count(num_threads)
-use mod_ECRad, only: set_omp_threads_ECRad_f2py
-implicit None
-  integer, intent(in) :: num_threads
-  call set_omp_threads_ECRad_f2py(num_threads)
-end subroutine set_ECRad_thread_count
-
 subroutine reset_ECRad()
 use mod_ECRad,      only: clean_up_ECRad
 implicit none

@@ -62,7 +62,7 @@ type ant_diag_ch_type
   real(rkind)                      :: focus_shift
   !integer(ikind)                  :: N_freq     ! number of frequencies per ECE channels
   !integer(ikind)                  :: N_ray      ! number of rays
-  real(rkind),  dimension(:), allocatable :: freq, freq_weight ! analyzed frequencies and weights for the integration
+  real(rkind),  dimension(:), allocatable :: freq, freq_weight, freq_int_weight ! analyzed frequencies, if band shape and weights for the integration
   type(ant_diag_ch_launch_type),  dimension(:), allocatable :: ray_launch  ! launching angles for multiple rays
 end type ant_diag_ch_type
 

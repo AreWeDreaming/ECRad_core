@@ -2479,7 +2479,7 @@ function func_dA_dY(X, Y)
     real(rkind), dimension(3)                                   :: R_vec
     logical                                                     :: inside_vessel, inside_equilibrium
     integer(ikind)                                              :: j_phi
-    func_within_plasma = .false. ! Start with True and set to false if something is wrong
+    func_within_plasma = .false. ! Start with False and set to True if something is wrong
 #ifdef USE_3D
     if(use_3D) then
       call sub_remap_coords(ray_point%x_vec, R_vec)
@@ -2496,6 +2496,11 @@ function func_dA_dY(X, Y)
       end if
       if(func_in_poly(plasma_params%Use_3D_vessel%vessel_data_R(:,j_phi), &
                        plasma_params%Use_3D_vessel%vessel_data_z(:,j_phi), R_vec(1), R_vec(3))) then
+        if(debug_level > 0 .and. output_level .and. wall_hits == 0) then
+            call sub_remap_coords(ray_point%x_vec, R_vec)
+            print*, "Passed through port into the vessel"
+            print*, "Position",  R_vec(1), R_vec(3)
+          end if
         if(wall_hits == 0) wall_hits = 1
         inside_vessel = .true.
         if(ray_point%rhop < plasma_params%rhop_max .and. ray_point%rhop > 0.d0) then
@@ -2626,7 +2631,7 @@ function func_dA_dY(X, Y)
     type(ray_element_full_type), dimension(:), intent(inout)      :: ray_segment !temporary ray
     logical, intent(out)                                             :: LOS_end
     logical                                                          :: plasma_prop
-    integer(ikind)                                                   :: N, first_N
+    integer(ikind)                                                   :: N, first_N, wall_hits_last
     real(rkind), dimension(3)                                        :: R_vec
     real(rkind)                                                      :: h
     real(rkind)                                                      :: R_cur, R_last, R_min ! Current, last, and smallest distance to vessel
@@ -2644,6 +2649,7 @@ function func_dA_dY(X, Y)
     h = 1.d-1
     R_cur = func_distance_to_vessel(plasma_params, ray_segment(N)%x_vec)
     R_min = R_cur
+    wall_hits_last = 0
     !print*, "-----------------Ray init-------------"
     do while(.not. plasma_prop)
       !print*, ray_segment(N)%s
@@ -2707,7 +2713,7 @@ function func_dA_dY(X, Y)
       !if(mod(N - 1, 50) == 0) print*, ray_segment(N)%N_s
       if(func_within_plasma(plasma_params, ray_segment(N), omega, wall_hits, been_in_plasma)) then! Reached point in plasma
         if(wall_hits == 2) then
-           if(debug_level > 0  .and. output_level) print*, "Passed through port out of the plasma while straight line"
+          print*, "Passed through port out of the plasma while straight line"
           print*, "Something wrong with rhop spline in mod_ECRad_raytrace.f90"
           print*, ray_segment(1:N)%rhop
           print*, "Critical error during ray tracing - no plasma on LOS"
@@ -2909,6 +2915,67 @@ function func_dA_dY(X, Y)
 !    close(96)
   end subroutine make_ray_segment
 
+  subroutine make_s_res(plasma_params, omega, ray, last_N, rad_ray_freq)
+  use mod_ECRad_types,        only: rad_diag_ch_mode_ray_freq_type, plasma_params_type, &
+                                    spl_type_1d, ray_element_full_type, max_points_svec
+  use f90_kind
+  use mod_ECRad_interpol,     only: make_1d_spline, deallocate_1d_spline, spline_1d_get_roots
+  implicit none
+  type(plasma_params_type), intent(in)                                       :: plasma_params
+  real(rkind), intent(in)                                                    :: omega
+  type(ray_element_full_type), dimension(max_points_svec), intent(in)        :: ray !the ray
+  integer(ikind), intent(in)                                                 :: last_N
+  type(rad_diag_ch_mode_ray_freq_type), intent(inout)                        :: rad_ray_freq
+  real(rkind), dimension(last_N)                                             :: flush_ray_s, flush_ray_y, roots
+  type(spl_type_1d)                                                          :: spl
+  integer(ikind)                                                             :: N_roots
+    flush_ray_s = ray(1:last_N)%s
+    flush_ray_y = ray(1:last_N)%omega_c / omega
+    call make_1d_spline(spl, last_N, flush_ray_s, flush_ray_y - plasma_params%Y_res, iopt=0)
+    call spline_1d_get_roots(spl, roots, N_roots)
+    if(N_roots == 0) then
+      rad_ray_freq%s_res = -1.0
+    else
+      rad_ray_freq%s_res = minval(roots(1:N_roots))! Convert from ray coordintes to svec coordinates
+    end if
+    call deallocate_1d_spline(spl)
+  end subroutine make_s_res
+
+  subroutine interpolate_resonance(omega, total_LOS_points, rad_ray_freq)
+  use mod_ECRad_types,        only: rad_diag_ch_mode_ray_freq_type, plasma_params_type, &
+                                    spl_type_1d, ray_element_full_type, max_points_svec
+  use f90_kind
+  use mod_ECRad_interpol,     only: make_1d_spline, deallocate_1d_spline, spline_1d
+  implicit none
+  real(rkind), intent(in)                                                    :: omega
+  integer(ikind), intent(in)                                                :: total_LOS_points
+  type(rad_diag_ch_mode_ray_freq_type), intent(inout), optional              :: rad_ray_freq
+  real(rkind), dimension(total_LOS_points)                                   :: flush_svec_s, flush_svec_y
+  type(spl_type_1d)                                                          :: spl
+  real(rkind), dimension(3)                                                  :: x_res
+  integer(ikind)                                                             :: i
+    if(rad_ray_freq%s_res < 0) then
+      rad_ray_freq%R_res = -1.d0
+      rad_ray_freq%z_res = -1.d0
+      rad_ray_freq%rhop_res = -1.d0
+      return
+    end if
+    flush_svec_s = rad_ray_freq%svec(1:total_LOS_points)%s
+    do i=1,3
+      flush_svec_y = rad_ray_freq%svec(1:total_LOS_points)%x_vec(i)
+      call make_1d_spline(spl, total_LOS_points, flush_svec_s, flush_svec_y, iopt=0)
+      call spline_1d(spl, rad_ray_freq%s_res, x_res(i))
+    end do
+    rad_ray_freq%R_res = sqrt(x_res(1)**2 + x_res(2)**2)
+    rad_ray_freq%z_res = x_res(3)
+    flush_svec_y = rad_ray_freq%svec(1:total_LOS_points)%rhop
+    call make_1d_spline(spl, total_LOS_points, flush_svec_s, flush_svec_y, iopt=0)
+    call spline_1d(spl, rad_ray_freq%s_res, rad_ray_freq%rhop_res)
+    call deallocate_1d_spline(spl)
+  end subroutine interpolate_resonance
+
+
+
   subroutine make_s_grid(plasma_params, omega, Y_res, svec, ray, total_LOS_points, &
                          last_N, dist, rad_ray_freq, max_points_svec_reached)
   ! Creates s grid suitable for Rk4.
@@ -2962,13 +3029,7 @@ function func_dA_dY(X, Y)
     end do
   end do
   if(present(rad_ray_freq)) then
-    call make_1d_spline(spl, last_N, flush_ray_s, flush_ray_y - plasma_params%Y_res, iopt=0)
-    call spline_1d_get_roots(spl, roots, N_roots)
-    if(N_roots == 0) then
-      rad_ray_freq%s_res = -1.0
-    else
-      rad_ray_freq%s_res = minval(roots(1:N_roots))! Convert from ray coordintes to svec coordinates
-    end if
+    call make_s_res(plasma_params, omega, ray, last_N, rad_ray_freq)
   end if
   N_s_dense = N_s_dense - 1 ! Fortran stuff
   s_dense_debug(1:N_s_dense) = s_dense(1:N_s_dense)
@@ -3289,8 +3350,8 @@ function func_dA_dY(X, Y)
     !$omp                  ray_segment, mode) default(shared)
 #endif
 #ifdef OMP
-      thread_num = omp_get_thread_num() + 1 ! Starts from 0!
-      print*, "I am thread number", thread_num
+!      thread_num = omp_get_thread_num() + 1 ! Starts from 0!
+!      print*, "I am thread number", thread_num
 #endif
     allocate(ray_segment(max_points_svec), x_loc_vec(3), N_loc_vec(3))
 #ifdef OMP
@@ -3449,6 +3510,12 @@ function func_dA_dY(X, Y)
                              ray_segment, rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%total_LOS_points, &
                              last_N, dist, rad_ray_freq=rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq))
           end if
+          ! Get s_res for all ifreq > 1
+          do ifreq = 2, N_freq
+            call make_s_res(plasma_params, ant%diag(idiag)%ch(ich)%freq(ifreq) * 2.0 * pi, &
+                            ray_segment, last_N, rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq))
+          end do
+          ifreq = 1
           if(output_level) then
             call interpolate_svec(plasma_params, rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%svec, ray_segment, omega, &
                                   rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%total_LOS_points, last_N, &
@@ -3503,18 +3570,26 @@ function func_dA_dY(X, Y)
                   rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(1)%svec(:)
               rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%total_LOS_points = &
                 rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(1)%total_LOS_points
+              ! Get s_res for all ifreq > 1
+              call interpolate_resonance(ant%diag(idiag)%ch(ich)%freq(ifreq) * 2.0 * pi, &
+                                         rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%total_LOS_points, &
+                                         rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq))
                ! each frequency and ray has an individual resonance position, here we obtain the average using the weights
             end do ! ifreq
             do ifreq = 1, N_freq
               !if(output_level) print*, "s_res ", ifreq, "-th frequency", rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%s_res
               rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%s_res = rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%s_res + &
-                ant%diag(idiag)%ch(ich)%freq_weight(ifreq) * rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%s_res
+                ant%diag(idiag)%ch(ich)%freq_weight(ifreq) * rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%s_res * &
+                ant%diag(idiag)%ch(ich)%freq_int_weight(ifreq)
               rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%R_res = rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%R_res + &
-                ant%diag(idiag)%ch(ich)%freq_weight(ifreq) * rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%R_res
+                ant%diag(idiag)%ch(ich)%freq_weight(ifreq) * rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%R_res * &
+                ant%diag(idiag)%ch(ich)%freq_int_weight(ifreq)
               rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%z_res = rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%z_res + &
-                ant%diag(idiag)%ch(ich)%freq_weight(ifreq) * rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%z_res
+                ant%diag(idiag)%ch(ich)%freq_weight(ifreq) * rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%z_res * &
+                ant%diag(idiag)%ch(ich)%freq_int_weight(ifreq)
               rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%rhop_res = rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%rhop_res + &
-                ant%diag(idiag)%ch(ich)%freq_weight(ifreq) * rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%rhop_res
+                ant%diag(idiag)%ch(ich)%freq_weight(ifreq) * rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%rhop_res * &
+                ant%diag(idiag)%ch(ich)%freq_int_weight(ifreq)
             end do
           end if ! Skip exact determination of resonance if polarization filter perfect
           rad%diag(idiag)%ch(ich)%mode(imode)%s_res = rad%diag(idiag)%ch(ich)%mode(imode)%s_res + &

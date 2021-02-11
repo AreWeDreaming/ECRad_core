@@ -42,4 +42,10 @@ At the moment all contributions should be discussed. Pull requests will be welco
 ## License
 [MIT](https://choosealicense.com/licenses/mit/)
 
-ECRad contains modified versions of fitpack and odepack from the scipy python package. The corresponding license can be found in the respective folders.
+Exceptions:
+
+ECRad contains modified versions of fitpack and odepack from the scipy python package which falls under the [BSD license](https://www.scipy.org/scipylib/license.html). 
+The corresponding license can be found in license folder.
+
+The source file quadratue.f90 is included in its unmodified form. 
+It is published under the [GNU LGPL license](https://choosealicense.com/licenses/lgpl-3.0/mit/). The text of the license can be found in the license folder.

@@ -27,11 +27,12 @@ endif
 
 ifeq ($(F90),gfortran)
 	F90OPTFLAGS = -O2 -mavx -ffree-form -ffree-line-length-none -fPIC
-	F90DBGFLAGS = -g -ffree-form-ffree-line-length-none -fPIC
+	F90DBGFLAGS = -g -ffree-form -ffree-line-length-none -fPIC
 	F90PARFLAGS = -fopenmp
 	FFPFLAGS = -cpp
 	MODULEFLAG = -mhle	
 	LIBFLAG = -static-libgcc -llapack -lblas
+	F2PYCOMPILER = gnu95
 else
 	FFPFLAGS = -fpp -DINTEL
 	F90OPTFLAGS = -O2 -fp-model source -axavx -fpic
@@ -39,6 +40,7 @@ else
 	F90PARFLAGS = -qopenmp
 	MODULEFLAG = -module
 	LIBFLAG = -mkl -static-intel
+	F2PYCOMPILER = intel
 endif
 MKDIR_P = mkdir -p
 ifeq ($(IDA),True)
@@ -132,9 +134,9 @@ OBJECTS += \
 	mod_ECRad_raytrace_initialize$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).o \
 	mod_ECRad_raytrace$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).o \
 	mod_ECRad_rad_transp$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).o \
-	mod_ECRad$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).o \
-	ECRad_python$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).o
-	#Fortran_Stop_Handler$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).o \
+	mod_ECRad$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).o
+	
+ECRadPythonOBJ = ECRad_python$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).o
 
 OBJS := $(addprefix $(MODECRad)/, $(OBJECTS))
 
@@ -144,7 +146,8 @@ OBJS := $(addprefix $(MODECRad)/, $(OBJECTS))
 ifeq ($(IDA),True)
 all: $(ECRadLIBDir)/lib$(ECRadLIB)$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).a
 else
-all: $(ECRadLIBDir)/lib$(ECRadLIB)$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).a $(ECRadLIBDir)/$(APPLICATION)$(OMPFLAG)$(USE3DFLAG)$(DB)
+all: $(ECRadLIBDir)/lib$(ECRadLIB)$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).a \
+	$(ECRadLIBDir)/ECRadPython$(OMPFLAG)$(USE3DFLAG)$(DB) $(ECRadLIBDir)/$(APPLICATION)$(OMPFLAG)$(USE3DFLAG)$(DB)
 endif
 
 $(ECRadLIBDir)/$(APPLICATION)$(OMPFLAG)$(USE3DFLAG)$(DB): $(OBJJ) \
@@ -155,9 +158,16 @@ $(ECRadLIBDir)/$(APPLICATION)$(OMPFLAG)$(USE3DFLAG)$(DB): $(OBJJ) \
 	
 $(MODECRad)/$(APPLICATION)$(OMPFLAG)$(USE3DFLAG)$(DB).o : $(SRCP)/$(APPLICATION).f90
 	$(F90) ${MODULES} $(FFPFLAGS) $(F90FLAGS) $< -o $@
+	
+$(ECRadLIBDir)/ECRadPython$(OMPFLAG)$(USE3DFLAG)$(DB): $(ECRadLIBDir)/lib$(ECRadLIB)$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).a
+	cd $(ECRadLIBDir); \
+	python -m numpy.f2py -c --fcompiler=$(F2PYCOMPILER) ../src/ECRad_python$(OMPFLAG)$(USE3DFLAG).f90 -m ECRad_python$(OMPFLAG)$(USE3DFLAG)$(DB) \
+		-I$(MODECRad) --f90flags="$(F90FLAGS)" "$(LIBS)"; \
+	rm *.c; rm *.f90; \
+	cd ../
 
 #libECRad
-$(ECRadLIBDir)/lib$(ECRadLIB)$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).a: makefile $(OBJS) $(SOURCE)
+$(ECRadLIBDir)/lib$(ECRadLIB)$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).a: $(OBJS) $(SOURCE)
 	ar rv $@ $(OBJS)
 	ar -t $@ -o $@
 $(ECRadLIB)$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).a: $(OBJS)

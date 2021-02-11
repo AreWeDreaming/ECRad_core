@@ -20,6 +20,7 @@ c-----------------------------------------------------------------------
       common /ls0001/ rls(218), ils(39)
       common /lsa001/ rlsa(22), ilsa(9)
       common /eh0001/ ieh(2)
+!$omp THREADPRIVATE(/ls0001/, /lsa001/, /eh0001/)
       data lenrls/218/, lenils/39/, lenrla/22/, lenila/9/
 c
       if (job .eq. 2) go to 100

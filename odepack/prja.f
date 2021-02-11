@@ -24,6 +24,7 @@ clll. optimize
      5   maxord, maxcor, msbp, mxncf, n, nq, nst, nfe, nje, nqu
       common /lsa001/ rownd2, rowns2(20), pdnorm,
      1   iownd2(3), iowns2(2), jtyp, mused, mxordn, mxords
+!$omp THREADPRIVATE(/ls0001/, /lsa001/)
 c-----------------------------------------------------------------------
 c prja is called by stoda to compute and process the matrix
 c p = i - h*el(1)*j , where j is an approximation to the jacobian.

@@ -215,7 +215,8 @@ integer(ikind)                :: idiag
       call abs_Al_init(N_absz) ! Initializes the weights and abszissae for the gaussian quadrature
     end if
   plasma_params%m_vessel_bd = N_vessel
-  allocate(plasma_params%vessel_poly%x(plasma_params%m_vessel_bd), plasma_params%vessel_poly%y(plasma_params%m_vessel_bd))
+  allocate(plasma_params%vessel_poly%x(plasma_params%m_vessel_bd), &
+           plasma_params%vessel_poly%y(plasma_params%m_vessel_bd))
   plasma_params%vessel_poly%x(:) = vessel_R
   plasma_params%vessel_poly%y(:) = vessel_z
 end subroutine pre_initialize_ECRad_f2py
@@ -365,10 +366,10 @@ logical                                           :: old_straight
     call init_raytrace(plasma_params, R, z, rhop, Br, Bt, Bz, R_ax, z_ax, T_e_mat, n_e_mat)
   else
     call init_raytrace(plasma_params, R, z, rhop, Br, Bt, Bz, R_ax, z_ax)
+    allocate(plasma_params%IDA_rhop_knots_ne(N_ne_spline_knots), plasma_params%IDA_n_e(N_ne_spline_knots), &
+             plasma_params%IDA_n_e_dx2(N_ne_spline_knots), plasma_params%IDA_rhop_knots_Te(N_Te_spline_knots), &
+             plasma_params%IDA_T_e(N_Te_spline_knots), plasma_params%IDA_T_e_dx2(N_Te_spline_knots))
   end if
-  allocate(plasma_params%IDA_rhop_knots_ne(N_ne_spline_knots), plasma_params%IDA_n_e(N_ne_spline_knots), &
-           plasma_params%IDA_n_e_dx2(N_ne_spline_knots), plasma_params%IDA_rhop_knots_Te(N_Te_spline_knots), &
-           plasma_params%IDA_T_e(N_Te_spline_knots), plasma_params%IDA_T_e_dx2(N_Te_spline_knots))
 end subroutine initialize_ECRad_f2py
 
 
@@ -482,7 +483,7 @@ real(rkind), dimension(:), intent(in), optional   :: rhop_knots_ne, n_e, n_e_dx2
 real(rkind), dimension(:),  intent(out), optional :: rhop_res
 integer(ikind)                          :: idiag, ich
 ! Updates the values of the splines: Te, ne
-if(.not. plasma_params%No_ne_te .or. plasma_params%Te_ne_mat) then
+if(.not. (plasma_params%No_ne_te .or. plasma_params%Te_ne_mat)) then
   call update_Te_ne(rhop_knots_ne, n_e, n_e_dx2, rhop_knots_Te, T_e, T_e_dx2)
 end if
 call span_svecs(plasma_params)
@@ -1035,11 +1036,11 @@ do idiag = 1, ant%N_diag
           if(mode_cnt == 2 .and. rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%contributes .and. .not. &
              rad%diag(idiag)%ch(ich)%mode(imode)%ray(1)%freq(1)%use_external_pol_coeff) rad%diag(idiag)%ch(ich)%mode(imode)%pol_coeff = rad%diag(idiag)%ch(ich)%mode(imode)%pol_coeff + &
             rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%pol_coeff * ant%diag(idiag)%ch(ich)%freq_weight(ifreq) * &
-            ant%diag(idiag)%ch(ich)%ray_launch(ir)%weight
+            ant%diag(idiag)%ch(ich)%ray_launch(ir)%weight * ant%diag(idiag)%ch(ich)%freq_int_weight(ifreq)
           if(mode_cnt == 2 .and. output_level .and. rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%contributes .and.  .not. &
              rad%diag(idiag)%ch(ich)%mode(imode)%ray(1)%freq(1)%use_external_pol_coeff) rad%diag(idiag)%ch(ich)%mode(imode)%pol_coeff_secondary = rad%diag(idiag)%ch(ich)%mode(imode)%pol_coeff_secondary + &
             rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%pol_coeff_secondary * ant%diag(idiag)%ch(ich)%freq_weight(ifreq) * &
-            ant%diag(idiag)%ch(ich)%ray_launch(ir)%weight
+            ant%diag(idiag)%ch(ich)%ray_launch(ir)%weight * ant%diag(idiag)%ch(ich)%freq_int_weight(ifreq)
           if(output_level) then
           ! Consider reflections ONLY if tau < tau_max  .and. rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%tau_secondary < plasma_params%tau_max
           ! This only works if there is no mode conversion !!
@@ -1182,20 +1183,26 @@ do idiag = 1, ant%N_diag
         do ifreq = 1, N_freq
         ! This Trad is to indicate the contribution of the individual modes
           rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%Trad = rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%Trad + &
-            ant%diag(idiag)%ch(ich)%freq_weight(ifreq) * rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%Trad
+            ant%diag(idiag)%ch(ich)%freq_weight(ifreq) * rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%Trad * &
+            ant%diag(idiag)%ch(ich)%freq_int_weight(ifreq)
           if(output_level) rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%Trad_secondary = rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%Trad_secondary + &
-              ant%diag(idiag)%ch(ich)%freq_weight(ifreq) * rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%Trad_secondary
+              ant%diag(idiag)%ch(ich)%freq_weight(ifreq) * rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%Trad_secondary * &
+              ant%diag(idiag)%ch(ich)%freq_int_weight(ifreq)
           rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%tau = rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%tau + &
-            ant%diag(idiag)%ch(ich)%freq_weight(ifreq) * rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%tau
+            ant%diag(idiag)%ch(ich)%freq_weight(ifreq) * rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%tau * &
+              ant%diag(idiag)%ch(ich)%freq_int_weight(ifreq)
           if(output_level) rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%tau_secondary = rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%tau_secondary + &
-            ant%diag(idiag)%ch(ich)%freq_weight(ifreq) * rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%tau_secondary
+            ant%diag(idiag)%ch(ich)%freq_weight(ifreq) * rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%tau_secondary * &
+              ant%diag(idiag)%ch(ich)%freq_int_weight(ifreq)
           ! This Trad is the combination of both modes
           rad%diag(idiag)%ch(ich)%Trad = rad%diag(idiag)%ch(ich)%Trad + &
                 rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%pol_coeff * ant%diag(idiag)%ch(ich)%freq_weight(ifreq) * &
-                ant%diag(idiag)%ch(ich)%ray_launch(ir)%weight * rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%Trad
+                ant%diag(idiag)%ch(ich)%ray_launch(ir)%weight * rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%Trad * &
+              ant%diag(idiag)%ch(ich)%freq_int_weight(ifreq)
           if(output_level) rad%diag(idiag)%ch(ich)%Trad_secondary = rad%diag(idiag)%ch(ich)%Trad_secondary + &
             rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%pol_coeff_secondary * ant%diag(idiag)%ch(ich)%freq_weight(ifreq) * &
-            ant%diag(idiag)%ch(ich)%ray_launch(ir)%weight * rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%Trad_secondary
+            ant%diag(idiag)%ch(ich)%ray_launch(ir)%weight * rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%Trad_secondary * &
+              ant%diag(idiag)%ch(ich)%freq_int_weight(ifreq)
         end do ! ifreq
         rad%diag(idiag)%ch(ich)%mode(imode)%Trad = rad%diag(idiag)%ch(ich)%mode(imode)%Trad + &
           ant%diag(idiag)%ch(ich)%ray_launch(ir)%weight * rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%Trad
@@ -1338,7 +1345,8 @@ do idiag = 1, ant%N_diag
         do ir = 1, N_ray
           if(.not. rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%contributes) cycle
           call bin_freq_to_ray(rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir), &
-                               ant%diag(idiag)%ch(ich)%freq_weight, &
+                               ant%diag(idiag)%ch(ich)%freq_weight(:) * &
+                               ant%diag(idiag)%ch(ich)%freq_int_weight(:), &
                                rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(:), &
                                rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(:)%total_LOS_points)
           ! Carry out the sum over the frequencies for all rays
@@ -1466,7 +1474,8 @@ integer(ikind)  :: imode, ifreq, ir
        rad%diag(idiag)%ch(ich)%mode(imode)%ray(1)%freq(1)%pol_coeff == 0.d0) cycle
     do ir = 1, N_ray
       call bin_freq_to_ray(rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir), &
-                           ant%diag(idiag)%ch(ich)%freq_weight, &
+                           ant%diag(idiag)%ch(ich)%freq_weight(:) * &
+                           ant%diag(idiag)%ch(ich)%freq_int_weight(:), &
                            rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(:), &
                            rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(:)%total_LOS_points)
       ! Carry out the sum over the frequencies for all rays

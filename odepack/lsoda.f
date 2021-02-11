@@ -1009,8 +1009,10 @@ c-----------------------------------------------------------------------
      5   maxord, maxcor, msbp, mxncf, n, nq, nst, nfe, nje, nqu
       common /lsa001/ tsw, rowns2(20), pdnorm,
      1   insufr, insufi, ixpr, iowns2(2), jtyp, mused, mxordn, mxords
+!$omp THREADPRIVATE(/ls0001/, /lsa001/)
 c
       data mord(1),mord(2)/12,5/, mxstp0/500/, mxhnl0/10/
+
 c-----------------------------------------------------------------------
 c block a.
 c this code block is executed on every call.

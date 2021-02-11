@@ -465,6 +465,7 @@ subroutine prepare_ECE_diag_new_IO()
   do ich = 1, ant%diag(idiag)%N_ch
     allocate(ant%diag(idiag)%ch(ich)%freq(N_freq))
     allocate(ant%diag(idiag)%ch(ich)%freq_weight(N_freq))
+    allocate(ant%diag(idiag)%ch(ich)%freq_int_weight(N_freq))
     allocate(rad%diag(idiag)%ch(ich)%mode(mode_cnt))
     if(output_level) allocate(rad%diag(idiag)%ch(ich)%mode_extra_output(mode_cnt))
     do imode = 1, mode_cnt
@@ -509,15 +510,16 @@ end subroutine prepare_ECE_diag_new_IO
 
 !*******************************************************************************
 
-subroutine prepare_ECE_diag_f2py(f, df, R, phi, z, tor, pol, dist_foc, width)
+subroutine prepare_ECE_diag_f2py(f, df, R, phi, z, tor, pol, dist_foc, width, freq_weight)
 ! Reads f, df from shot files and also prepares the launching positions and angles
   use mod_ECRad_types,                only: plasma_params, ant, rad, &
                                             max_points_svec, mode_cnt, modes, N_ray, N_freq, &
                                             diagnostics, output_level, stand_alone, one_sigma_width
   use constants,                      only: pi
-  real(rkind), dimension(:)               :: f, df, R, phi, z, tor, pol, dist_foc, width ! angles in deg.
+  real(rkind), dimension(:), intent(in)   :: f, df, R, phi, z, tor, pol, dist_foc, width ! angles in deg.
+  real(rkind), dimension(:), intent(in), optional   :: freq_weight ! angles in deg.
   call set_ECE_config(f, df, R, phi, z, tor, pol, dist_foc, width)
-  call make_launch()
+  call make_launch(freq_weight_in=freq_weight)
 end subroutine prepare_ECE_diag_f2py
 !*******************************************************************************
 
@@ -597,6 +599,7 @@ subroutine set_ECE_config(f, df, R, phi, z, tor, pol, dist_foc, width)
   do ich = 1, ant%diag(idiag)%N_ch
     allocate(ant%diag(idiag)%ch(ich)%freq(N_freq))
     allocate(ant%diag(idiag)%ch(ich)%freq_weight(N_freq))
+    allocate(ant%diag(idiag)%ch(ich)%freq_int_weight(N_freq))
     allocate(rad%diag(idiag)%ch(ich)%mode(mode_cnt))
     if(output_level) allocate(rad%diag(idiag)%ch(ich)%mode_extra_output(mode_cnt))
     do imode = 1, mode_cnt
@@ -635,7 +638,7 @@ end subroutine set_ECE_config
 
 !*******************************************************************************
 
-subroutine make_launch(idiag_in)
+subroutine make_launch(idiag_in, freq_weight_in)
 ! Reads f, df from shot files and also prepares the launching positions and angles
   use mod_ECRad_types,            only: ant, rad, &
                                             mode_cnt, modes, N_ray, N_freq, one_sigma_width
@@ -646,6 +649,7 @@ subroutine make_launch(idiag_in)
 #endif
   use quadrature,                     only: cgqf, cdgqf
   integer(ikind), optional                   :: idiag_in
+  real(rkind), dimension(:), intent(in), optional :: freq_weight_in
   integer(ikind)                             :: idiag, ich, imode, ir
   integer(ikind)                             :: i, j, N_x
   real(rkind)                                :: N_abs, temp, temp1, temp2
@@ -732,6 +736,7 @@ subroutine make_launch(idiag_in)
            ant%diag(idiag)%ch(ich)%ray_launch(1)%N_vec(2)**2 + &
            ant%diag(idiag)%ch(ich)%ray_launch(1)%N_vec(3)**2)
     ant%diag(idiag)%ch(ich)%ray_launch(1)%N_vec = ant%diag(idiag)%ch(ich)%ray_launch(1)%N_vec / N_abs
+    ant%diag(idiag)%ch(ich)%freq_weight(:) = 1.d0 ! Uniform if band per default
     if(N_freq > 1) then
       if(ant%diag(idiag)%ch(ich)%df_ECE < 1.d-10) then
         print*, "Zero or negative bandwidth in calculation with finite bandwidth -- N_freq =", N_freq
@@ -754,17 +759,21 @@ subroutine make_launch(idiag_in)
       call cgqf(int(N_freq - 1,kind=4), int(1,kind=4), 0.d0, 0.d0, &
                 ant%diag(idiag)%ch(ich)%f_ECE - ant%diag(idiag)%ch(ich)%df_ECE / 2.d0, &
                 ant%diag(idiag)%ch(ich)%f_ECE + ant%diag(idiag)%ch(ich)%df_ECE / 2.d0, &
-                ant%diag(idiag)%ch(ich)%freq(2:N_freq), ant%diag(idiag)%ch(ich)%freq_weight(2:N_freq))
+                ant%diag(idiag)%ch(ich)%freq(2:N_freq), ant%diag(idiag)%ch(ich)%freq_int_weight(2:N_freq))
+      ant%diag(idiag)%ch(ich)%freq_int_weight(2:N_freq) = ant%diag(idiag)%ch(ich)%freq_int_weight(2:N_freq) / &
+                                                          ant%diag(idiag)%ch(ich)%df_ECE ! Normalize to 1
       ant%diag(idiag)%ch(ich)%freq(1) = ant%diag(idiag)%ch(ich)%f_ECE
-      ant%diag(idiag)%ch(ich)%freq_weight(1) = 0.d0 ! central frequency not considered in the averaging
-      ant%diag(idiag)%ch(ich)%freq_weight(2:N_freq) = ant%diag(idiag)%ch(ich)%freq_weight(2:N_freq) / &
-                                                      sum(ant%diag(idiag)%ch(ich)%freq_weight(2:N_freq)) ! normalization to one
+      ant%diag(idiag)%ch(ich)%freq_int_weight(1) = 0.d0 ! central frequency not considered in the averaging
+      if(present(freq_weight_in)) then
+        ant%diag(idiag)%ch(ich)%freq_weight(2::N_freq)  = freq_weight_in(1:N_freq-1)
+      end if
 #ifdef NAG
-      freq_weight_check(:) = freq_weight_check(:) / sum(freq_weight_check(:)) ! normalization to one
+      freq_weight_check(:) = freq_weight_check(:) / &
+                             ant%diag(idiag)%ch(ich)%df_ECE  ! Normalize to 1
       if(sum((ant%diag(idiag)%ch(ich)%freq_weight(2:N_freq) - freq_weight_check(1:N_freq - 1))**2) > 1.d-2) then
         print*, "Weights deviate by more than 1.d-4"
         do i = 2, N_freq
-          print*, ant%diag(idiag)%ch(ich)%freq_weight(i), freq_weight_check(i - 1)
+          print*, ant%diag(idiag)%ch(ich)%freq_int_weight(i), freq_weight_check(i - 1)
         end do
         call abort()
       end if
@@ -783,6 +792,7 @@ subroutine make_launch(idiag_in)
 #endif
     else
       ant%diag(idiag)%ch(ich)%freq(1) = ant%diag(idiag)%ch(ich)%f_ECE
+      ant%diag(idiag)%ch(ich)%freq_int_weight(1) = 1.d0 ! only central frequency
       ant%diag(idiag)%ch(ich)%freq_weight(1) = 1.d0 ! only central frequency
     end if
     if (N_ray > 1) then
