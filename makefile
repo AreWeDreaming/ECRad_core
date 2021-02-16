@@ -28,6 +28,8 @@ endif
 ifeq ($(F90),gfortran)
 	F90OPTFLAGS = -O2 -mavx -ffree-form -ffree-line-length-none -fPIC
 	F90DBGFLAGS = -g -ffree-form -ffree-line-length-none -fPIC
+	F2PYOPTFLAGS = -O2 -mavx -ffree-form -ffree-line-length-none
+	F2PYDBGFLAGS = -g -ffree-form -ffree-line-length-none 
 	F90PARFLAGS = -fopenmp
 	FFPFLAGS = -cpp
 	MODULEFLAG = -mhle	
@@ -37,10 +39,12 @@ else
 	FFPFLAGS = -fpp -DINTEL
 	F90OPTFLAGS = -O2 -fp-model source -axavx -fpic
 	F90DBGFLAGS = -g -traceback -fpic -DTBB_USE_DEBUG
+	F2PYOPTFLAGS = -O2 -fp-model source -axavx
+	F2PYDBGFLAGS = -g -traceback -DTBB_USE_DEBUG
 	F90PARFLAGS = -qopenmp
 	MODULEFLAG = -module
 	LIBFLAG = -mkl -static-intel
-	F2PYCOMPILER = intel
+	F2PYCOMPILER = intelem
 endif
 MKDIR_P = mkdir -p
 ifeq ($(IDA),True)
@@ -63,17 +67,20 @@ MODECRad=$(ROOTDIR)/$(SYS)/mod$(COMPILER)$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)
 $(shell   mkdir -p $(MODECRad))
 # Debugging -> enable if DEBUG==		True
 ifeq ($(DEBUG),True)
-	F90FLAGS = -c $(F90DBGFLAGS)
+	F90FLAGS = $(F90DBGFLAGS)
+	F2PYFLAGS = $(F2PYDBGFLAGS)
 	DB = db
 	# Optimized
 else
-  F90FLAGS = -c $(F90OPTFLAGS)
+  F90FLAGS = $(F90OPTFLAGS)
+  F2PYFLAGS = $(F2PYOPTFLAGS)
   # Profiling
   #F90FLAGS = -c -O2 -r8 -vec-report -g -prof-gen -prof-dir/afs/ipp-garching.mpg.de/home/s/sdenk/F90/Ecfm_Model_new/prof_dir -fpic
 endif
 ifeq ($(OPEN_MP),True)
   # Parallelisation
   F90FLAGS += $(F90PARFLAGS)
+  F2PYFLAGS += $(F90PARFLAGS)
 endif
 # Debugging parallelisation
 #F90FLAGS = -c -g -O0 -shared-libgcc -traceback -check bounds  -check all -u -warn all -diag-disable 7712 -check uninit -fp-model source -warn interfaces -fpe3 -qopenmp -qopenmp-report -DTBB_USE_DEBUG
@@ -81,9 +88,11 @@ F77FLAGS = $(F90FLAGS) -C
 # Libraries
 FITPACK = -L$(ROOTDIR)/fitpack/ -lFITPack
 ODEPACK = -L$(ROOTDIR)/odepack/ -lODEPack
+F2PYLIBS = -L$(ECRadLIBDir) -l$(ECRadLIB)$(OMPFLAG)$(USE3DFLAG)$(DB) \
+	$(NAGF90LIB) $(NAGFLIB) $(FITPACK) $(ODEPACK)
 LIBS = -L$(ECRadLIBDir) -l$(ECRadLIB)$(OMPFLAG)$(USE3DFLAG)$(DB) \
-		$(NAGF90LIB) $(NAGFLIB) $(FITPACK) $(ODEPACK) \
-	    $(LIBFLAG)
+	$(NAGF90LIB) $(NAGFLIB) $(FITPACK) $(ODEPACK) \
+	$(LIBFLAG)
 ifeq ($(USE_3D),True)
  	LIBS += $(ROOTDIR)/../MConf/lib/libmconf64.a
 #   LIBS += $(ROOTDIR)/../magconf/lib/libmconf64.a
@@ -157,23 +166,23 @@ $(ECRadLIBDir)/$(APPLICATION)$(OMPFLAG)$(USE3DFLAG)$(DB): $(OBJJ) \
 	-o $(ECRadLIBDir)/$(APPLICATION)$(OMPFLAG)$(USE3DFLAG)$(DB)
 	
 $(MODECRad)/$(APPLICATION)$(OMPFLAG)$(USE3DFLAG)$(DB).o : $(SRCP)/$(APPLICATION).f90
-	$(F90) ${MODULES} $(FFPFLAGS) $(F90FLAGS) $< -o $@
+	$(F90) ${MODULES} $(FFPFLAGS) -c $(F90FLAGS) $< -o $@
 	
 $(ECRadLIBDir)/ECRadPython$(OMPFLAG)$(USE3DFLAG)$(DB): $(ECRadLIBDir)/lib$(ECRadLIB)$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).a
 	cd $(ECRadLIBDir); \
-	python -m numpy.f2py -c --fcompiler=$(F2PYCOMPILER) ../src/ECRad_python$(OMPFLAG)$(USE3DFLAG).f90 -m ECRad_python$(OMPFLAG)$(USE3DFLAG)$(DB) \
-		-I$(MODECRad) --f90flags="$(F90FLAGS)" "$(LIBS)"; \
+	f2py -c --fcompiler=$(F2PYCOMPILER) ../src/ECRad_python$(OMPFLAG)$(USE3DFLAG).f90 -m ECRad_python$(OMPFLAG)$(USE3DFLAG)$(DB) \
+		-I$(MODECRad) --f90flags=$(F2PYFLAGS) $(F2PYLIBS); \
 	rm *.c; rm *.f90; \
 	cd ../
-
+#
 #libECRad
-$(ECRadLIBDir)/lib$(ECRadLIB)$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).a: $(OBJS) $(SOURCE)
+$(ECRadLIBDir)/lib$(ECRadLIB)$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).a: $(OBJS)
 	ar rv $@ $(OBJS)
-	ar -t $@ -o $@
-$(ECRadLIB)$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).a: $(OBJS)
+
+$(ECRadLIB)$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).a: $(OBJS) 
 
 $(MODECRad)/%$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).o: $(SRCP)/%.f90
-	 $(F90) ${MODULES} $(FFPFLAGS) $(F90FLAGS) $< -o $@
+	 $(F90) $(MODULES) $(FFPFLAGS) -c $(F90FLAGS) $< -o $@
 	 
 # making the directories
 #directories: ${MODECRad}
