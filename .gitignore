@@ -1,9 +1,14 @@
-*
 !.gitignore
+*
+!src
 !src/*
+!odepack/
 !odepack/*
+!fitpack/
 !fitpack/*
+!Fitpack_ODEpack_makefiles/
 !Fitpack_ODEpack_makefiles/*
+!references/
 !references/*
 !build.*
 !compile_*
