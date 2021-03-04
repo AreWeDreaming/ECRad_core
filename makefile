@@ -69,6 +69,7 @@ $(shell   mkdir -p $(MODECRad))
 ifeq ($(DEBUG),True)
 	F90FLAGS = $(F90DBGFLAGS)
 	F2PYFLAGS = $(F2PYDBGFLAGS)
+	F2PYDBG = --debug
 	DB = db
 	# Optimized
 else
@@ -94,7 +95,7 @@ LIBS = -L$(ECRadLIBDir) -l$(ECRadLIB)$(OMPFLAG)$(USE3DFLAG)$(DB) \
 	$(NAGF90LIB) $(NAGFLIB) $(FITPACK) $(ODEPACK) \
 	$(LIBFLAG)
 ifeq ($(USE_3D),True)
- 	LIBS += $(ROOTDIR)/../MConf/lib/libmconf64.a
+ 	LIBS += $(ROOTDIR)/MConf/lib/libmconf64.a
 #   LIBS += $(ROOTDIR)/../magconf/lib/libmconf64.a
 #../Mconf/unix/mconf_matlab64.so
 	LIBS += -lpthread -lstdc++
@@ -171,7 +172,7 @@ $(MODECRad)/$(APPLICATION)$(OMPFLAG)$(USE3DFLAG)$(DB).o : $(SRCP)/$(APPLICATION)
 $(ECRadLIBDir)/ECRadPython$(OMPFLAG)$(USE3DFLAG)$(DB): $(ECRadLIBDir)/lib$(ECRadLIB)$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).a
 	cd $(ECRadLIBDir); \
 	f2py -c --fcompiler=$(F2PYCOMPILER) ../src/ECRad_python$(OMPFLAG)$(USE3DFLAG).f90 -m ECRad_python$(OMPFLAG)$(USE3DFLAG)$(DB) \
-		-I$(MODECRad) --f90flags=$(F2PYFLAGS) $(F2PYLIBS); \
+		-I$(MODECRad) $(F2PYDBG) --opt='' --f90flags='$(F2PYFLAGS)' $(F2PYLIBS); \
 	rm *.c; rm *.f90; \
 	cd ../
 #
