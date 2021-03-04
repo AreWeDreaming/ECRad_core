@@ -1,10 +1,10 @@
 *
 !.gitignore
-!src/**
-!odepack
-!fitpack
-!Fitpack_ODEpack_makefiles
-!references/**
+!src/*
+!odepack/*
+!fitpack/*
+!Fitpack_ODEpack_makefiles/*
+!references/*
 !build.*
 !compile_*
 !ECRad_submit.bsub
