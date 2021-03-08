@@ -31,6 +31,7 @@ ifeq ($(F90),gfortran)
 	F2PYOPTFLAGS = -O2 -mavx -ffree-form -ffree-line-length-none
 	F2PYDBGFLAGS = -g -ffree-form -ffree-line-length-none 
 	F90PARFLAGS = -fopenmp
+	F90PARLIBFLAGS = -lgomp
 	FFPFLAGS = -cpp
 	MODULEFLAG = -mhle	
 	LIBFLAG = -static-libgcc -llapack -lblas
@@ -42,6 +43,7 @@ else
 	F2PYOPTFLAGS = -O2 -fp-model source -axavx
 	F2PYDBGFLAGS = -g -traceback -DTBB_USE_DEBUG
 	F90PARFLAGS = -qopenmp
+	F90PARLIBFLAGS = -qopenmp
 	MODULEFLAG = -module
 	LIBFLAG = -mkl -static-intel
 	F2PYCOMPILER = intelem
@@ -102,7 +104,7 @@ ifeq ($(USE_3D),True)
 	#LIBS += -L${NETCDF_HOME}/lib/  -lnetcdf_c++4  -lnetcdf 
 endif
 ifeq ($(OPEN_MP),True)
-	LIBS += $(F90PARFLAGS)
+	LIBS += $(F90PARLIBFLAGS)
 endif
 LDFLAGS = -z muldefs
 ifeq ($(F90),gfortran)
