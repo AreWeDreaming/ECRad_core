@@ -105,6 +105,7 @@ ifeq ($(USE_3D),True)
 endif
 ifeq ($(OPEN_MP),True)
 	LIBS += $(F90PARLIBFLAGS)
+	F2PYLIBS += $(F90PARLIBFLAGS)
 endif
 LDFLAGS = -z muldefs
 ifeq ($(F90),gfortran)
