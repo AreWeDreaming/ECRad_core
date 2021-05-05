@@ -27,7 +27,6 @@ cd ../odepack
 make clean
 make
 cd ../
-mkdir $SYS
 make DEBUG=True IDA=True
 make IDA=True
 make DEBUG=True

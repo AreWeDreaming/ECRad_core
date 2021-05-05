@@ -1,6 +1,6 @@
 APPLICATION = ECRad
 ifndef SYS
-	SYS = Unknown_SYS
+	SYS = bin
 endif
 ROOTDIR=$(CURDIR)
 ECRadLIBDir=$(ROOTDIR)/$(SYS)
