@@ -15,7 +15,7 @@ You can find the corresponding .bib files in the ``references`` folder. There is
 Clone the directory.
 
 ```bash
-git clone https://github.com/AreWeDreaming/ECRad.git
+git clone https://github.com/AreWeDreaming/ECRad_core.git
 ```
 If you are using bash:
 
