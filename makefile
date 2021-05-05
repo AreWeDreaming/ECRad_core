@@ -31,6 +31,7 @@ ifeq ($(F90),gfortran)
 	F2PYOPTFLAGS = -O2 -mavx -ffree-form -ffree-line-length-none
 	F2PYDBGFLAGS = -g -ffree-form -ffree-line-length-none 
 	F90PARFLAGS = -fopenmp
+	F2PYPARFLAGS = '-fopenmp'
 	F90PARLIBFLAGS = -lgomp
 	FFPFLAGS = -cpp
 	MODULEFLAG = 	
@@ -45,10 +46,12 @@ else
 	F2PYDBGFLAGS = -g -traceback -DTBB_USE_DEBUG
 	F90PARFLAGS = -qopenmp
 	F90PARLIBFLAGS = -qopenmp
+	F2PYPARFLAGS = '-qopenmp'
 	MODULEFLAG = -module
 	LIBFLAG = -mkl -static-intel
 	F2PYLIBFLAGS = -mkl
 	F2PYCOMPILER = intelem
+	CC = icc
 endif
 MKDIR_P = mkdir -p
 ifeq ($(IDA),True)
@@ -78,7 +81,7 @@ ifeq ($(DEBUG),True)
 	# Optimized
 else
   F90FLAGS = $(F90OPTFLAGS)
-  F2PYFLAGS = $(F2PYOPTFLAGS)
+  F2PYFLAGS = $(F2PYPARFLAGS)
   # Profiling
   #F90FLAGS = -c -O2 -r8 -vec-report -g -prof-gen -prof-dir/afs/ipp-garching.mpg.de/home/s/sdenk/F90/Ecfm_Model_new/prof_dir -fpic
 endif
