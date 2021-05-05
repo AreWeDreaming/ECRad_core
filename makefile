@@ -177,7 +177,7 @@ $(MODECRad)/$(APPLICATION)$(OMPFLAG)$(USE3DFLAG)$(DB).o : $(SRCP)/$(APPLICATION)
 	
 $(ECRadLIBDir)/ECRadPython$(OMPFLAG)$(USE3DFLAG)$(DB): $(ECRadLIBDir)/lib$(ECRadLIB)$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).a
 	cd $(ECRadLIBDir); \
-	f2py3.7 -c --fcompiler=$(F2PYCOMPILER) ../src/ECRad_python$(OMPFLAG)$(USE3DFLAG).f90 -m ECRad_python$(OMPFLAG)$(USE3DFLAG)$(DB) \
+	f2py3 -c --fcompiler=$(F2PYCOMPILER) ../src/ECRad_python$(OMPFLAG)$(USE3DFLAG).f90 -m ECRad_python$(OMPFLAG)$(USE3DFLAG)$(DB) \
 		-I$(MODECRad) $(F2PYDBG) --opt='' --f90flags='$(F2PYFLAGS)' $(F2PYLIBS); \
 	rm *.c; rm *.f90; \
 	cd ../
