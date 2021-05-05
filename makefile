@@ -44,10 +44,10 @@ else
 	F2PYOPTFLAGS = -O2 -fp-model source -axavx
 	F2PYDBGFLAGS = -g -traceback -DTBB_USE_DEBUG
 	F90PARFLAGS = -qopenmp
-	F90PARLIBFLAGS = -qopenmp
+	F90PARLIBFLAGS = 
 	MODULEFLAG = -module
 	LIBFLAG = -mkl -static-intel
-	F2PYLIBFLAGS = -mkl
+	F2PYLIBFLAGS = 
 	F2PYCOMPILER = intelem
 	CC = icc
 endif
