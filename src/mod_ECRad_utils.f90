@@ -1742,7 +1742,6 @@ logical                                    :: make_secondary_BPD
               i_start < i_end)
       i_start = i_start + 1
     end do
-    print*, i_start, i_end, rad_mode%ray(ir)%freq(1)%total_LOS_points
     if(i_start >= i_end) then
       print*, "Warning: A ray does not pass through the domain of the flux matrix"
       print*, "This occurs either for incorrect launch settings or equilibria"
