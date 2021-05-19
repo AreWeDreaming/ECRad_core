@@ -1483,14 +1483,20 @@ integer(ikind)  :: imode, ifreq, ir
         deallocate(rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%svec_extra_output)
       end do
     end do ! ir
-    call bin_ray_BPD_to_common_rhop(plasma_params, &
-                                    rad%diag(idiag)%ch(ich)%mode(imode), &
-                                    ant%diag(idiag)%ch(ich)%f_ECE, &
-                                    ant%diag(idiag)%ch(ich)%ray_launch(:)%weight, &
-                                    rad%diag(idiag)%ch(ich)%mode_extra_output(imode)%rhop_BPD,  &
-                                    rad%diag(idiag)%ch(ich)%mode_extra_output(imode)%BPD)
-    call make_warm_res_mode(rad%diag(idiag)%ch(ich)%mode(imode), ant%diag(idiag)%ch(ich)%ray_launch(:)%weight, &
-                            ant%diag(idiag)%ch(ich)%f_ECE, .false.)
+    if(any(rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%svec(:)%rhop /= -1.d0)) then
+      call bin_ray_BPD_to_common_rhop(plasma_params, &
+                                      rad%diag(idiag)%ch(ich)%mode(imode), &
+                                      ant%diag(idiag)%ch(ich)%f_ECE, &
+                                      ant%diag(idiag)%ch(ich)%ray_launch(:)%weight, &
+                                      rad%diag(idiag)%ch(ich)%mode_extra_output(imode)%rhop_BPD,  &
+                                      rad%diag(idiag)%ch(ich)%mode_extra_output(imode)%BPD)
+      call make_warm_res_mode(rad%diag(idiag)%ch(ich)%mode(imode), ant%diag(idiag)%ch(ich)%ray_launch(:)%weight, &
+                              ant%diag(idiag)%ch(ich)%f_ECE, .false.)
+    else
+      print*, "Warning: A ray does not pass through the domain of the flux matrix"
+      print*, "This occurs either for incorrect launch settings or equilibria"
+      print*, "Or cut-off conditions at the outermost point of the profiles"
+    end if
     do ir = 1, N_ray
       deallocate(rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%Trad, &
                  rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%em, &

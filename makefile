@@ -27,9 +27,9 @@ endif
 
 ifeq ($(F90),gfortran)
 	F90OPTFLAGS = -O2 -mavx -ffree-form -ffree-line-length-none -fPIC
-	F90DBGFLAGS = -g -ffree-form -ffree-line-length-none -fPIC
+	F90DBGFLAGS = -g -ffree-form -ffree-line-length-none -fPIC -fbacktrace
 	F2PYOPTFLAGS = -O2 -mavx -ffree-form -ffree-line-length-none
-	F2PYDBGFLAGS = -g -ffree-form -ffree-line-length-none 
+	F2PYDBGFLAGS = -g -ffree-form -ffree-line-length-none -fbacktrace
 	F90PARFLAGS = -fopenmp
 	F90PARLIBFLAGS = -lgomp
 	FFPFLAGS = -cpp
@@ -74,7 +74,7 @@ $(shell   mkdir -p $(MODECRad))
 ifeq ($(DEBUG),True)
 	F90FLAGS = $(F90DBGFLAGS)
 	F2PYFLAGS = $(F2PYDBGFLAGS)
-	F2PYDBG = --debug
+	F2PYDBG = --debug-capi
 	DB = db
 	# Optimized
 else
@@ -178,8 +178,8 @@ $(MODECRad)/$(APPLICATION)$(OMPFLAG)$(USE3DFLAG)$(DB).o : $(SRCP)/$(APPLICATION)
 	
 $(ECRadLIBDir)/ECRadPython$(OMPFLAG)$(USE3DFLAG)$(DB): $(ECRadLIBDir)/lib$(ECRadLIB)$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).a
 	cd $(ECRadLIBDir); \
-	f2py -c --fcompiler=$(F2PYCOMPILER) ../src/ECRad_python$(OMPFLAG)$(USE3DFLAG).f90 -m ECRad_python$(OMPFLAG)$(USE3DFLAG)$(DB) \
-		-I$(MODECRad) $(F2PYDBG) --opt='' --f90flags='$(F2PYFLAGS)' $(F2PYLIBS); \
+	f2py $(F2PYDBG) -c --fcompiler=$(F2PYCOMPILER) ../src/ECRad_python$(OMPFLAG)$(USE3DFLAG).f90 -m ECRad_python$(OMPFLAG)$(USE3DFLAG)$(DB) \
+		-I$(MODECRad) --opt='' --f90flags='$(F2PYFLAGS)' $(F2PYLIBS); \
 	rm *.c; rm *.f90; \
 	cd ../
 #

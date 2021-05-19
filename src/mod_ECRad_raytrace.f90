@@ -1692,6 +1692,13 @@ function func_dA_dY(X, Y)
         return
     end if
     call sub_spatial_grad_X(plasma_params, omega, x_vec(1:3), rhop_out, grad_rhop, X, spatial_grad_X)
+    if(any(spatial_grad_X==0.d0)) then
+      print*, "ERROR: Currently a vanishing gradient in the Stix parameter X is not supported"
+      print*, "ERROR: Please check your profiles and equilibrium for points with zero gradients."
+      print*, "Current rho and its gradient", rhop_out, grad_rhop
+      print*, "Gradient of Stix parameter X", spatial_grad_X
+      call abort()
+    end if
     call sub_spatial_grad_N_par(plasma_params, x_vec(1:3), x_vec(4:6), N_abs, B_vec, grad_B_vec, &
                                 N_par, spatial_grad_N_par, spatial_grad_B_abs, B_abs, N_grad_N_par)
     call sub_spatial_grad_Y(plasma_params, omega, x_vec(1:3), B_abs, spatial_grad_B_abs, rhop_out, &
@@ -2479,7 +2486,7 @@ function func_dA_dY(X, Y)
     real(rkind), dimension(3)                                   :: R_vec
     logical                                                     :: inside_vessel, inside_equilibrium
     integer(ikind)                                              :: j_phi
-    func_within_plasma = .false. ! Start with False and set to True if something is wrong
+    func_within_plasma = .true. ! Start with False and set to True if something is wrong
 #ifdef USE_3D
     if(use_3D) then
       call sub_remap_coords(ray_point%x_vec, R_vec)
@@ -2505,8 +2512,8 @@ function func_dA_dY(X, Y)
         inside_vessel = .true.
         if(ray_point%rhop < plasma_params%rhop_max .and. ray_point%rhop > 0.d0) then
           been_in_plasma = .true.
-          func_within_plasma = .true.
         else
+          func_within_plasma = .false.
           if(been_in_plasma .and. wall_hits == 1) wall_hits = 2
           if(ray_point%rhop < 0.d0 .and. debug_level > 0 .and. output_level .and. been_in_plasma) then
             call sub_remap_coords(ray_point%x_vec, R_vec)
@@ -2520,6 +2527,7 @@ function func_dA_dY(X, Y)
         end if
       else ! Not in vessel
         inside_vessel = .false.
+        func_within_plasma = .false.
         if(wall_hits == 1) then
           wall_hits = 2
           if(debug_level > 0 .and. output_level ) then
@@ -2541,8 +2549,10 @@ function func_dA_dY(X, Y)
        if(wall_hits == 1) wall_hits =  2
        if(debug_level > 0 .and. output_level .and. wall_hits > 0) print*, "Left the domain on which the flux matrix is given"
        if(debug_level > 0 .and. output_level .and. wall_hits > 0) print*, "Position",  R_vec(1), R_vec(3)
+       func_within_plasma = .false.
        return
     end if
+    ! Check if inside or outside the vessel contour
     if(func_in_poly(plasma_params%vessel_poly%x, plasma_params%vessel_poly%y, R_vec(1), R_vec(3))) then
       if(wall_hits == 0) then
         wall_hits =  1  ! entered machine
@@ -2550,6 +2560,7 @@ function func_dA_dY(X, Y)
         if(debug_level > 0 .and. output_level) print*, "Position",  R_vec(1), R_vec(3)
       end if
     else
+      func_within_plasma = .false.
       if(wall_hits == 1) then
         wall_hits =  2 ! left machine
         if(debug_level > 0 .and. output_level) print*, "Passed through port out of the vessel"
@@ -2559,17 +2570,24 @@ function func_dA_dY(X, Y)
     end if
     ! Check if rhop good -> should be if the above is true
     if(ray_point%rhop == -1.d0 .and. wall_hits == 1) then
+      func_within_plasma = .false.
       if(debug_level > 0 .and. output_level) print*, "Rhop not useful anymore stopping propagation"
       if(debug_level > 0 .and. output_level) print*, "Position",  R_vec(1), R_vec(3)
       wall_hits =  2 ! Pretend a second wall hit when already propagating to pass consistency test at end of raytracing
     ! Check if rhop small enough to be useful for provided profiles
     else if (ray_point%rhop < plasma_params%rhop_max .and. ray_point%rhop >= 0.d0) then
-      func_within_plasma  = .true.
-      if(ray_point%rhop <  plasma_params%rhop_inside) been_in_plasma = .true. ! Inside closed flux surfaces rhop < 0.99d
+      if(ray_point%rhop < plasma_params%rhop_inside) been_in_plasma = .true. ! Inside closed flux surfaces rhop < 0.99d
     else if (been_in_plasma .and. ray_point%rhop >= plasma_params%rhop_exit) then
+      func_within_plasma = .false.
       if(debug_level > 0 .and. output_level) print*, "Rhop now larger than rhop_exit after pass through plasma"
       if(debug_level > 0 .and. output_level) print*, "Position",  R_vec(1), R_vec(3)
       if(wall_hits == 1) wall_hits =  2 ! Pretend a second wall hit when already propagating to pass consistency test at end of raytracing
+    else if(ray_point%rhop >= plasma_params%rhop_max) then
+      func_within_plasma = .false.
+    else
+      print*,"Unexpected condition for check if in plasma"
+      print*, ray_point%rhop, plasma_params%rhop_max, plasma_params%rhop_exit
+      call abort()
     end if
     if(wall_hits > 1) func_within_plasma = .false. ! No need to raytrace into the wall
   end function func_within_plasma
@@ -3417,16 +3435,17 @@ function func_dA_dY(X, Y)
               end if
               if(No_plasma) then
                 rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%contributes = .false.
+                rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%total_LOS_points = 0
                 if(output_level) print*, "Warning a ray did not pass through any plasma"
                 cycle
               end if
               if(last_N >= max_points_svec) then
-                print*, "WARNING a ray did not reach the plasma wall"
+                print*, "WARNING insufficient points"
                 print*, "From here on  output is only for debugging purposes"
                 wall_hits = 2
               end if
               if( wall_hits < 2) then
-                debug_level = 1
+                debug_level = 2
                 call find_first_point_in_plasma(plasma_params, omega, mode, ray_segment, last_N, wall_hits, been_in_plasma, No_plasma)
                 N_init = last_N
                 call make_ray_segment(20.d0, plasma_params, omega, mode, ray_segment, last_N, wall_hits, been_in_plasma, No_plasma, N_init)

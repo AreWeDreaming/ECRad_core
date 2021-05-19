@@ -1725,6 +1725,7 @@ logical                                    :: make_secondary_BPD
   BPD_step(:) = 0.d0
   if(make_secondary_BPD) BPD_secondary_step(:) = 0.d0
   do ir = 1, N_ray
+    if(.not. rad_mode%ray(ir)%contributes) cycle
     if(rad_mode%ray(ir)%Trad == 0.d0) then
       if(.not. make_secondary_BPD) then
         !print*, "Skipped creating BPD for a channel with zero Trad"
@@ -1741,21 +1742,18 @@ logical                                    :: make_secondary_BPD
               i_start < i_end)
       i_start = i_start + 1
     end do
+    print*, i_start, i_end, rad_mode%ray(ir)%freq(1)%total_LOS_points
+    if(i_start >= i_end) then
+      print*, "Warning: A ray does not pass through the domain of the flux matrix"
+      print*, "This occurs either for incorrect launch settings or equilibria"
+      print*, "Or cut-off conditions at the outermost point of the profiles"
+      return
+    end if
     do while((rad_mode%ray(ir)%freq(1)%svec(i_end)%rhop > plasma_params%rhop_max .or. &
               rad_mode%ray(ir)%freq(1)%svec(i_end)%rhop == -1.d0) .and. &
               i_start < i_end)
       i_end = i_end - 1
     end do
-    if(i_end > max_points_svec) then
-      print*, "length of svec",  max_points_svec
-      print*, "i_end>total_LOS_points", i_end
-      call abort()
-    end if
-    if(i_start >= i_end) then
-      print*, "Critical error when calculating BPD"
-      print*, "Could not find a single valid rhop along LOS"
-      stop "mod_ECRad_utils.f90 - invalid LOS or equilibrium"
-    end if
     useful_N = i_end - i_start + 1 ! amount of points inside the flux matrix and profiles
     s_arr(1:useful_N) = rad_mode%ray(ir)%freq(1)%svec(i_start:i_end)%s
     if(any(s_arr(1:useful_N) /= s_arr(1:useful_N))) then

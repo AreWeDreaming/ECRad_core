@@ -286,13 +286,11 @@ module mod_ECRad_interpol
         print*, "Critical error in spline evaluation: dfdx"
         print*, ier
         print*, "spline in mod_ECRad_utils failed"
-        if(ier == 10) then
-          print*, "Array value out of bounds?"
-          print*, x_ar
-          print*, y_ar
-          print*, "x boundary", spl%x_start, spl%x_end
-          print*, "y boundary", spl%y_start, spl%y_end
-        end if
+        if(ier == 10) print*, "Array value out of bounds?"
+        print*, x_ar
+        print*, y_ar
+        print*, "x boundary", spl%x_start, spl%x_end
+        print*, "y boundary", spl%y_start, spl%y_end
 #ifdef INTEL
       call tracebackqq()
 #else
@@ -430,13 +428,11 @@ module mod_ECRad_interpol
         print*, "Critical error in spline evaluation: dfdx"
         print*, ier
         print*, "spline in mod_ECRad_utils failed"
-        if(ier == 10) then
-          print*, "Array value out of bounds?"
-          print*, x_vec
-          print*, y_vec
-          print*, "x boundary", spl%x_start, spl%x_end
-          print*, "y boundary", spl%y_start, spl%y_end
-        end if
+        if(ier == 10) print*, "Array value out of bounds?"
+        print*, x_vec
+        print*, y_vec
+        print*, "x boundary", spl%x_start, spl%x_end
+        print*, "y boundary", spl%y_start, spl%y_end
         call print_2d_spline_params(spl, m)
 #ifdef INTEL
       call tracebackqq()
@@ -605,11 +601,9 @@ module mod_ECRad_interpol
         print*, "Critical error in spline evaluation: dfdx"
         print*, ier
         print*, "spline in mod_ECRad_utils failed"
-        if(ier == 10) then
-          print*, "Array value out of bounds"
-          print*, "requested value", x_ar
-          print*, "x boundary", spl%x_start, spl%x_end
-        end if
+        if(ier == 10) print*, "Array value out of bounds"
+        print*, "requested value", x_ar
+        print*, "x boundary", spl%x_start, spl%x_end
 #ifdef INTEL
       call tracebackqq()
 #else
@@ -709,11 +703,9 @@ module mod_ECRad_interpol
         print*, "Critical error in spline evaluation: dfdx"
         print*, ier
         print*, "spline in mod_ECRad_utils failed"
-        if(ier == 10) then
-          print*, "Array value out of bounds"
-          print*, "requested value", x
-          print*, "x boundary", spl%x_start, spl%x_end
-        end if
+        if(ier == 10) print*, "Array value out of bounds"
+        print*, "requested value", x
+        print*, "x boundary", spl%x_start, spl%x_end
 #ifdef INTEL
       call tracebackqq()
 #else
