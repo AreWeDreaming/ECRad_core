@@ -47,7 +47,7 @@ else
 	F90PARLIBFLAGS = 
 	MODULEFLAG = -module
 	LIBFLAG = -mkl -static-intel
-	F2PYLIBFLAGS = -lmkl -liomp5
+	F2PYLIBFLAGS = -lmkl_intel_ilp64 -lmkl_intel_thread -lmkl_core -liomp5 -lpthread -lm
 	F2PYCOMPILER = intelem
 	CC = icc
 endif
