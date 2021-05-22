@@ -3514,12 +3514,6 @@ function func_dA_dY(X, Y)
                       rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%N_cold(LOS_pnts), &
                       rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%rhop(LOS_pnts), &
                       rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%theta(LOS_pnts))
-            do N=1, last_N
-              X = func_X(plasma_params,omega, ray_segment(N)%n_e, ray_segment(N)%T_e)
-              Y = func_Y(plasma_params,omega, ray_segment(N)%omega_c / e0 * mass_e, ray_segment(N)%T_e)
-              rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%N_cold(N) = func_N(X, Y, &
-                ray_segment(N)%theta, -rad%diag(idiag)%ch(ich)%mode(imode)%mode)
-            end do
             if(.not. allocated(rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%svec_extra_output)) then
             ! This is important in the case we want some extra output for the last ida optimization
               allocate(rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%svec_extra_output(max_points_svec))
@@ -3549,6 +3543,8 @@ function func_dA_dY(X, Y)
             rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%svec_extra_output(:LOS_pnts)%H
             rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%N_ray = &
             rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%svec_extra_output(:LOS_pnts)%N_ray
+            rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%N_cold = &
+            rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%svec_extra_output(:LOS_pnts)%N_cold
             rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%rhop =  &
             rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%svec(:LOS_pnts)%rhop
             rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%theta = &
