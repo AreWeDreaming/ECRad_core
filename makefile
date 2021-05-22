@@ -39,9 +39,9 @@ ifeq ($(F90),gfortran)
 	F2PYCOMPILER = gnu95
 else
 	FFPFLAGS = -fpp -DINTEL
-	F90OPTFLAGS = -O2 -fp-model source -axavx -fpic
+	F90OPTFLAGS = -O2 -fpic
 	F90DBGFLAGS = -g -traceback -fpic -DTBB_USE_DEBUG
-	F2PYOPTFLAGS = -O2 -fp-model source -axavx
+	F2PYOPTFLAGS = -O2
 	F2PYDBGFLAGS = -g -traceback -DTBB_USE_DEBUG
 	F90PARFLAGS = -qopenmp
 	F90PARLIBFLAGS = 
