@@ -3332,7 +3332,7 @@ function func_dA_dY(X, Y)
   implicit none
   type(plasma_params_type), intent(inout)                       :: plasma_params
   integer(ikind)                                                :: idiag, last_N, ich, ir, cur_ray, &
-                                                                   ifreq, imode, i, N, N_init, mode
+                                                                   ifreq, imode, i, N, N_init, mode, LOS_pnts
   real(rkind), dimension(2)                                     :: dist
   type(ray_element_full_type), dimension(:), allocatable        :: ray_segment
   real(rkind)                                                   :: omega, temp, X, Y
@@ -3365,7 +3365,7 @@ function func_dA_dY(X, Y)
     !$omp parallel private(ich, imode, ir, ifreq, &
     !$omp                  N_init, last_N, wall_hits, been_in_plasma, N, &
     !$omp                  omega, temp, X, Y, No_plasma, cur_ray, &
-    !$omp                  ray_segment, mode) default(shared)
+    !$omp                  ray_segment, mode, LOS_pnts) default(shared)
 #endif
 #ifdef OMP
 !      thread_num = omp_get_thread_num() + 1 ! Starts from 0!
@@ -3415,91 +3415,56 @@ function func_dA_dY(X, Y)
             ray_segment(1)%N_vec(2) = temp
           end if
           if(.not. use_ext_rays) then
+            call find_first_point_in_plasma(plasma_params, omega, mode, ray_segment, last_N, wall_hits, been_in_plasma, No_plasma)
+            if(No_plasma) wall_hits = 2
+            N_init = last_N
+            if(debug_level > 0 .and. output_level .and. .not. No_plasma) then
+              print*, "First point in plasma",ray_segment(last_N)%R_vec
+              print*, "Corresponding rho poloidal",ray_segment(last_N)%rhop
+            end if
+            if(last_N  + 1 <= max_points_svec .and. .not. No_plasma) then
+              call make_ray_segment(20.d0, plasma_params, omega, mode, ray_segment, last_N, &
+                                    wall_hits, been_in_plasma, No_plasma, N_init)
+            else if(.not. No_plasma) then
+              print*,"Ray reached maximum length when searching for first point in vessel"
+              print*, "Most likely something is very wrong the launching geometry of the diagnostic"
+              print*, "Current diagnostic", ant%diag(idiag)%diag_name
+              print*, "position and launch vector in Carthesian coordinates", ray_segment(1)%x_vec, &
+                ray_segment(1)%N_vec
+              stop "Error when finding first point in plasma in mod_raytrace.f90"
+            end if
+            if(No_plasma) then
+              rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%contributes = .false.
+              rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%total_LOS_points = 0
+              if(output_level) print*, "Warning a ray did not pass through any plasma"
+              cycle
+            end if
+            if(last_N >= max_points_svec) then
+              print*, "WARNING insufficient points"
+              print*, "From here on  output is only for debugging purposes"
+              wall_hits = 2
+            end if
+            if( wall_hits < 2) then
+              debug_level = 2
               call find_first_point_in_plasma(plasma_params, omega, mode, ray_segment, last_N, wall_hits, been_in_plasma, No_plasma)
-              if(No_plasma) wall_hits = 2
               N_init = last_N
-              if(debug_level > 0 .and. output_level .and. .not. No_plasma) then
-                print*, "First point in plasma",ray_segment(last_N)%R_vec
-                print*, "Corresponding rho poloidal",ray_segment(last_N)%rhop
-              end if
-              if(last_N  + 1 <= max_points_svec .and. .not. No_plasma) then
-                call make_ray_segment(20.d0, plasma_params, omega, mode, ray_segment, last_N, &
-                                      wall_hits, been_in_plasma, No_plasma, N_init)
-              else if(.not. No_plasma) then
-                print*,"Ray reached maximum length when searching for first point in vessel"
-                print*, "Most likely something is very wrong the launching geometry of the diagnostic"
-                print*, "Current diagnostic", ant%diag(idiag)%diag_name
-                print*, "position and launch vector in Carthesian coordinates", ray_segment(1)%x_vec, &
-                  ray_segment(1)%N_vec
-                stop "Error when finding first point in plasma in mod_raytrace.f90"
-              end if
-              if(No_plasma) then
-                rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%contributes = .false.
-                rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%total_LOS_points = 0
-                if(output_level) print*, "Warning a ray did not pass through any plasma"
-                cycle
-              end if
-              if(last_N >= max_points_svec) then
-                print*, "WARNING insufficient points"
-                print*, "From here on  output is only for debugging purposes"
-                wall_hits = 2
-              end if
-              if( wall_hits < 2) then
-                debug_level = 2
-                call find_first_point_in_plasma(plasma_params, omega, mode, ray_segment, last_N, wall_hits, been_in_plasma, No_plasma)
-                N_init = last_N
-                call make_ray_segment(20.d0, plasma_params, omega, mode, ray_segment, last_N, wall_hits, been_in_plasma, No_plasma, N_init)
-                print*, "Ray in span_svecs did not end at a wall"
-                print*, ray_segment(1)%R_vec(1), ray_segment(1)%R_vec(2), ray_segment(1)%R_vec(3)
-                print*, ray_segment(last_N)%R_vec(1), ray_segment(last_N)%R_vec(2), ray_segment(last_N)%R_vec(3)
-                print*, "Distance traveled in plasma", ray_segment(last_N)%s - ray_segment(N_init)%s
-                stop "Error with rays in mod_raytrace.f90"
-              end if
-           else
-             cur_ray = ir + N_ray * mode_cnt * (ich - 1) + N_ray * (imode - 1)
-             ray_segment = ext_rays(cur_ray)%ray
-             wall_hits = 2
-             last_N = ext_rays(cur_ray)%N_steps
-             do i = 1, last_N
+              call make_ray_segment(20.d0, plasma_params, omega, mode, ray_segment, last_N, wall_hits, been_in_plasma, No_plasma, N_init)
+              print*, "Ray in span_svecs did not end at a wall"
+              print*, ray_segment(1)%R_vec(1), ray_segment(1)%R_vec(2), ray_segment(1)%R_vec(3)
+              print*, ray_segment(last_N)%R_vec(1), ray_segment(last_N)%R_vec(2), ray_segment(last_N)%R_vec(3)
+              print*, "Distance traveled in plasma", ray_segment(last_N)%s - ray_segment(N_init)%s
+              stop "Error with rays in mod_raytrace.f90"
+            end if
+          else
+            cur_ray = ir + N_ray * mode_cnt * (ich - 1) + N_ray * (imode - 1)
+            ray_segment = ext_rays(cur_ray)%ray
+            wall_hits = 2
+            last_N = ext_rays(cur_ray)%N_steps
+            do i = 1, last_N
               ray_segment(i)%omega_c = e0 * sqrt(sum(ray_segment(i)%B_vec**2)) / mass_e
-             end do
-           end if
-          !print*, "plasma", last_N
-          if(output_level) then
-          ! Copy ray information to the ray_extra_output array
-            if(.not. allocated(rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output)) allocate(rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(N_ray))
-            if(allocated(rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%s)) then
-               deallocate(rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%s, rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%x, &
-                   rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%y, rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%z, &
-                   rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%H, rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%N_ray, &
-                   rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%N_cold, rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%rhop, &
-                   rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%theta)
-            end if
-            allocate(rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%s(last_N), rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%x(last_N), &
-                   rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%y(last_N), rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%z(last_N), &
-                   rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%H(last_N), rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%N_ray(last_N), &
-                   rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%N_cold(last_N), rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%rhop(last_N), &
-                   rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%theta(last_N))
-            rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%N = last_N
-            rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%s = ray_segment(1:last_N)%s
-            rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%x = ray_segment(1:last_N)%x_vec(1)
-            rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%y = ray_segment(1:last_N)%x_vec(2)
-            rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%z = ray_segment(1:last_N)%x_vec(3)
-            rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%H = ray_segment(1:last_N)%Hamil
-            rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%N_ray = ray_segment(1:last_N)%N_s
-            rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%rhop = ray_segment(1:last_N)%rhop
-            rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%theta = ray_segment(1:last_N)%theta
-            do N=1, last_N
-              X = func_X(plasma_params,omega, ray_segment(N)%n_e, ray_segment(N)%T_e)
-              Y = func_Y(plasma_params,omega, ray_segment(N)%omega_c / e0 * mass_e, ray_segment(N)%T_e)
-              rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%N_cold(N) = func_N(X, Y, &
-                ray_segment(N)%theta, -rad%diag(idiag)%ch(ich)%mode(imode)%mode)
             end do
-            if(.not. allocated(rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%svec_extra_output)) then
-            ! This is important in the case we want some extra output for the last ida optimization
-              allocate(rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%svec_extra_output(max_points_svec))
-            end if
           end if
+          !print*, "plasma", last_N
 !          print*, "Ray start s", ray_segment(1)%s
 !          print*, "Ray start", ray_segment(1)%x_vec
 !          print*, "ray launch", ant%diag(idiag)%ch(ich)%ray_launch(ir)%x_vec
@@ -3529,6 +3494,37 @@ function func_dA_dY(X, Y)
                              ray_segment, rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%total_LOS_points, &
                              last_N, dist, rad_ray_freq=rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq))
           end if
+          if(output_level) then
+          ! Copy ray information to the ray_extra_output array
+            if(.not. allocated(rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output)) allocate(rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(N_ray))
+            if(allocated(rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%s)) then
+                deallocate(rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%s, rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%x, &
+                    rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%y, rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%z, &
+                    rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%H, rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%N_ray, &
+                    rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%N_cold, rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%rhop, &
+                    rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%theta)
+            end if
+            LOS_pnts = rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%total_LOS_points
+            allocate(rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%s(LOS_pnts), &
+                      rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%x(LOS_pnts), &
+                      rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%y(LOS_pnts), &
+                      rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%z(LOS_pnts), &
+                      rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%H(LOS_pnts), &
+                      rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%N_ray(LOS_pnts), &
+                      rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%N_cold(LOS_pnts), &
+                      rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%rhop(LOS_pnts), &
+                      rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%theta(LOS_pnts))
+            do N=1, last_N
+              X = func_X(plasma_params,omega, ray_segment(N)%n_e, ray_segment(N)%T_e)
+              Y = func_Y(plasma_params,omega, ray_segment(N)%omega_c / e0 * mass_e, ray_segment(N)%T_e)
+              rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%N_cold(N) = func_N(X, Y, &
+                ray_segment(N)%theta, -rad%diag(idiag)%ch(ich)%mode(imode)%mode)
+            end do
+            if(.not. allocated(rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%svec_extra_output)) then
+            ! This is important in the case we want some extra output for the last ida optimization
+              allocate(rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%svec_extra_output(max_points_svec))
+            end if
+          end if
           ! Get s_res for all ifreq > 1
           do ifreq = 2, N_freq
             call make_s_res(plasma_params, ant%diag(idiag)%ch(ich)%freq(ifreq) * 2.0 * pi, &
@@ -3540,12 +3536,30 @@ function func_dA_dY(X, Y)
                                   rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%total_LOS_points, last_N, &
                                   rad_ray_freq=rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq), &
                                   svec_extra_output=rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%svec_extra_output)
+            rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%N = LOS_pnts
+            rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%s = &
+            rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%svec(:LOS_pnts)%s
+            rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%x = &
+            rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%svec(:LOS_pnts)%x_vec(1)
+            rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%y = &
+            rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%svec(:LOS_pnts)%x_vec(2)
+            rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%z = &
+            rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%svec(:LOS_pnts)%x_vec(3)
+            rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%H = &
+            rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%svec_extra_output(:LOS_pnts)%H
+            rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%N_ray = &
+            rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%svec_extra_output(:LOS_pnts)%N_ray
+            rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%rhop =  &
+            rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%svec(:LOS_pnts)%rhop
+            rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%theta = &
+            rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%svec(:LOS_pnts)%theta
           else
             call interpolate_svec(plasma_params, rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%svec, ray_segment, omega, &
                                   rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%total_LOS_points, last_N, &
                                   rad_ray_freq=rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq))
           end if
-
+          if(output_level) then
+          end if
         end do !ir
         do ir=1, N_ray
           ifreq = 1
