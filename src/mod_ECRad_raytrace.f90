@@ -3544,7 +3544,7 @@ function func_dA_dY(X, Y)
             rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%N_ray = &
             rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%svec_extra_output(:LOS_pnts)%N_ray
             rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%N_cold = &
-            rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%svec_extra_output(:LOS_pnts)%N_cold
+            rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%svec(:LOS_pnts)%N_cold
             rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%rhop =  &
             rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%svec(:LOS_pnts)%rhop
             rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%theta = &
