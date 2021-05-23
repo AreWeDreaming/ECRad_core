@@ -1944,13 +1944,13 @@ type(rad_diag_ch_mode_ray_extra_output_type), intent(inout)  :: ray_extra_output
 real(rkind), dimension(:), intent(in)      :: freq_weight
 type(rad_diag_ch_mode_ray_freq_type), dimension(:),  intent(in) :: rad_freq
 integer(ikind), dimension(:), intent(in)   :: total_LOS_points
-integer(ikind)                             :: ifreq
+integer(ikind)                             :: ifreq, N_ray
 type(spl_type_1d)                          :: spl
-real(rkind), dimension(:), allocatable     :: s_arr, val, s_freq, quant
+real(rkind), dimension(:), allocatable     :: val, s_freq, quant
 real(rkind)                                :: BPD_norm, BPD_secondary_norm
-  allocate(s_arr(total_LOS_points(1)), quant(maxval(total_LOS_points(:))))
-  s_arr(:) = rad_freq(1)%svec(1:total_LOS_points(1))%s
-  if(N_freq == 1) then
+  N_ray = ray_extra_output%N
+  allocate(quant(maxval(total_LOS_points(:))))
+  if(N_freq == 1 .and. total_LOS_points(1) == N_ray) then
     ray_extra_output%Trad(1:total_LOS_points(1)) = rad_freq(1)%svec_extra_output(1:total_LOS_points(1))%Trad
     ray_extra_output%em(1:total_LOS_points(1)) = rad_freq(1)%svec_extra_output(1:total_LOS_points(1))%em
     ray_extra_output%T(1:total_LOS_points(1)) = rad_freq(1)%svec_extra_output(1:total_LOS_points(1))%T
@@ -1972,8 +1972,7 @@ real(rkind)                                :: BPD_norm, BPD_secondary_norm
       ray_extra_output%T_secondary(:) = 0.d0
       ray_extra_output%ab_secondary(:) = 0.d0
     end if
-    allocate(val(total_LOS_points(1)), s_freq(maxval(total_LOS_points(:))))
-    !print*, "s_arr", s_arr(1:total_LOS_points(1))
+    allocate(val(N_ray), s_freq(maxval(total_LOS_points(:))))
     do ifreq = 2, N_freq
       if(any(rad_freq(ifreq)%svec(1:total_LOS_points(ifreq))%s /= &
              rad_freq(ifreq)%svec(1:total_LOS_points(ifreq))%s)) then
@@ -1983,86 +1982,86 @@ real(rkind)                                :: BPD_norm, BPD_secondary_norm
       s_freq(1:total_LOS_points(ifreq)) = rad_freq(ifreq)%svec(1:total_LOS_points(ifreq))%s
       quant(1:total_LOS_points(ifreq)) = rad_freq(ifreq)%svec_extra_output%Trad
       call make_1d_spline(spl, int(total_LOS_points(ifreq), 4), &
-                            s_freq(1:total_LOS_points(ifreq)), &
-                            quant(1:total_LOS_points(ifreq)), k=1)
-      call spline_1d(spl, s_arr, val)
-      ray_extra_output%Trad(1:total_LOS_points(1)) = ray_extra_output%Trad(1:total_LOS_points(1)) + freq_weight(ifreq) * val
+                          s_freq(1:total_LOS_points(ifreq)), &
+                          quant(1:total_LOS_points(ifreq)), k=1)
+      call spline_1d(spl, ray_extra_output%s, val)
+      ray_extra_output%Trad(1:N_ray) = ray_extra_output%Trad(1:N_ray) + freq_weight(ifreq) * val
       call deallocate_1d_spline(spl)
       quant(1:total_LOS_points(ifreq)) = rad_freq(ifreq)%svec_extra_output%em
       call make_1d_spline(spl, int(total_LOS_points(ifreq), 4), &
                             s_freq(1:total_LOS_points(ifreq)), &
                             quant(1:total_LOS_points(ifreq)), k=1)
-      call spline_1d(spl, s_arr, val)
-      ray_extra_output%em(1:total_LOS_points(1)) = ray_extra_output%em(1:total_LOS_points(1)) + freq_weight(ifreq) * val
+      call spline_1d(spl, ray_extra_output%s, val)
+      ray_extra_output%em(1:N_ray) = ray_extra_output%em(1:N_ray) + freq_weight(ifreq) * val
       call deallocate_1d_spline(spl)
       quant(1:total_LOS_points(ifreq)) = rad_freq(ifreq)%svec_extra_output%T
       call make_1d_spline(spl, int(total_LOS_points(ifreq), 4), &
                             s_freq(1:total_LOS_points(ifreq)), &
                             quant(1:total_LOS_points(ifreq)), k=1)
-      call spline_1d(spl, s_arr, val)
-      ray_extra_output%T(1:total_LOS_points(1)) = ray_extra_output%T(1:total_LOS_points(1)) + freq_weight(ifreq) * val
+      call spline_1d(spl, ray_extra_output%s, val)
+      ray_extra_output%T(1:N_ray) = ray_extra_output%T(1:N_ray) + freq_weight(ifreq) * val
       call deallocate_1d_spline(spl)
       quant(1:total_LOS_points(ifreq)) = rad_freq(ifreq)%svec_extra_output%ab
       call make_1d_spline(spl, int(total_LOS_points(ifreq), 4), &
                             s_freq(1:total_LOS_points(ifreq)), &
                             quant(1:total_LOS_points(ifreq)), k=1)
-      call spline_1d(spl, s_arr, val)
-      ray_extra_output%ab(1:total_LOS_points(1)) = ray_extra_output%ab(1:total_LOS_points(1)) + freq_weight(ifreq) * val
+      call spline_1d(spl, ray_extra_output%s, val)
+      ray_extra_output%ab(1:N_ray) = ray_extra_output%ab(1:N_ray) + freq_weight(ifreq) * val
       call deallocate_1d_spline(spl)
       if(.not. output_level) cycle
       quant(1:total_LOS_points(ifreq)) = rad_freq(ifreq)%svec_extra_output%Trad_secondary
       call make_1d_spline(spl, int(total_LOS_points(ifreq), 4), &
                             s_freq(1:total_LOS_points(ifreq)), &
                             quant(1:total_LOS_points(ifreq)), k=1)
-      call spline_1d(spl, s_arr, val)
-      ray_extra_output%Trad_secondary(1:total_LOS_points(1)) = ray_extra_output%Trad_secondary(1:total_LOS_points(1)) + freq_weight(ifreq) * val
+      call spline_1d(spl, ray_extra_output%s, val)
+      ray_extra_output%Trad_secondary(1:N_ray) = ray_extra_output%Trad_secondary(1:N_ray) + freq_weight(ifreq) * val
       call deallocate_1d_spline(spl)
       quant(1:total_LOS_points(ifreq)) = rad_freq(ifreq)%svec_extra_output%em_secondary
       call make_1d_spline(spl, int(total_LOS_points(ifreq), 4), &
                             s_freq(1:total_LOS_points(ifreq)), &
                             quant(1:total_LOS_points(ifreq)), k=1)
-      call spline_1d(spl, s_arr, val)
-      ray_extra_output%em_secondary(1:total_LOS_points(1)) = ray_extra_output%em_secondary(1:total_LOS_points(1)) + freq_weight(ifreq) * val
+      call spline_1d(spl, ray_extra_output%s, val)
+      ray_extra_output%em_secondary(1:N_ray) = ray_extra_output%em_secondary(1:N_ray) + freq_weight(ifreq) * val
       call deallocate_1d_spline(spl)
       quant(1:total_LOS_points(ifreq)) = rad_freq(ifreq)%svec_extra_output%T_secondary
       call make_1d_spline(spl, int(total_LOS_points(ifreq), 4), &
                             s_freq(1:total_LOS_points(ifreq)), &
                             quant(1:total_LOS_points(ifreq)), k=1)
-      call spline_1d(spl, s_arr, val)
-      ray_extra_output%T_secondary(1:total_LOS_points(1)) = ray_extra_output%T_secondary(1:total_LOS_points(1)) + freq_weight(ifreq) * val
+      call spline_1d(spl, ray_extra_output%s, val)
+      ray_extra_output%T_secondary(1:N_ray) = ray_extra_output%T_secondary(1:N_ray) + freq_weight(ifreq) * val
       call deallocate_1d_spline(spl)
       quant(1:total_LOS_points(ifreq)) = rad_freq(ifreq)%svec_extra_output%ab_secondary
       call make_1d_spline(spl, int(total_LOS_points(ifreq), 4), &
                             s_freq(1:total_LOS_points(ifreq)), &
                             quant(1:total_LOS_points(ifreq)), k=1)
-      call spline_1d(spl, s_arr, val)
-      ray_extra_output%ab_secondary(1:total_LOS_points(1)) = ray_extra_output%ab_secondary(1:total_LOS_points(1)) + freq_weight(ifreq) * val
+      call spline_1d(spl, ray_extra_output%s, val)
+      ray_extra_output%ab_secondary(1:N_ray) = ray_extra_output%ab_secondary(1:N_ray) + freq_weight(ifreq) * val
       call deallocate_1d_spline(spl)
     end do ! ifreq =1, N_freq
     deallocate(val, s_freq)
   end if ! N_freq == 1
-  ray_extra_output%BPD(1:total_LOS_points(1)) = ray_extra_output%T(1:total_LOS_points(1)) * ray_extra_output%em(1:total_LOS_points(1)) * &
+  ray_extra_output%BPD(1:N_ray) = ray_extra_output%T(1:N_ray) * ray_extra_output%em(1:N_ray) * &
                                                 c0**2 / (100.d9**2 * e0) ! brings integral closer to 1
   if(output_level) then
-    ray_extra_output%BPD_secondary(1:total_LOS_points(1)) = ray_extra_output%T_secondary(1:total_LOS_points(1)) * ray_extra_output%em_secondary(1:total_LOS_points(1)) * &
+    ray_extra_output%BPD_secondary(1:N_ray) = ray_extra_output%T_secondary(1:N_ray) * ray_extra_output%em_secondary(1:N_ray) * &
                                                             c0**2 / (100.d9**2 * e0) ! brings integral closer to 1
   end if
-  quant(1:total_LOS_points(1)) = ray_extra_output%BPD(1:total_LOS_points(1))
-  call make_1d_spline(spl, int(total_LOS_points(1), 4), &
-                            s_arr(1:total_LOS_points(1)), &
-                            quant(1:total_LOS_points(1)))
-  call spline_1d_integrate(spl, s_arr(1), s_arr(total_LOS_points(1)), BPD_norm)
+  quant(1:N_ray) = ray_extra_output%BPD(1:N_ray)
+  call make_1d_spline(spl, int(N_ray, 4), &
+                            ray_extra_output%s(1:N_ray), &
+                            quant(1:N_ray))
+  call spline_1d_integrate(spl, ray_extra_output%s(1), ray_extra_output%s(N_ray), BPD_norm)
   call deallocate_1d_spline(spl)
-  if(BPD_norm > 0.d0) ray_extra_output%BPD(1:total_LOS_points(1)) = ray_extra_output%BPD(1:total_LOS_points(1)) / BPD_norm
+  if(BPD_norm > 0.d0) ray_extra_output%BPD(1:N_ray) = ray_extra_output%BPD(1:N_ray) / BPD_norm
   if(output_level) then
-    quant(1:total_LOS_points(1)) = ray_extra_output%BPD_secondary(1:total_LOS_points(1))
-    call make_1d_spline(spl, int(total_LOS_points(1), 4), &
-                            s_arr(1:total_LOS_points(1)), &
-                            quant(1:total_LOS_points(1)))
-    call spline_1d_integrate(spl, s_arr(1), s_arr(total_LOS_points(1)), BPD_secondary_norm)
-    if(BPD_secondary_norm > 0.d0) ray_extra_output%BPD_secondary(1:total_LOS_points(1)) = ray_extra_output%BPD_secondary(1:total_LOS_points(1)) / BPD_secondary_norm
+    quant(1:N_ray) = ray_extra_output%BPD_secondary(1:N_ray)
+    call make_1d_spline(spl, int(N_ray, 4), &
+                            ray_extra_output%s(1:N_ray), &
+                            quant(1:N_ray))
+    call spline_1d_integrate(spl, ray_extra_output%s(1), ray_extra_output%s(N_ray), BPD_secondary_norm)
+    if(BPD_secondary_norm > 0.d0) ray_extra_output%BPD_secondary(1:N_ray) = ray_extra_output%BPD_secondary(1:N_ray) / BPD_secondary_norm
   end if
-  deallocate(s_arr, quant)
+  deallocate(quant)
 end subroutine bin_freq_to_ray
 
 subroutine make_warm_res_mode(rad_mode, weights, f_ECE, make_secondary)

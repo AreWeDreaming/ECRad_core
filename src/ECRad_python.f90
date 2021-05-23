@@ -238,9 +238,9 @@ real(kind=8), dimension(N_LOS), intent(out) :: s, x, y, z, Nx, Ny, Nz, Bx, By, B
                                                Trad, Trad_secondary, em, em_secondary, &
                                                ab, ab_secondary, T, T_secondary, BPD, BPD_secondary
   call get_ray_data_f2py(ich, imode, ir, s, x, y, z, Nx, Ny, Nz, &
-                        Bx, By, Bz, rho, T_e, n_e, theta, N_cold, H, v_g_perp, &
-                        Trad, Trad_secondary, em, em_secondary, ab, ab_secondary, T, &
-                        T_secondary, BPD, BPD_secondary)
+                         Bx, By, Bz, rho, T_e, n_e, theta, N_cold, H, v_g_perp, &
+                         Trad, Trad_secondary, em, em_secondary, ab, ab_secondary, T, &
+                         T_secondary, BPD, BPD_secondary)
 end subroutine get_ray_data
 
 subroutine get_mode_weights(N_ch, imode, pol_coeff, pol_coeff_secondary)

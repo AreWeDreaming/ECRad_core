@@ -3362,7 +3362,7 @@ function func_dA_dY(X, Y)
   glob_plasma_params = plasma_params
   do idiag = 1, ant%N_diag
 #ifdef OMP
-    !$omp parallel private(ich, imode, ir, ifreq, &
+    !$omp parallel private(ich, imode, ir, ifreq, i, &
     !$omp                  N_init, last_N, wall_hits, been_in_plasma, N, &
     !$omp                  omega, temp, X, Y, No_plasma, cur_ray, &
     !$omp                  ray_segment, mode, LOS_pnts) default(shared)
@@ -3494,26 +3494,37 @@ function func_dA_dY(X, Y)
                              ray_segment, rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%total_LOS_points, &
                              last_N, dist, rad_ray_freq=rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq))
           end if
+          if(.not. allocated(rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output)) allocate(rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(N_ray))
+          if(allocated(rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%s)) &
+              deallocate(rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%s)
+          LOS_pnts = rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%total_LOS_points
+          allocate(rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%s(LOS_pnts))
           if(output_level) then
           ! Copy ray information to the ray_extra_output array
-            if(.not. allocated(rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output)) allocate(rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(N_ray))
-            if(allocated(rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%s)) then
-                deallocate(rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%s, rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%x, &
-                    rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%y, rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%z, &
-                    rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%H, rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%N_ray, &
-                    rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%N_cold, rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%rhop, &
+            if(allocated(rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%x_vec)) then
+                deallocate(rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%x_vec, &
+                           rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%B_vec, &
+                           rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%N_vec, &
+                           rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%Te, &
+                           rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%ne, &
+                           rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%H, &
+                           rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%N_ray, &
+                           rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%N_cold, &
+                           rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%v_g_perp, &
+                           rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%rhop, &
                     rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%theta)
             end if
-            LOS_pnts = rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%total_LOS_points
-            allocate(rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%s(LOS_pnts), &
-                      rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%x(LOS_pnts), &
-                      rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%y(LOS_pnts), &
-                      rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%z(LOS_pnts), &
-                      rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%H(LOS_pnts), &
-                      rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%N_ray(LOS_pnts), &
-                      rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%N_cold(LOS_pnts), &
-                      rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%rhop(LOS_pnts), &
-                      rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%theta(LOS_pnts))
+            allocate(rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%x_vec(LOS_pnts,3), &
+                     rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%B_vec(LOS_pnts,3), &
+                     rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%N_vec(LOS_pnts,3), &
+                     rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%Te(LOS_pnts), &
+                     rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%ne(LOS_pnts), &
+                     rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%H(LOS_pnts), &
+                     rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%N_ray(LOS_pnts), &
+                     rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%N_cold(LOS_pnts), &
+                     rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%v_g_perp(LOS_pnts), &
+                     rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%rhop(LOS_pnts), &
+                     rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%theta(LOS_pnts))
             if(.not. allocated(rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%svec_extra_output)) then
             ! This is important in the case we want some extra output for the last ida optimization
               allocate(rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%svec_extra_output(max_points_svec))
@@ -3525,26 +3536,35 @@ function func_dA_dY(X, Y)
                             ray_segment, last_N, rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq))
           end do
           ifreq = 1
+          ! This is the reference when we bin to common coordinate system
+          rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%s = &
+            rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%svec(:LOS_pnts)%s
+          rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%N = LOS_pnts
           if(output_level) then
             call interpolate_svec(plasma_params, rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%svec, ray_segment, omega, &
                                   rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%total_LOS_points, last_N, &
                                   rad_ray_freq=rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq), &
                                   svec_extra_output=rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%svec_extra_output)
-            rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%N = LOS_pnts
-            rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%s = &
-            rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%svec(:LOS_pnts)%s
-            rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%x = &
-            rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%svec(:LOS_pnts)%x_vec(1)
-            rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%y = &
-            rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%svec(:LOS_pnts)%x_vec(2)
-            rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%z = &
-            rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%svec(:LOS_pnts)%x_vec(3)
+            do i = 1,3
+              rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%x_vec(:,i) = &
+              rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%svec(:LOS_pnts)%x_vec(i)
+              rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%B_vec(:,i) = &
+              rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%svec(:LOS_pnts)%B_vec(i)
+              rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%N_vec(:,i) = &
+              rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%svec(:LOS_pnts)%N_vec(i)
+            end do
+            rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%Te = &
+            rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%svec(:LOS_pnts)%Te
+            rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%ne = &
+            rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%svec(:LOS_pnts)%ne
             rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%H = &
             rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%svec_extra_output(:LOS_pnts)%H
             rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%N_ray = &
             rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%svec_extra_output(:LOS_pnts)%N_ray
             rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%N_cold = &
             rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%svec(:LOS_pnts)%N_cold
+            rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%v_g_perp = &
+            rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%svec(:LOS_pnts)%v_g_perp
             rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%rhop =  &
             rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%svec(:LOS_pnts)%rhop
             rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%theta = &
@@ -3821,12 +3841,18 @@ function func_dA_dY(X, Y)
             end if
           end do
           deallocate(rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq)
+          if(allocated(rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%s)) &
+            deallocate(rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%s)
           if(output_level .and. ray_init) then
-            if(allocated(rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%s)) then
-              deallocate(rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%s, rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%x, &
-               rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%y, rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%z, &
-               rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%H, rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%N_ray, &
-               rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%N_cold)
+            if(allocated(rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%x_vec)) then
+              deallocate(rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%x_vec, rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%B_vec, &
+                         rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%N_vec, rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%Te, &
+                         rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%ne, &
+                         rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%H, rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%N_ray, &
+                         rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%N_cold, &
+                         rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%v_g_perp, &
+                         rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%rhop, &
+                         rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%theta)
               deallocate(rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%Trad, rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%Trad_secondary, &
                rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%em, rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%em_secondary, &
                rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%ab, rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%ab_secondary, &
@@ -3836,10 +3862,10 @@ function func_dA_dY(X, Y)
           end if
         end do
         deallocate(rad%diag(idiag)%ch(ich)%mode(imode)%ray)
+        if(allocated(rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output)) then
+          deallocate(rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output)
+        end if
         if(output_level) then
-          if(allocated(rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output)) then
-            deallocate(rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output)
-          end if
           if(ray_init) then
             if(allocated(rad%diag(idiag)%ch(ich)%mode_extra_output(imode)%s)) then
               deallocate(rad%diag(idiag)%ch(ich)%mode_extra_output(imode)%s, &

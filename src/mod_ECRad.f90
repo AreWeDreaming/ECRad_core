@@ -1616,7 +1616,7 @@ integer, intent(in)   :: ich, imode, ir
 integer, intent(out)  :: N_LOS
 integer               :: idiag
   idiag = 1
-  N_LOS = rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(1)%total_LOS_points
+  N_LOS = rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%N
 end subroutine get_ray_length_f2py
 
 subroutine get_ray_data_f2py(ich, imode, ir, s, x, y, z, Nx, Ny, Nz, &
@@ -1627,30 +1627,30 @@ use mod_ECRad_types,    only: rad
 implicit None
 integer, intent(in)   :: ich, imode, ir
 real(kind=8), dimension(:), intent(inout) :: s, x, y, z, Nx, Ny, Nz, Bx, By, Bz, rho, &
-                                           T_e, n_e, theta, N_cold, H, v_g_perp, &
-                                           Trad, Trad_secondary, em, em_secondary, &
-                                           ab, ab_secondary, T, T_secondary, BPD, BPD_secondary
+                                             T_e, n_e, theta, N_cold, H, v_g_perp, &
+                                             Trad, Trad_secondary, em, em_secondary, &
+                                             ab, ab_secondary, T, T_secondary, BPD, BPD_secondary
 integer            :: idiag, ifreq, N_LOS
   idiag = 1
   ifreq = 1
-  N_LOS = rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%total_LOS_points
-  s(1:N_LOS) = rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(1)%svec(1:N_LOS)%s
-  x(1:N_LOS) = rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(1)%svec(1:N_LOS)%x_vec(1)
-  y(1:N_LOS) = rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(1)%svec(1:N_LOS)%x_vec(2)
-  z(1:N_LOS) = rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(1)%svec(1:N_LOS)%x_vec(3)
-  Nx(1:N_LOS) = rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(1)%svec(1:N_LOS)%N_vec(1)
-  Ny(1:N_LOS) = rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(1)%svec(1:N_LOS)%N_vec(1)
-  Nz(1:N_LOS) = rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(1)%svec(1:N_LOS)%N_vec(1)
-  Bx(1:N_LOS) = rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(1)%svec(1:N_LOS)%B_vec(1)
-  By(1:N_LOS) = rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(1)%svec(1:N_LOS)%B_vec(2)
-  Bz(1:N_LOS) = rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(1)%svec(1:N_LOS)%B_vec(3)
-  rho(1:N_LOS) = rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(1)%svec(1:N_LOS)%rhop
-  T_e(1:N_LOS) = rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(1)%svec(1:N_LOS)%Te
-  n_e(1:N_LOS) = rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(1)%svec(1:N_LOS)%ne
-  theta(1:N_LOS) = rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(1)%svec(1:N_LOS)%theta
-  N_cold(1:N_LOS) = rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(1)%svec(1:N_LOS)%N_cold
+  N_LOS = rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%N
+  s(1:N_LOS) = rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%s
+  x(1:N_LOS) = rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%x_vec(1:N_LOS,1)
+  y(1:N_LOS) = rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%x_vec(1:N_LOS,2)
+  z(1:N_LOS) = rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%x_vec(1:N_LOS,3)
+  Nx(1:N_LOS) = rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%N_vec(1:N_LOS,1)
+  Ny(1:N_LOS) = rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%N_vec(1:N_LOS,2)
+  Nz(1:N_LOS) = rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%N_vec(1:N_LOS,3)
+  Bx(1:N_LOS) = rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%B_vec(1:N_LOS,1)
+  By(1:N_LOS) = rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%B_vec(1:N_LOS,2)
+  Bz(1:N_LOS) = rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%B_vec(1:N_LOS,3)
+  rho(1:N_LOS) = rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%rhop(1:N_LOS)
+  T_e(1:N_LOS) = rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%Te(1:N_LOS)
+  n_e(1:N_LOS) = rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%ne(1:N_LOS)
+  theta(1:N_LOS) = rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%theta(1:N_LOS)
+  N_cold(1:N_LOS) = rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%N_cold(1:N_LOS)
   H(1:N_LOS) = rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%H(1:N_LOS)
-  v_g_perp(1:N_LOS) = rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(1)%svec(1:N_LOS)%v_g_perp
+  v_g_perp(1:N_LOS) = rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%v_g_perp(1:N_LOS)
   Trad(1:N_LOS) = rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%Trad(1:N_LOS)
   Trad_secondary(1:N_LOS) = rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%Trad_secondary(1:N_LOS)
   em(1:N_LOS) = rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%em(1:N_LOS)
@@ -1827,9 +1827,9 @@ if(output_level) then
             do i = 1, rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%N
               write(74,"(E18.10E3,A1,E18.10E3,A1,E18.10E3,A1,E18.10E3,A1,E18.10E3,A1,E18.10E3,A1,E18.10E3,A1,E18.10E3,A1,E18.10E3)") &
                                           rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%s(i), " ", &
-                                          rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%x(i), " ", &
-                                          rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%y(i), " ", &
-                                          rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%z(i), " ", &
+                                          rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%x_vec(i,1), " ", &
+                                          rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%x_vec(i,2), " ", &
+                                          rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%x_vec(i,3), " ", &
                                           rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%H(i), " ", &
                                           rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%N_ray(i), " ", &
                                           rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%N_cold(i), " ", &

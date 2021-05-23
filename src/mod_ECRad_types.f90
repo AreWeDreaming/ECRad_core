@@ -181,10 +181,10 @@ type rad_diag_ch_mode_ray_type
 end type rad_diag_ch_mode_ray_type
 
 type rad_diag_ch_mode_ray_extra_output_type
-  real(rkind), dimension(:), allocatable :: s, x, y, z
-  real(rkind), dimension(:), allocatable :: H, N_ray, N_cold, rhop, theta
+  real(rkind), dimension(:), allocatable :: s
+  real(rkind), dimension(:,:), allocatable :: x_vec, B_vec, N_vec
+  real(rkind), dimension(:), allocatable :: H, N_ray, N_cold, rhop, theta, Te, ne, v_g_perp
   integer(ikind)                         :: N
-  ! Warning these have the size of svec not of N
   real(rkind), dimension(:), allocatable :: Trad, Trad_secondary, em, em_secondary, ab, ab_secondary, T, T_secondary, BPD, BPD_secondary
 end type rad_diag_ch_mode_ray_extra_output_type
 
