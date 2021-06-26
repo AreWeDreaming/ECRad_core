@@ -1038,15 +1038,18 @@ implicit none
   real(rkind), dimension(500)                :: s_high_res, dummy, df, dist
   real(rkind), dimension(1000)               :: roots
   integer(ikind)                             :: i, root_cnt
-  do i = 1, size(x_poly)
+  do i = 1, size(x_poly) - 1
     s(i) = real(i - 1) / real(size(x_poly) - 1)
   end do
-  do i = 1, size(s_high_res)
+  ! Need to avoid rounding errors, which will cause spline_1d to fail
+  s(size(x_poly)) = 1.d0
+  do i = 1, size(s_high_res) - 1
     s_high_res(i) = real(i - 1) / real(size(s_high_res) - 1)
   end do
+  s_high_res(size(s_high_res)) = 1.d0
   f(:) = Sqrt((x_poly - x)**2 + (y_poly - y)**2)
   call make_1d_spline(spl, size(x_poly), s, f)
-  call spline_1d(spl, s, dummy, df)
+  call spline_1d(spl, s_high_res, dummy, df)
   call make_1d_spline(d_spl, size(s_high_res), s_high_res, df)
   call spline_1d_get_roots(d_spl, roots, root_cnt)
   if(root_cnt > 0) then

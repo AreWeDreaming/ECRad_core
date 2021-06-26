@@ -436,7 +436,7 @@ type plasma_params_type
                                                     ! if false use linear interpolation (much faster)
   logical                                           :: Te_ne_mat = .false. ! If true an externally given matrix of Te and ne is used instead of the
                                                                               ! Te/ ne profile
-  integer(ikind)                                    :: Debug_level = 1 !* Controls the amount of output of raytracing
+  integer(ikind)                                    :: Debug_level = 0 !* Controls the amount of output of raytracing
                                                       ! (0) No output, (1) some output regarding spline interpolation, (2) much output and stop at first interesting point
   real(rkind)                                       :: h = 1.d-3 !* step size for raytracing - WARNING small values will increase the error!
   real(rkind)                                       :: Y_res = 0.5d0!* Y for strongest contributing harmonic, default is 0.5d0 -> 2nd harmonic
@@ -461,10 +461,7 @@ type plasma_params_type
                                                        ! For strongly radiating plasmas .2 and .02 mm are recommended
                                                        !* De  fine the large and the small step size for the radiation transport
                                                        ! The amoint of steps defined in the next line has no influence on this
-  integer(ikind)                                    :: int_step_cnt !* rad_transp_sections * rad_transp_order
-  integer(ikind)                                    :: rad_trans_sections = 1 !* The radiation transport will be cut into three independent sections
-                                                                              ! this allows to abort the radiation tranposrt if tau_max has been reached
-  integer(ikind)                                    :: rad_transp_solver_order = 4 ! Has to be four (at least) since we use Rk4
+  integer(ikind)                                    :: int_step_cnt = 4 ! Has to be multiple of four since we use Rk4
   real(rkind)                                       :: tau_max = 9 !* If tau > tau_max the radiation transport is deemed finished
                                                        ! tau = 5 corresponds to a reabsorption of more than 99% of all radiation
                                                        ! => good enough for thermal plasmas

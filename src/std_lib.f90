@@ -977,7 +977,7 @@ MODULE f1dim_mod
   INTEGER(ikind) :: ncom
   REAL(rkind), DIMENSION(:), POINTER :: pcom,xicom
 #ifdef OMP
-  !$OMP THREADPRIVATE(pcom,xicom)
+  !$OMP THREADPRIVATE(ncom,pcom,xicom)
 #endif
 CONTAINS
 !BL
@@ -1003,6 +1003,7 @@ END MODULE f1dim_mod
 Module nr_mod
 public powell
 private linmin, mnbrak2, brent2
+
 contains
 
 

@@ -462,11 +462,16 @@ contains
     else
       if((Y * w_mass_e / mass_e) < ratio_for_third_harmonic) max_harmonic = 3
       if(get_upper_limit_tau(svec, omega, ds2) < tau_ignore .and. .not. present(pol_coeff)) then
+#ifdef OMP
+        return
+      end if
+#else
         not_eval = not_eval + 1
         return
       else
         eval = eval + 1
       end if
+#endif
     end if
     if(present(pol_coeff)) then
       pol_coeff = get_filter_transmittance(omega, X, Y, svec%cos_theta, svec%sin_theta, mode, &
@@ -581,12 +586,16 @@ contains
     if(N_abs /= N_abs .or. N_abs <= 0.0 .or. N_abs > 1.0) return
     tau_upper_limit = get_upper_limit_tau(svec, omega, ds2)
     if(tau_upper_limit < tau_ignore) then
+#ifdef OMP
       not_eval = not_eval + 1
+#endif
       return
     end if
     N_par = svec%cos_theta * N_abs
     N_perp = abs(svec%sin_theta * N_abs)
+#ifdef OMP
     eval = eval + 1
+#endif
     m_0 = sqrt(1.d0 - N_par**2) * omega_bar
     do m_sum = 2, max_harmonic ! First harmonic needs to be treated seperately (for now ignored)
       if(real(m_sum,8) < m_0 ) cycle

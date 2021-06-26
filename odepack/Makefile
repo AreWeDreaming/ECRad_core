@@ -11,7 +11,7 @@ endif
 ifeq ($(FC),gfortran)
 	FFLAGS = -O2 -mavx -fopenmp -fpic
 else
-	FFLAGS = -O2 -fp-model source -axavx -fpic -qopenmp
+	FFLAGS = -fpic -O2 -fpic -traceback -shared-intel -qopenmp 
 endif
 OBJ=$(patsubst %.f,%.o,$(shell ls *.f))
 all: lib$(LIB).a

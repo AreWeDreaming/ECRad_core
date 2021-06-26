@@ -2576,6 +2576,11 @@ function func_dA_dY(X, Y)
       wall_hits =  2 ! Pretend a second wall hit when already propagating to pass consistency test at end of raytracing
     ! Check if rhop small enough to be useful for provided profiles
     else if (ray_point%rhop < plasma_params%rhop_max .and. ray_point%rhop >= 0.d0) then
+      if(.not. func_within_plasma) then
+          if(debug_level > 0 .and. output_level) \
+            print*, "Entered plasma because profiles useful, despite still outside vessel"
+        func_within_plasma = .true.
+      end if
       if(ray_point%rhop < plasma_params%rhop_inside) been_in_plasma = .true. ! Inside closed flux surfaces rhop < 0.99d
     else if (been_in_plasma .and. ray_point%rhop >= plasma_params%rhop_exit) then
       func_within_plasma = .false.

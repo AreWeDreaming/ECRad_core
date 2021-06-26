@@ -39,15 +39,17 @@ ifeq ($(F90),gfortran)
 	F2PYCOMPILER = gnu95
 else
 	FFPFLAGS = -fpp -DINTEL
-	F90OPTFLAGS = -O0 -fpic
-	F90DBGFLAGS = -g -traceback -fpic -DTBB_USE_DEBUG -check all -ftrapuv
-	F2PYOPTFLAGS = -O0
+	F90OPTFLAGS = -O2 -fpic -fp-model source -axavx 
+	F90DBGFLAGS = -O0 -g -fpic -traceback -shared-intel  #-DTBB_USE_DEBUG -check all -ftrapuv
+	F2PYOPTFLAGS = -O2
 	F2PYDBGFLAGS = -g -traceback -DTBB_USE_DEBUG
 	F90PARFLAGS = -qopenmp
 	F90PARLIBFLAGS = 
 	MODULEFLAG = -module
-	LIBFLAG = -mkl -static-intel
-	F2PYLIBFLAGS = -lmkl_intel_ilp64 -lmkl_intel_thread -lmkl_core -liomp5 -lpthread -lm
+	LIBFLAG = -mkl -qopenmp#-L${MKLROOT}/lib/intel64/ -lmkl_intel_lp64 -lmkl_intel_thread -lmkl_core -liomp5 -lpthread -lm -ldl
+	INCLUDEFLAGS = -I"${MKLROOT}/include"
+#	F2PYLIBFLAGS = -Wl,--start-group ${MKLROOT}/lib/intel64/libmkl_intel_lp64.a ${MKLROOT}/lib/intel64/libmkl_intel_thread.a ${MKLROOT}/lib/intel64/libmkl_core.a -Wl,--end-group -liomp5 -lpthread -lm -ldl
+	F2PYLIBFLAGS =  -L${MKLROOT}/lib/intel64/ -lmkl_intel_lp64 -lmkl_intel_thread -lmkl_core -liomp5 -lpthread -lm -ldl
 	F2PYCOMPILER = intelem
 	CC = icc
 endif
@@ -115,7 +117,7 @@ LDFLAGS = -z muldefs
 ifeq ($(F90),gfortran)
 	MODULES = $(MODULEFLAG) -J$(MODECRad)
 else
-	MODULES = $(MODULEFLAG) $(MODECRad)
+	MODULES = $(MODULEFLAG) $(MODECRad) $(INCLUDEFLAGS)
 endif
 ifeq ($(IDA),True)
 	ifneq ($(USE_3D),True)

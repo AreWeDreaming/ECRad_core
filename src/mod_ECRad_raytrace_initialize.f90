@@ -313,14 +313,6 @@ module mod_ECRad_raytrace_initialize
     character(1)  :: sep
     character(200)                              :: filename
     integer(ikind)                              :: num_threads
-    plasma_params%int_step_cnt = plasma_params%rad_trans_sections * plasma_params%rad_transp_solver_order
-    if(plasma_params%int_step_cnt == 0) then
-        print*, "For some reason plasma_params%int_step_cnt is zero!"
-        print*, "This makes no sense since it would mean that you split the radiation transport into N * 0 steps"
-        print*, "Please check setup_plasma_params in mod_ECRad_raytrace_initialize"
-        print*, plasma_params%rad_trans_sections, plasma_params%rad_transp_solver_order
-        call abort()
-    end if
     allocate( plasma_params%Int_weights(plasma_params%int_step_cnt),plasma_params%Int_absz(plasma_params%int_step_cnt))
     if(plasma_params%on_the_fly_raytracing) then
       call cdgqf( int(plasma_params%int_step_cnt,kind=4), int(1,kind=4), 0.d0, 0.d0, plasma_params%Int_weights, plasma_params%Int_absz)
@@ -460,7 +452,6 @@ module mod_ECRad_raytrace_initialize
     z_index_lower(:) = 1
     R_index_upper(:) = plasma_params%m
     z_index_upper(:) = plasma_params%n
-    plasma_params%int_step_cnt = plasma_params%rad_trans_sections * plasma_params%rad_transp_solver_order
     deallocate(B_r, B_z, B_t, R_index_lower,z_index_lower,R_index_upper,z_index_upper)!, B_t
     if(plasma_params%Te_ne_mat) deallocate(T_e_mat, n_e_mat)
     if(stand_alone) then

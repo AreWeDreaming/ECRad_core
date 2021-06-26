@@ -285,10 +285,10 @@ module mod_ECRad_interpol
       if(ier /= 0) then
         print*, "Critical error in spline evaluation: dfdx"
         print*, ier
-        print*, "spline in mod_ECRad_utils failed"
+        print*, "rect spline in mod_ECRad_utils failed"
         if(ier == 10) print*, "Array value out of bounds?"
-        print*, x_ar
-        print*, y_ar
+        print*, "x", x_ar
+        print*, "y", y_ar
         print*, "x boundary", spl%x_start, spl%x_end
         print*, "y boundary", spl%y_start, spl%y_end
 #ifdef INTEL
@@ -307,14 +307,12 @@ module mod_ECRad_interpol
       dfdy = val_ar(1)
       if(ier /= 0) then
         print*, "Critical error in spline evaluation: dfdy"
-        print*, "spline in mod_ECRad_utils failed"
-        if(ier == 10) then
-          print*, "Array value out of bounds?"
-          print*, x_ar
-          print*, y_ar
-          print*, "x boundary", spl%x_start, spl%x_end
-          print*, "y boundary", spl%y_start, spl%y_end
-        end if
+        print*, "rect spline in mod_ECRad_utils failed"
+        if(ier == 10) print*, "Array value out of bounds?"
+        print*, "x", x_ar
+        print*, "y", y_ar
+        print*, "x boundary", spl%x_start, spl%x_end
+        print*, "y boundary", spl%y_start, spl%y_end
 #ifdef INTEL
       call tracebackqq()
 #else
@@ -328,14 +326,12 @@ module mod_ECRad_interpol
     f = val_ar(1)
     if(ier /= 0) then
       print*, "Critical error in spline evaluation: f"
-      print*, "spline in mod_ECRad_utils failed"
-      if(ier == 10) then
-          print*, "Array value out of bounds?"
-          print*, x_ar
-          print*, y_ar
-          print*, "x boundary", spl%x_start, spl%x_end
-          print*, "y boundary", spl%y_start, spl%y_end
-        end if
+      print*, "rect spline in mod_ECRad_utils failed"
+      if(ier == 10) print*, "Array value out of bounds?"
+      print*, "x", x_ar
+      print*, "y", y_ar
+      print*, "x boundary", spl%x_start, spl%x_end
+      print*, "y boundary", spl%y_start, spl%y_end
 #ifdef INTEL
       call tracebackqq()
 #else
@@ -416,10 +412,30 @@ module mod_ECRad_interpol
 #ifdef NAG
     real(rkind), dimension(size(f))          :: nag_vals
 #endif
+    if(SIZE(x_vec) /= SIZE(f) .or. SIZE(y_vec) /= SIZE(f)) then
+      print*,"INPUT for rect_spline_vec is incorrectly shaped"
+      print*, "Size of x_vec, y_vec, f -- they should be equal", SIZE(x_vec), SIZE(y_vec), SIZE(f)
+      print*, "Critical error in rect_spline_vec evaluation: f"
+#ifdef INTEL
+      call tracebackqq()
+#else
+      call backtrace()
+#endif
+    end if
     m = size(x_vec)
     kx = 3
     ky = 3
     if(present(dfdx)) then
+      if(SIZE(x_vec) /= SIZE(f) .or. SIZE(y_vec) /= SIZE(f)) then
+        print*,"INPUT for rect_spline_vec is incorrectly shaped"
+        print*, "Size of x_vec, y_vec, dfdx -- they should be equal", SIZE(x_vec), SIZE(y_vec), SIZE(dfdx)
+        print*, "Critical error in rect_spline_vec evaluation: dfdx"
+#ifdef INTEL
+        call tracebackqq()
+#else
+        call backtrace()
+#endif
+      end if
       nux = 1
       nuy = 0
       call pardeu(spl%tu,spl%nu,spl%tv,spl%nv,spl%c,kx,ky,nux,nuy,x_vec, y_vec, dfdx,m,&
@@ -427,7 +443,7 @@ module mod_ECRad_interpol
       if(ier /= 0) then
         print*, "Critical error in spline evaluation: dfdx"
         print*, ier
-        print*, "spline in mod_ECRad_utils failed"
+        print*, "pardeu spline in mod_ECRad_utils failed"
         if(ier == 10) print*, "Array value out of bounds?"
         print*, x_vec
         print*, y_vec
@@ -443,6 +459,16 @@ module mod_ECRad_interpol
       end if
     end if
     if(present(dfdy)) then
+      if(SIZE(x_vec) /= SIZE(dfdy) .or. SIZE(y_vec) /= SIZE(dfdy)) then
+        print*,"INPUT for rect_spline_vec is incorrectly shaped"
+        print*, "Size of x_vec, y_vec, dfdx -- they should be equal", SIZE(x_vec), SIZE(y_vec), SIZE(dfdy)
+        print*, "Critical error in rect_spline_vec evaluation: dfdy"
+#ifdef INTEL
+        call tracebackqq()
+#else
+        call backtrace()
+#endif
+      end if
       nux = 0
       nuy = 1
       call pardeu(spl%tu,spl%nu,spl%tv,spl%nv,spl%c,kx,ky,nux,nuy,x_vec, y_vec, dfdy,m,&
@@ -450,18 +476,16 @@ module mod_ECRad_interpol
       if(ier /= 0) then
         print*, "Critical error in spline evaluation: dfdy"
         print*, ier
-        print*, "spline in mod_ECRad_utils failed"
-        if(ier == 10) then
-          print*, "Array value out of bounds?"
-          print*, x_vec
-          print*, y_vec
-          print*, "x boundary", spl%x_start, spl%x_end
-          print*, "y boundary", spl%y_start, spl%y_end
-          if(any(x_vec < spl%x_start)) print*, "some x values smaller than the minimum"
-          if(any(x_vec > spl%x_end)) print*, "some x values larger than the maximum"
-          if(any(y_vec < spl%y_start)) print*, "some y values smaller than the minimum"
-          if(any(y_vec > spl%y_end)) print*, "some y values smaller than the maximum"
-        end if
+        print*, "pardeu spline in mod_ECRad_utils failed"
+        if(ier == 10) print*, "Array value out of bounds?"
+        print*, x_vec
+        print*, y_vec
+        print*, "x boundary", spl%x_start, spl%x_end
+        print*, "y boundary", spl%y_start, spl%y_end
+        if(any(x_vec < spl%x_start)) print*, "some x values smaller than the minimum"
+        if(any(x_vec > spl%x_end)) print*, "some x values larger than the maximum"
+        if(any(y_vec < spl%y_start)) print*, "some y values smaller than the minimum"
+        if(any(y_vec > spl%y_end)) print*, "some y values smaller than the maximum"
         call print_2d_spline_params(spl,m)
 #ifdef INTEL
       call tracebackqq()
@@ -476,14 +500,12 @@ module mod_ECRad_interpol
     if(ier /= 0) then
       print*, "Critical error in spline evaluation: f"
       print*, ier
-      print*, "spline in mod_ECRad_utils failed"
-      if(ier == 10) then
-          print*, "Array value out of bounds?"
-          print*, x_vec
-          print*, y_vec
-          print*, "x boundary", spl%x_start, spl%x_end
-          print*, "y boundary", spl%y_start, spl%y_end
-        end if
+      print*, "bispeu spline in mod_ECRad_utils failed"
+      if(ier == 10) print*, "Array value out of bounds?"
+      print*, x_vec
+      print*, y_vec
+      print*, "x boundary", spl%x_start, spl%x_end
+      print*, "y boundary", spl%y_start, spl%y_end
       call print_2d_spline_params(spl,m)
 #ifdef INTEL
       call tracebackqq()
@@ -600,7 +622,7 @@ module mod_ECRad_interpol
       if(ier /= 0) then
         print*, "Critical error in spline evaluation: dfdx"
         print*, ier
-        print*, "spline in mod_ECRad_utils failed"
+        print*, "splder spline in mod_ECRad_utils failed"
         if(ier == 10) print*, "Array value out of bounds"
         print*, "requested value", x_ar
         print*, "x boundary", spl%x_start, spl%x_end
@@ -616,14 +638,11 @@ module mod_ECRad_interpol
     f = val_ar(1)
     if(ier /= 0) then
       print*, "Critical error in spline evaluation: f"
-      print*, "spline in mod_ECRad_utils failed"
-      if(ier == 10 .or. ier == 1) then
-        print*, "Array value out of bounds"
-        print*, "requested value", x_ar
-        print*, "x boundary", spl%x_start, spl%x_end
-      else
-        print*, "FITPACK error code", ier
-      end if
+      print*, "splev spline in mod_ECRad_utils failed"
+      if(ier == 10) print*, "Array value out of bounds"
+      print*, "requested value", x_ar
+      print*, "x boundary", spl%x_start, spl%x_end
+      print*, "FITPACK error code", ier
 #ifdef INTEL
       call tracebackqq()
 #else
@@ -695,14 +714,34 @@ module mod_ECRad_interpol
     real*8, dimension(spl%n)                :: real_work
 
     integer*4                               :: nx, m, ier
+    if(SIZE(x) /= SIZE(f)) then
+      print*,"INPUT for bispline_1d_vec is incorrectly shaped"
+      print*, "Size of x,  f -- they should be equal", SIZE(x), SIZE(f)
+      print*, "Critical error in rect_spline_vec evaluation: f"
+#ifdef INTEL
+      call tracebackqq()
+#else
+      call backtrace()
+#endif
+    end if
     m = int(size(x), 4)
     if(present(dfdx)) then
+        if(SIZE(x) /= SIZE(dfdx)) then
+          print*,"INPUT for bispline_1d_vec is incorrectly shaped"
+          print*, "Size of x, dfdx -- they should be equal", SIZE(x), SIZE(dfdx)
+          print*, "Critical error in rect_spline_vec evaluation: dfdx"
+#ifdef INTEL
+          call tracebackqq()
+#else
+          call backtrace()
+#endif
+        end if
       nx = 1
       call splder(spl%t, spl%n, spl%c, spl%k, nx, x, dfdx, m, 2, real_work, ier)
       if(ier /= 0) then
         print*, "Critical error in spline evaluation: dfdx"
         print*, ier
-        print*, "spline in mod_ECRad_utils failed"
+        print*, "bispline in mod_ECRad_utils failed"
         if(ier == 10) print*, "Array value out of bounds"
         print*, "requested value", x
         print*, "x boundary", spl%x_start, spl%x_end
@@ -717,13 +756,11 @@ module mod_ECRad_interpol
     call splev(spl%t, spl%n, spl%c, spl%k, x, f, m, 2, ier)
     if(ier /= 0) then
       print*, "Critical error in spline evaluation: f"
-      print*, "spline in mod_ECRad_utils failed"
+      print*, "bispline in mod_ECRad_utils failed"
       print*, "error message", ier
-      if(ier == 10) then
-        print*, "Array value out of bounds"
-        print*, "requested value", x
-        print*, "x boundary", spl%x_start, spl%x_end
-      end if
+      if(ier == 10) print*, "Array value out of bounds"
+      print*, "requested value", x
+      print*, "x boundary", spl%x_start, spl%x_end
 #ifdef INTEL
       call tracebackqq()
 #else
@@ -779,7 +816,7 @@ module mod_ECRad_interpol
     if(ier /= 0) then
       print*, "Critical error in evaluation of spline roots"
       print*, ier
-      print*, "spline in mod_ECRad_utils failed"
+      print*, "spline roots in mod_ECRad_utils failed"
       print*, "t", spl%t
 #ifdef INTEL
       call tracebackqq()
