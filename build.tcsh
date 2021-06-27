@@ -1,19 +1,26 @@
 #!/bin/tcsh
-if($SYS == "amd64_sles15") then
+if($HOSTNAME =~ *mpg.de) then
+  echo "Current system identified as IPP TOK cluster"
   module purge
-  module load intel/19.0.3
+  module load texlive
+  module load intel
+  module load mkl
+  module load anaconda/3/2020.02
   module load git
-  module load anaconda/2/2018.12
   module load hdf5-serial
   module load netcdf-serial
-endif
-echo "Type g for gfortran or anything else for intel"
-set COMPILERINP = $<
-if($COMPILERINP == "g") then
-  	set COMPILER = "g"
+  setenv LD_LIBRARY_PATH $MKLROOT/lib/intel64/
+  set COMPILER = "i"
 else
+  echo "Type g for gfortran or anything else for intel"
+  set COMPILERINP = $<
+  if($COMPILERINP == "g") then
+  	set COMPILER = "g"
+  else
 	set COMPILER = "i"
+  endif
 endif
+
 echo "Compiler is $COMPILER"
 rm id
 git rev-parse HEAD > id

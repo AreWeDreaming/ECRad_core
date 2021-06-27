@@ -1,21 +1,25 @@
 #!/bin/bash
 
-if [ $SYS == "amd64_sles15" ]
+if [ $HOSTNAME == *"mpg.de"* ]
   then
-  	module purge
-  	module load intel/19.0.3
-  	module load git
-  	module load anaconda/2/2018.12
-  	module load hdf5-serial
-  	module load netcdf-serial
-fi
-echo "Type g for gfortran or anything else for intel"
-read COMPILERINP
-if [ $COMPILERINP == "g" ]
-  then
-  export COMPILER="g"
+  module purge
+  module load texlive
+  module load intel
+  module load mkl
+  module load anaconda/3/2020.02
+  module load git
+  module load hdf5-serial
+  module load netcdf-serial
+  setenv LD_LIBRARY_PATH $MKLROOT/lib/intel64/
 else
-  export COMPILER="i"
+  echo "Type g for gfortran or anything else for intel"
+  read COMPILERINP
+  if [ $COMPILERINP == "g" ]
+    then
+    export COMPILER="g"
+  else
+    export COMPILER="i"
+  fi
 fi
 rm id
 git rev-parse HEAD > id
