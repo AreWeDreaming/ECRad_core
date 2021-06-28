@@ -19,6 +19,7 @@ elif [[ $HOSTNAME == *"cm.cluster"* ]]
   module load anaconda3/2020.11
   module load psfc/netcdf/intel-17/4.4.1.1
   module load intel
+  module load mkl
   module load psfc/pgplot/5.2.2
   module load texlive
   module load engaging/git
@@ -38,7 +39,7 @@ elif [[ $HOSTNAME == *"cm.cluster"* ]]
   # <<< conda initialize <<<
   conda env create -f ECRad_env.yml
   conda activate ECRad_conda
-  setenv LD_LIBRARY_PATH $MKLROOT/lib/intel64/
+  export LD_LIBRARY_PATH=$MKLROOT/lib/intel64/
   export COMPILER="i"
 else
   echo "Type g for gfortran or anything else for intel"
