@@ -1,6 +1,6 @@
 #!/bin/bash
 
-if [ $HOSTNAME == *"mpg.de"* ]
+if [[ $HOSTNAME == *"mpg.de"* ]]
   then
   module purge
   module load texlive
@@ -12,7 +12,7 @@ if [ $HOSTNAME == *"mpg.de"* ]
   module load netcdf-serial
   setenv LD_LIBRARY_PATH $MKLROOT/lib/intel64/
   export COMPILER="i"
-elif [$HOSTNAME == *"cm.cluster"*]
+elif [[ $HOSTNAME == *"cm.cluster"* ]]
   then
   module use /home/software/psfc/modulefiles/
   module load psfc/config
