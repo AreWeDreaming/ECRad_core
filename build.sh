@@ -12,7 +12,7 @@ if [ $HOSTNAME == *"mpg.de"* ]
   module load netcdf-serial
   setenv LD_LIBRARY_PATH $MKLROOT/lib/intel64/
   export COMPILER="i"
-else if[$HOSTNAME == *"cm.cluster"*]
+else if [$HOSTNAME == *"cm.cluster"*]
   then
   module use /home/software/psfc/modulefiles/
   module load psfc/config
