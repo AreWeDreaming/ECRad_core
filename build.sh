@@ -11,6 +11,35 @@ if [ $HOSTNAME == *"mpg.de"* ]
   module load hdf5-serial
   module load netcdf-serial
   setenv LD_LIBRARY_PATH $MKLROOT/lib/intel64/
+  export COMPILER="i"
+else if[$HOSTNAME == *"cm.cluster"*]
+  then
+  module use /home/software/psfc/modulefiles/
+  module load psfc/config
+  module load anaconda3/2020.11
+  module load psfc/netcdf/intel-17/4.4.1.1
+  module load intel
+  module load psfc/pgplot/5.2.2
+  module load texlive
+  module load engaging/git
+  # >>> conda initialize >>>
+  # !! Contents within this block are managed by 'conda init' !!
+  __conda_setup="$('/home/software/anaconda3/2020.11/bin/conda' 'shell.bash' 'hook' 2> /dev/null)"
+  if [ $? -eq 0 ]; then
+      eval "$__conda_setup"
+  else
+      if [ -f "/home/software/anaconda3/2020.11/etc/profile.d/conda.sh" ]; then
+          . "/home/software/anaconda3/2020.11/etc/profile.d/conda.sh"
+      else
+          export PATH="/home/software/anaconda3/2020.11/bin:$PATH"
+      fi
+  fi
+  unset __conda_setup
+  # <<< conda initialize <<<
+  conda env create -f ECRad_env.yml
+  conda activate ECRad_conda
+  setenv LD_LIBRARY_PATH $MKLROOT/lib/intel64/
+  export COMPILER="i"
 else
   echo "Type g for gfortran or anything else for intel"
   read COMPILERINP
