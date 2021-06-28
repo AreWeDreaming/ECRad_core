@@ -18,4 +18,5 @@
 !README.md
 !update_fit_ode_pack.sh
 !licenses/
+!ECRad_env.yml
 odepack/a.out

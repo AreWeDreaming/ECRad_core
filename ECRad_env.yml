@@ -1,0 +1,10 @@
+name: ECRad_conda
+dependencies:
+  - python=3.7
+  - numpy
+  - scipy
+  - matplotlib
+  - hdf5
+  - netcdf4
+  - h5py
+  - wxpython
