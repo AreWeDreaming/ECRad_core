@@ -10,7 +10,7 @@ if [[ $HOSTNAME == *"mpg.de"* ]]
   module load git
   module load hdf5-serial
   module load netcdf-serial
-  setenv LD_LIBRARY_PATH $MKLROOT/lib/intel64/
+  export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$MKLROOT/lib/intel64/
   export COMPILER="i"
 elif [[ $HOSTNAME == *"cm.cluster"* ]]
   then
@@ -39,7 +39,6 @@ elif [[ $HOSTNAME == *"cm.cluster"* ]]
   # <<< conda initialize <<<
   conda env create -f ECRad_env.yml
   conda activate ECRad_conda
-  export LD_LIBRARY_PATH=$MKLROOT/lib/intel64/
   export COMPILER="i"
 else
   echo "Type g for gfortran or anything else for intel"
