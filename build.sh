@@ -14,11 +14,12 @@ if [[ $HOSTNAME == *"mpg.de"* ]]
   export COMPILER="i"
 elif [[ $HOSTNAME == *"cm.cluster"* ]]
   then
+  module purge
   module use /home/software/psfc/modulefiles/
   module load psfc/config
   module load anaconda3/2020.11
-  module load psfc/netcdf/intel-17/4.4.1.1
   module load intel
+  module load psfc/netcdf/intel-17/4.4.1.1
   module load mkl
   module load psfc/pgplot/5.2.2
   module load texlive
