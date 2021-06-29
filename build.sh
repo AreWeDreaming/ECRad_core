@@ -40,6 +40,11 @@ elif [[ $HOSTNAME == *"cm.cluster"* ]]
   conda env create -f ECRad_env.yml
   conda activate ECRad_conda
   export COMPILER="i"
+elif [[ $HOSTNAME == *"iter"* ]]; then
+  module purge
+  module load IMAS
+  module load texlive
+  export COMPILER="i"
 else
   echo "Type g for gfortran or anything else for intel"
   read COMPILERINP
