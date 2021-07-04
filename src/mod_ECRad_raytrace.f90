@@ -2541,6 +2541,22 @@ function func_dA_dY(X, Y)
     end if
 #endif
     call sub_remap_coords(ray_point%x_vec, R_vec)
+    ! Check if inside or outside the vessel contour
+    if(func_in_poly(plasma_params%vessel_poly%x, plasma_params%vessel_poly%y, R_vec(1), R_vec(3))) then
+      if(wall_hits == 0) then
+        wall_hits =  1  ! entered machine
+        if(debug_level > 0 .and. output_level) print*, "Entered the plasma through port"
+        if(debug_level > 0 .and. output_level) print*, "Position",  R_vec(1), R_vec(3)
+      end if
+    else
+      if(wall_hits == 1) then
+        wall_hits =  2 ! left machine
+        func_within_plasma = .false.
+        if(debug_level > 0 .and. output_level) print*, "Passed through port out of the vessel"
+        if(debug_level > 0 .and. output_level) print*, "Position",  R_vec(1), R_vec(3)
+        return
+      end if
+    end if
     ! Check if inside flux matrix
     if(R_vec(1) - plasma_params%h < plasma_Params%R_min .or. &
        R_vec(1) + plasma_params%h > plasma_Params%R_max .or. &
@@ -2551,22 +2567,6 @@ function func_dA_dY(X, Y)
        if(debug_level > 0 .and. output_level .and. wall_hits > 0) print*, "Position",  R_vec(1), R_vec(3)
        func_within_plasma = .false.
        return
-    end if
-    ! Check if inside or outside the vessel contour
-    if(func_in_poly(plasma_params%vessel_poly%x, plasma_params%vessel_poly%y, R_vec(1), R_vec(3))) then
-      if(wall_hits == 0) then
-        wall_hits =  1  ! entered machine
-        if(debug_level > 0 .and. output_level) print*, "Entered the plasma through port"
-        if(debug_level > 0 .and. output_level) print*, "Position",  R_vec(1), R_vec(3)
-      end if
-    else
-      func_within_plasma = .false.
-      if(wall_hits == 1) then
-        wall_hits =  2 ! left machine
-        if(debug_level > 0 .and. output_level) print*, "Passed through port out of the vessel"
-        if(debug_level > 0 .and. output_level) print*, "Position",  R_vec(1), R_vec(3)
-        return
-      end if
     end if
     ! Check if rhop good -> should be if the above is true
     if(ray_point%rhop == -1.d0 .and. wall_hits == 1) then
