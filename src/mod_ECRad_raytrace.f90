@@ -2721,7 +2721,8 @@ function func_dA_dY(X, Y)
          call sub_local_params(plasma_params, omega, ray_segment(N)%x_vec, ray_segment(N)%N_vec, ray_segment(N)%B_vec, &
                                ray_segment(N)%N_s, ray_segment(N)%n_e, ray_segment(N)%omega_c,  ray_segment(N)%T_e, &
                                ray_segment(N)%theta, ray_segment(N)%rhop)
-         if(ray_segment(N)%rhop > 0.d0 .and. ray_segment(N)%rhop > plasma_params%rhop_max) then
+         if(ray_segment(N)%rhop > 0.d0 .and. ray_segment(N)%rhop < plasma_params%rhop_max .and.  &
+            ray_segment(N)%rhop < plasma_params%rhop_entry) then
            if(first_N_plasma < 0) first_N_plasma = N
            last_N_plasma = N
          end if
@@ -2829,7 +2830,8 @@ function func_dA_dY(X, Y)
       ray_point = ray_segment(N)
       ray_point%x_vec = x_vec_max
       ray_point%rhop = func_rhop(plasma_params, x_vec_max)
-      if(ray_point%rhop > 0.d0 .and. ray_point%rhop > plasma_params%rhop_max) then
+      if(ray_point%rhop > 0.d0 .and. ray_point%rhop < plasma_params%rhop_max .and.  &
+         ray_point%rhop  < plasma_params%rhop_entry) then
         last_N_plasma = N - 1
       end if
       propagating = func_within_plasma(plasma_params, ray_point, omega, wall_hits, been_in_plasma)
@@ -3797,7 +3799,8 @@ function func_dA_dY(X, Y)
   last_N = total_LOS_points
   first_N_plasma = -1
   do i = 1, last_N
-    if(ray_segment(i)%rhop > 0.0 .and. ray_segment(i)%rhop < plasma_params%rhop_max) then
+    if(ray_segment(i)%rhop > 0.0 .and. ray_segment(i)%rhop < plasma_params%rhop_max & 
+       .and. ray_segment(i)%rhop < plasma_params%rhop_entry) then
       if(first_N_plasma < 0) first_N_plasma = i
       last_N_plasma = i
     end if
