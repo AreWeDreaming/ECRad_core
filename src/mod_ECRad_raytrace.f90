@@ -3439,7 +3439,7 @@ function func_dA_dY(X, Y)
             end if
             if(last_N  + 1 <= max_points_svec .and. .not. No_plasma) then
               call make_ray_segment(20.d0, plasma_params, omega, mode, ray_segment, last_N, &
-                                    wall_hits, been_in_plasma, No_plasma, N_init)
+                                    wall_hits, been_in_plasma, No_plasma, last_N_plasma, N_init)
             else if(.not. No_plasma) then
               print*,"Ray reached maximum length when searching for first point in vessel"
               print*, "Most likely something is very wrong the launching geometry of the diagnostic"
