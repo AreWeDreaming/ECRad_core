@@ -387,6 +387,7 @@ type ray_element_full_type
   real(rkind)                                       :: theta
   real(rkind)                                       :: Hamil, N_s, n_e, omega_c, rhop, T_e, v_g_perp ! group velocity
   real(rkind)                                       :: sigma
+  integer(ikind)                                    :: first_N_plasma, last_N_plasma
 end type ray_element_full_type
 
 type ext_ray_type

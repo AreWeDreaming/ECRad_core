@@ -808,6 +808,9 @@ use f90_kind
      use_ida_spline_Te = .false.
   end if
   plasma_params%rhop_max = min(maxval(rhop_knots_ne), maxval(rhop_knots_Te))
+  if(plasma_params%rhop_exit > plasma_params%rhop_max-plasma_params%delta_rhop_exit) then
+    plasma_params%rhop_exit = plasma_params%rhop_max-plasma_params%delta_rhop_exit
+  end if
 end subroutine update_Te_ne
 
 subroutine update_svecs(rad, rhop_knots_ne, n_e, n_e_dx2, rhop_knots_Te, T_e, T_e_dx2)

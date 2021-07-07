@@ -2636,7 +2636,7 @@ function func_dA_dY(X, Y)
     func_distance_to_vessel = distance_to_poly(plasma_params%vessel_poly%x, plasma_params%vessel_poly%y, R_vec(1), R_vec(3))
   end function func_distance_to_vessel
 
-  subroutine find_first_point_in_plasma(plasma_params, omega, mode, ray_segment, last_N, wall_hits, been_in_plasma, LOS_end)
+  subroutine find_first_point_in_plasma(plasma_params, omega, mode, ray_segment, last_N, wall_hits, been_in_plasma, LOS_end, first_N_plasma, last_N_plasma)
   ! Straight line until we hit the wall
   ! this approach is brute force and therefore very slow
   ! FIXME :  Use geometry to find the intersection between LOS and first wall
@@ -2653,6 +2653,7 @@ function func_dA_dY(X, Y)
     logical, intent(inout)                          :: been_in_plasma
     type(ray_element_full_type), dimension(:), intent(inout)      :: ray_segment !temporary ray
     logical, intent(out)                                             :: LOS_end
+    integer(ikind), intent(inout)                                    :: first_N_plasma, last_N_plasma
     logical                                                          :: plasma_prop
     integer(ikind)                                                   :: N, first_N, wall_hits_last
     real(rkind), dimension(3)                                        :: R_vec
@@ -2720,6 +2721,10 @@ function func_dA_dY(X, Y)
          call sub_local_params(plasma_params, omega, ray_segment(N)%x_vec, ray_segment(N)%N_vec, ray_segment(N)%B_vec, &
                                ray_segment(N)%N_s, ray_segment(N)%n_e, ray_segment(N)%omega_c,  ray_segment(N)%T_e, &
                                ray_segment(N)%theta, ray_segment(N)%rhop)
+         if(ray_segment(N)%rhop > 0.d0 .and. ray_segment(N)%rhop > plasma_params%rhop_max) then
+           if(first_N_plasma < 0) first_N_plasma = N
+           last_N_plasma = N
+         end if
       else
           ray_segment(N)%omega_c = 0.d0
           ray_segment(N)%rhop = -1.d0
@@ -2766,7 +2771,7 @@ function func_dA_dY(X, Y)
     call sub_calculate_initial_N(plasma_params, omega, mode, ray_segment(N)%x_vec, ray_segment(N)%N_vec, ray_segment(N)%Hamil, LOS_end)
   end subroutine find_first_point_in_plasma
 
-  subroutine make_ray_segment(distance, plasma_params, omega, mode, ray_segment, last_N, wall_hits, been_in_plasma, No_plasma, N_start)
+  subroutine make_ray_segment(distance, plasma_params, omega, mode, ray_segment, last_N, wall_hits, been_in_plasma, No_plasma, last_N_plasma, N_start)
     USE f90_kind
     USE mod_ECRad_types, only : plasma_params_type, ray_element_full_type, Hamil, &
                                     straight, max_points_svec, output_level, UH_stop
@@ -2781,6 +2786,7 @@ function func_dA_dY(X, Y)
     integer(ikind), intent(inout)                   :: wall_hits
     logical, intent(inout)                          :: been_in_plasma
     logical, intent(out)                            :: No_plasma
+    integer(ikind), intent(inout)                   :: last_N_plasma
     integer(ikind), intent(in), optional            :: N_start
     logical                                                          :: propagating
     integer(ikind)                                                   :: N, i, istate, first_N
@@ -2823,6 +2829,9 @@ function func_dA_dY(X, Y)
       ray_point = ray_segment(N)
       ray_point%x_vec = x_vec_max
       ray_point%rhop = func_rhop(plasma_params, x_vec_max)
+      if(ray_point%rhop > 0.d0 .and. ray_point%rhop > plasma_params%rhop_max) then
+        last_N_plasma = N - 1
+      end if
       propagating = func_within_plasma(plasma_params, ray_point, omega, wall_hits, been_in_plasma)
       if(.not. propagating) exit
       if(N + 1 > max_points_svec) then
@@ -2938,7 +2947,7 @@ function func_dA_dY(X, Y)
 !    close(96)
   end subroutine make_ray_segment
 
-  subroutine make_s_res(plasma_params, omega, ray, last_N, rad_ray_freq)
+  subroutine make_s_res(plasma_params, omega, ray, last_N, first_N_plasma, last_N_plasma, rad_ray_freq)
   use mod_ECRad_types,        only: rad_diag_ch_mode_ray_freq_type, plasma_params_type, &
                                     spl_type_1d, ray_element_full_type, max_points_svec
   use f90_kind
@@ -2947,7 +2956,7 @@ function func_dA_dY(X, Y)
   type(plasma_params_type), intent(in)                                       :: plasma_params
   real(rkind), intent(in)                                                    :: omega
   type(ray_element_full_type), dimension(max_points_svec), intent(in)        :: ray !the ray
-  integer(ikind), intent(in)                                                 :: last_N
+  integer(ikind), intent(in)                                                 :: last_N, first_N_plasma, last_N_plasma
   type(rad_diag_ch_mode_ray_freq_type), intent(inout)                        :: rad_ray_freq
   real(rkind), dimension(last_N)                                             :: flush_ray_s, flush_ray_y, roots
   type(spl_type_1d)                                                          :: spl
@@ -3000,7 +3009,7 @@ function func_dA_dY(X, Y)
 
 
   subroutine make_s_grid(plasma_params, omega, Y_res, svec, ray, total_LOS_points, &
-                         last_N, dist, rad_ray_freq, max_points_svec_reached)
+                         last_N, first_N_plasma, last_N_plasma, dist, rad_ray_freq, max_points_svec_reached)
   ! Creates s grid suitable for Rk4.
   ! The cold resonance is detected automatically and the step size is choosen correspondingly.
   ! i referst to the svec, while N refers to the ray_segment
@@ -3018,7 +3027,7 @@ function func_dA_dY(X, Y)
   type(rad_diag_ch_mode_ray_freq_svec_type), dimension(:), intent(inout)     :: svec
   type(ray_element_full_type), dimension(max_points_svec), intent(in)        :: ray !the ray
   integer(ikind), intent(out)                                                :: total_LOS_points
-  integer(ikind),   intent(in)                                               :: last_N
+  integer(ikind),   intent(in)                                               :: last_N, first_N_plasma, last_N_plasma
   real(rkind), dimension(:), intent(in)                                      :: dist ! distance to interpolated, starting point of interpolation
   type(rad_diag_ch_mode_ray_freq_type), intent(inout), optional              :: rad_ray_freq
   logical, intent(out), optional                                             :: max_points_svec_reached
@@ -3052,7 +3061,7 @@ function func_dA_dY(X, Y)
     end do
   end do
   if(present(rad_ray_freq)) then
-    call make_s_res(plasma_params, omega, ray, last_N, rad_ray_freq)
+    call make_s_res(plasma_params, omega, ray, last_N, first_N_plasma, last_N_plasma, rad_ray_freq)
   end if
   N_s_dense = N_s_dense - 1 ! Fortran stuff
   s_dense_debug(1:N_s_dense) = s_dense(1:N_s_dense)
@@ -3179,7 +3188,7 @@ function func_dA_dY(X, Y)
   svec(1:total_LOS_points)%s = svec(1:total_LOS_points)%s - svec(1)%s ! svec(1) != due to the way that plasma_params%Int_absz is set up
   end subroutine make_s_grid
 
-  subroutine interpolate_svec(plasma_params, svec, ray, omega, total_LOS_points, N, rad_ray_freq, svec_extra_output)
+  subroutine interpolate_svec(plasma_params, svec, ray, omega, total_LOS_points, N, first_N_plasma, last_N_plasma, rad_ray_freq, svec_extra_output)
   use mod_ECRad_types,        only: rad_diag_ch_mode_ray_freq_svec_type, plasma_params_type, &
                                         ray_element_full_type, max_points_svec, &
                                         SOL_ne, SOL_Te, spl_type_1d, rad_diag_ch_mode_ray_freq_type, &
@@ -3193,7 +3202,7 @@ function func_dA_dY(X, Y)
   type(rad_diag_ch_mode_ray_freq_svec_type), dimension(:), intent(inout)     :: svec
   type(ray_element_full_type), dimension(max_points_svec), intent(in)        :: ray !temporary ray
   real(rkind), intent(in)                                                    :: omega
-  integer(ikind),   intent(in)                                               :: N, total_LOS_points
+  integer(ikind),   intent(in)                                               :: N, total_LOS_points, first_N_plasma, last_N_plasma
   type(rad_diag_ch_mode_ray_freq_type), intent(inout), optional              :: rad_ray_freq
   type(rad_diag_ch_mode_ray_freq_svec_extra_output_type), dimension(:), intent(inout), optional :: svec_extra_output
   type(spl_type_1d)                                                          :: spl
@@ -3241,12 +3250,12 @@ function func_dA_dY(X, Y)
   if(flush_svec_s(i2) >  flush_ray_s_plasma(N_plasma)) i2 = i2 - 1
   svec(:)%plasma = .false.
   svec(i1:i2)%plasma = .true.
-  ! In principle we could restrict the interpolationantities of the svec quantities to the ray segments
+  ! In principle we could restrict the interpolation quantities of the svec quantities to the ray segments
   ! that have plasma
-  ! However this creates were sharp features near the edges and gives rise to large ringing
+  ! However this creates very sharp features near the edges and gives rise to large ringing
   ! Instead interpolate entire ray, less ringing this way
   do i=1,3
-    flush_ray_y(1:N) =ray(1:N)%B_vec(i)
+    flush_ray_y(1:N) = ray(1:N)%B_vec(i)
     call make_1d_spline(spl, N, flush_ray_s(1:N), flush_ray_y(1:N), iopt=0)
     call spline_1d(spl, flush_svec_s, flush_svec_y)
     svec(1:total_LOS_points)%B_vec(i) = flush_svec_y
@@ -3343,7 +3352,7 @@ function func_dA_dY(X, Y)
   real(rkind)                                                   :: omega, temp, X, Y
   real(rkind), dimension(1)                                     :: Y_res_O
   real(rkind), dimension(2)                                     :: Y_res_X
-  integer(ikind)                                                :: wall_hits
+  integer(ikind)                                                :: wall_hits, first_N_plasma, last_N_plasma, var_swap
   logical                                                       :: been_in_plasma
   logical                                                       :: No_plasma  ! If True then this channel has no access to the plasma
                                                                               ! Happens if cut-off occurs in SOL, but no SOL information in
@@ -3370,7 +3379,8 @@ function func_dA_dY(X, Y)
     !$omp parallel private(ich, imode, ir, ifreq, i, &
     !$omp                  N_init, last_N, wall_hits, been_in_plasma, N, &
     !$omp                  omega, temp, X, Y, No_plasma, cur_ray, &
-    !$omp                  ray_segment, mode, LOS_pnts) default(shared)
+    !$omp                  ray_segment, mode, LOS_pnts, first_N_plasma, &
+    !$omp                  last_N_plasma, var_swap) default(shared)
 #endif
 #ifdef OMP
 !      thread_num = omp_get_thread_num() + 1 ! Starts from 0!
@@ -3381,7 +3391,6 @@ function func_dA_dY(X, Y)
     !$omp do
 #endif
     do ich = 1, ant%diag(idiag)%N_ch
-
       debug_level = plasma_params%debug_level
       do imode = 1, mode_cnt
         if(Hamil == "Dani") then
@@ -3396,6 +3405,7 @@ function func_dA_dY(X, Y)
         rad%diag(idiag)%ch(ich)%mode(imode)%rhop_res = 0.d0
         do ir = 1, N_ray
           ray_segment(:)%h = plasma_params%h
+          first_N_plasma = -1
           ifreq = 1 ! Raytrace only central frequency
           rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%s_res = 0.d0
           rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%R_res = 0.d0
@@ -3420,7 +3430,7 @@ function func_dA_dY(X, Y)
             ray_segment(1)%N_vec(2) = temp
           end if
           if(.not. use_ext_rays) then
-            call find_first_point_in_plasma(plasma_params, omega, mode, ray_segment, last_N, wall_hits, been_in_plasma, No_plasma)
+            call find_first_point_in_plasma(plasma_params, omega, mode, ray_segment, last_N, wall_hits, been_in_plasma, No_plasma, first_N_plasma, last_N_plasma)
             if(No_plasma) wall_hits = 2
             N_init = last_N
             if(debug_level > 0 .and. output_level .and. .not. No_plasma) then
@@ -3451,9 +3461,9 @@ function func_dA_dY(X, Y)
             end if
             if( wall_hits < 2) then
               debug_level = 2
-              call find_first_point_in_plasma(plasma_params, omega, mode, ray_segment, last_N, wall_hits, been_in_plasma, No_plasma)
+              call find_first_point_in_plasma(plasma_params, omega, mode, ray_segment, last_N, wall_hits, been_in_plasma, No_plasma, first_N_plasma, last_N_plasma)
               N_init = last_N
-              call make_ray_segment(20.d0, plasma_params, omega, mode, ray_segment, last_N, wall_hits, been_in_plasma, No_plasma, N_init)
+              call make_ray_segment(20.d0, plasma_params, omega, mode, ray_segment, last_N, wall_hits, been_in_plasma, No_plasma, last_N_plasma, N_init)
               print*, "Ray in span_svecs did not end at a wall"
               print*, ray_segment(1)%R_vec(1), ray_segment(1)%R_vec(2), ray_segment(1)%R_vec(3)
               print*, ray_segment(last_N)%R_vec(1), ray_segment(last_N)%R_vec(2), ray_segment(last_N)%R_vec(3)
@@ -3465,6 +3475,8 @@ function func_dA_dY(X, Y)
             ray_segment = ext_rays(cur_ray)%ray
             wall_hits = 2
             last_N = ext_rays(cur_ray)%N_steps
+            first_N_plasma = 1
+            last_N_plasma = last_N
             do i = 1, last_N
               ray_segment(i)%omega_c = e0 * sqrt(sum(ray_segment(i)%B_vec**2)) / mass_e
             end do
@@ -3482,22 +3494,26 @@ function func_dA_dY(X, Y)
             ! Change the propagation direction so we go towards the antenna
             ray_segment(1:last_N) = ray_segment(last_N:1:-1)
             ray_segment(1:last_N)%s = ray_segment(1)%s - ray_segment(1:last_N)%s
+            var_swap = first_N_plasma
+            first_N_plasma = last_N - last_N_plasma + 1
+            last_N_plasma = last_N - var_swap + 1
             do i = 1,3
               ray_segment(1:last_N)%N_vec(i) = -ray_segment(1:last_N)%N_vec(i)
             end do
             ! Do not need to do anything with theta it will be computed from N and B
           end if
+          print*, "First and last N in plasma", first_N_plasma, last_N_plasma
           !last_N = last_N - N_init - 1 ! exclude straight line part in vacuum
           if(rad%diag(idiag)%ch(ich)%mode(imode)%mode > 0) then
           ! X-mode -> first and second harmonic problematic
             call make_s_grid(plasma_params, omega, Y_res_X, rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%svec, &
                              ray_segment, rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%total_LOS_points, &
-                             last_N, dist, rad_ray_freq=rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq))
+                             last_N, first_N_plasma, last_N_plasma, dist, rad_ray_freq=rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq))
           else
           ! O-mode -> Only first harmonic has strong absorption
             call make_s_grid(plasma_params, omega, Y_res_O, rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%svec, &
                              ray_segment, rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%total_LOS_points, &
-                             last_N, dist, rad_ray_freq=rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq))
+                             last_N, first_N_plasma, last_N_plasma, dist, rad_ray_freq=rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq))
           end if
           if(.not. allocated(rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output)) allocate(rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(N_ray))
           if(allocated(rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%s)) &
@@ -3538,7 +3554,8 @@ function func_dA_dY(X, Y)
           ! Get s_res for all ifreq > 1
           do ifreq = 2, N_freq
             call make_s_res(plasma_params, ant%diag(idiag)%ch(ich)%freq(ifreq) * 2.0 * pi, &
-                            ray_segment, last_N, rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq))
+                            ray_segment, last_N, first_N_plasma, last_N_plasma, &
+                            rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq))
           end do
           ifreq = 1
           ! This is the reference when we bin to common coordinate system
@@ -3548,6 +3565,7 @@ function func_dA_dY(X, Y)
           if(output_level) then
             call interpolate_svec(plasma_params, rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%svec, ray_segment, omega, &
                                   rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%total_LOS_points, last_N, &
+                                  first_N_plasma, last_N_plasma, &
                                   rad_ray_freq=rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq), &
                                   svec_extra_output=rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%svec_extra_output)
             do i = 1,3
@@ -3577,6 +3595,7 @@ function func_dA_dY(X, Y)
           else
             call interpolate_svec(plasma_params, rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%svec, ray_segment, omega, &
                                   rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%total_LOS_points, last_N, &
+                                  first_N_plasma, last_N_plasma, &
                                   rad_ray_freq=rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq))
           end if
           if(output_level) then
@@ -3740,7 +3759,7 @@ function func_dA_dY(X, Y)
   real(rkind), intent(in)                                                 :: ds1, ds2
   type(rad_diag_ch_mode_ray_freq_svec_extra_output_type), dimension(:), intent(inout), optional  :: svec_extra_output
   type(ray_element_full_type), dimension(total_LOS_points)                :: ray_segment
-  integer(ikind)                                                          :: last_N, k
+  integer(ikind)                                                          :: last_N, k, first_N_plasma, last_N_plasma, i
   real(rkind), dimension(2)                                               :: dist, Y_res_X
   real(rkind), dimension(1)                                               :: Y_res_O
   logical                                                                 :: max_points_in_svec_reached
@@ -3776,12 +3795,19 @@ function func_dA_dY(X, Y)
   end if
   max_points_in_svec_reached = .false.
   last_N = total_LOS_points
+  first_N_plasma = -1
+  do i = 1, last_N
+    if(ray_segment(i)%rhop > 0.0 .and. ray_segment(i)%rhop < plasma_params%rhop_max) then
+      if(first_N_plasma < 0) first_N_plasma = i
+      last_N_plasma = i
+    end if
+  end do
   if(mode > 0) then
     call make_s_grid(plasma_params, omega, Y_res_X, svec, ray_segment, total_LOS_points, last_N, &
-                     dist, max_points_svec_reached=max_points_in_svec_reached)
+                     first_N_plasma, last_N_plasma, dist, max_points_svec_reached=max_points_in_svec_reached)
   else
     call make_s_grid(plasma_params, omega, Y_res_O, svec, ray_segment, total_LOS_points, last_N, &
-                     dist, max_points_svec_reached=max_points_in_svec_reached)
+                     first_N_plasma, last_N_plasma, dist, max_points_svec_reached=max_points_in_svec_reached)
   end if
   if(max_points_in_svec_reached) then
     print*, "Tried to reduce step size in radiation transport equation, but insufficient amount of points for svec"
@@ -3805,11 +3831,11 @@ function func_dA_dY(X, Y)
   else
     if(present(svec_extra_output)) then
       call interpolate_svec(plasma_params, svec, ray_segment, omega, &
-                            total_LOS_points, last_N, &
+                            total_LOS_points, last_N, first_N_plasma, last_N_plasma, &
                             svec_extra_output=svec_extra_output)      
     else
       call interpolate_svec(plasma_params, svec, ray_segment, omega, &
-                            total_LOS_points, last_N)
+                            total_LOS_points, last_N, first_N_plasma, last_N_plasma)
     end if
   end if
   !print*, "s_max after", svec(total_LOS_points)%s
