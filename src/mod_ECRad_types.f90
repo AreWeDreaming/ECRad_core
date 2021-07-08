@@ -440,7 +440,6 @@ type plasma_params_type
   integer(ikind)                                    :: Debug_level = 0 !* Controls the amount of output of raytracing
                                                       ! (0) No output, (1) some output regarding spline interpolation, (2) much output and stop at first interesting point
   real(rkind)                                       :: h = 1.d-3 !* step size for raytracing - WARNING small values will increase the error!
-  real(rkind)                                       :: Y_res = 0.5d0!* Y for strongest contributing harmonic, default is 0.5d0 -> 2nd harmonic
   real(rkind)                                       :: ab_switch = 1.d0 !* If ab * (b - a) > ab_switch switch to the smallest step size in rad_int (default 5)
   real(rkind)                                       :: rhop_scale_te = 1.00, rhop_scale_ne = 1.00 ! rhop will be multiplied with the corresponding scale when evaluating Te and ne
                                                        ! does not apply for analytical data and does not affect the resonance positions

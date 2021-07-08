@@ -163,11 +163,13 @@ do i = 1, rad_ray_freq%total_LOS_points-2, 2           ! integration over every 
   ! step size
   !----------
   if(.not. all(rad_ray_freq%svec(i + 1:i + 2)%plasma) .or. all(rad_ray_freq%svec(i + 1:i + 2)%Te <= ignore_Te)) then
-    em(1) = 0.d0
-    ab(1) = 0.d0
+    em(:) = 0.d0
+    ab(:) = 0.d0
     tau_array(i + 1) = 0.d0
     tau_array(i + 2) = 0.d0
     if(output_level) then
+      em_secondary(:) = 0.d0
+      ab_secondary(:) = 0.d0
       j = i + 1
       rad_ray_freq%svec_extra_output(j)%em = 0.d0
       rad_ray_freq%svec_extra_output(j)%ab = 0.d0

@@ -12,7 +12,7 @@ subroutine pre_initialize_ECRad(ecrad_verbose, dstf, ray_tracing, ecrad_Bt_rippl
                                 ecrad_ds_large, ecrad_ds_small, ecrad_R_shift, &
                                 ecrad_z_shift, &
                                 ecrad_N_ray, ecrad_N_freq, log_flag, N_vessel, vessel_R, vessel_z, &
-                                f, df, R, phi, z, tor, pol, dist_foc, width)
+                                f, df, R, phi, z, tor, pol, dist_foc, width, pol_coeff)
 ! Everything that is absolutely static in time is done over here
 use mod_ECRad,      only: pre_initialize_ECRad_f2py
 implicit none
@@ -26,7 +26,7 @@ integer, intent(in)   :: ecrad_modes, ecrad_max_points_svec, N_pts_BPD, ecrad_N_
 logical, intent(in)           :: ecrad_verbose, ecrad_Bt_ripple, ray_tracing, ecrad_weak_rel, log_flag
 integer, intent(in)    :: N_vessel
 real(kind=8), dimension(:), intent(in) :: vessel_R, vessel_z ! vessel contour
-real(kind=8), dimension(:), intent(in), optional :: f, df, R, phi, z, tor, pol, dist_foc, width
+real(kind=8), dimension(:), intent(in), optional :: f, df, R, phi, z, tor, pol, dist_foc, width, pol_coeff
 call pre_initialize_ECRad_f2py(ecrad_verbose, dstf, ray_tracing, ecrad_Bt_ripple, &
                                rhopol_max_spline_knot, ecrad_weak_rel, &
                                ecrad_ratio_for_third_harmonic, &
@@ -39,7 +39,7 @@ call pre_initialize_ECRad_f2py(ecrad_verbose, dstf, ray_tracing, ecrad_Bt_ripple
                                ecrad_ds_large, ecrad_ds_small, ecrad_R_shift, &    ! Allows shifting the equilbrium - moves entire flux matrix
                                ecrad_z_shift, &    ! Allows shifting the equilbrium - moves entire flux matrix
                                ecrad_N_ray, ecrad_N_freq, log_flag, N_vessel, vessel_R, vessel_z, &
-                               f, df, R, phi, z, tor, pol, dist_foc, width)
+                               f, df, R, phi, z, tor, pol, dist_foc, width, pol_coeff)
 end subroutine pre_initialize_ECRad
 
 subroutine reset_ECRad()
