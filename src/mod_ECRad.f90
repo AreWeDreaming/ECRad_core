@@ -470,8 +470,73 @@ logical                                           :: old_straight
 end subroutine initialize_ECRad_IDA
 #endif
 
+subroutine set_ECRad_FFP_dist_f2py(rho, u, pitch, f)
+  use mod_ECRad_types,        only: ffp
+  use constants, only: pi
+  use mod_ECRad_fp_dist_utils, only: setup_f_rhop_splines, make_rhop_Bmin
+  implicit none
+  real(rkind), dimension(:), intent(in)             :: rho, u, pitch
+  real(rkind), dimension(:,:,:), intent(in)         :: f
+  ffp%N_rhop = size(rho,dim=1)
+  ffp%N_u = size(u,dim=1)
+  ffp%N_pitch = size(pitch,dim=1)
+  if(allocated(ffp%u)) deallocate(ffp%u)
+  allocate(ffp%u(ffp%N_u))
+  ffp%u = u
+  ffp%pitch = pitch
+  ffp%u_max_data =  ffp%u(ffp%N_u)
+  ffp%u_max = ffp%u_max_data
+  ffp%u_min = max(ffp%u(1), ffp%u_min)
+  if(allocated(ffp%pitch)) deallocate(ffp%pitch)
+  allocate(ffp%pitch(ffp%N_pitch))
+  ffp%pitch_min =  ffp%pitch(1)
+  ffp%pitch_max =  ffp%pitch(ffp%N_pitch)
+  if(allocated(ffp%rhop)) deallocate(ffp%rhop)
+  allocate(ffp%rhop(ffp%N_rhop))
+  if(allocated(ffp%f)) deallocate(ffp%f)
+  allocate(ffp%f(ffp%N_rhop, ffp%N_u, ffp%N_pitch)) 
+  ffp%rhop = rho
+  ffp%f = f
+  ffp%rhop_min = ffp%rhop(1)
+  ffp%rhop_max = ffp%rhop(ffp%N_rhop) - 1.d-2 ! set boundary in a way that we can fall back to thermal
+  call setup_f_rhop_splines(ffp)
+  call make_rhop_Bmin()
+end subroutine set_ECRad_FFP_dist_f2py
+
+subroutine set_ECRad_GENE_dist_f2py(rho, vpar, mu, f_0, f)
+  use mod_ECRad_types,        only: fgene, N_absz_large
+  use constants, only: pi
+  use mod_ECRad_gene_dist_utils, only: setup_fgene_rhop_splines
+  use mod_ECRad_interpol, only: make_rect_spline
+  implicit none
+  real(rkind), dimension(:), intent(in)             :: rho, vpar, mu
+  real(rkind), dimension(:,:), intent(in)           :: f_0
+  real(rkind), dimension(:,:,:), intent(in)         :: f
+  fgene%N_rhop = size(rho,dim=1)
+  fgene%N_vpar = size(vpar,dim=1)
+  fgene%N_mu = size(mu,dim=1)
+  allocate(fgene%vpar(fgene%N_vpar))
+  allocate(fgene%mu(fgene%N_mu))
+  allocate(fgene%rhop(fgene%N_rhop))
+  allocate(fgene%g(fgene%N_rhop, fgene%N_vpar, fgene%N_mu)) 
+  fgene%vpar = vpar
+  fgene%mu = mu
+  fgene%rhop = rho
+  ! g is actually g + f0 for historical reasons
+  fgene%g = f
+  fgene%vpar_max =  maxval(fgene%vpar)
+  fgene%vpar_min = minval(fgene%vpar)
+  fgene%rhop_min = fgene%rhop(1)
+  fgene%rhop_max = fgene%rhop(fgene%N_rhop)
+  fgene%mu_min =  fgene%mu(1)
+  fgene%mu_max =  fgene%mu(fgene%N_mu)
+  call make_rect_spline(fgene%f0_spl, int(size(fgene%vpar),4), int(fgene%N_mu,4), &
+                        fgene%vpar, fgene%mu, f_0, m_max = N_absz_large)
+  call setup_fgene_rhop_splines(fgene)
+end subroutine set_ECRad_GENE_dist_f2py
+
 subroutine make_rays_ECRad_f2py(rhop_knots_ne, n_e, n_e_dx2, rhop_knots_Te, T_e, T_e_dx2, &
-                           rhop_res)
+                                rhop_res)
 ! At the moment to identical routines for f2py and IDA. This is mainly a preparation for the future.
 ! Simulates the structure used in IDA
 ! While in the stand alone make_ece_rad_temp is only called once it is called many times in IDA

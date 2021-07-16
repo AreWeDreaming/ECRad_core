@@ -31,9 +31,11 @@ subroutine make_rhop_Bmin()
   do iint = 1, ffp%N_B_min
     ffp%rhop_B_min(iint) = (real(iint) - 1) /  (ffp%N_B_min - 1)
   end do
+  ! Shift the outermost point a little inwards to avoid the separatrix 
   call contouring(plasma_params%rhop, ffp%rhop_B_min, rhop_contour)
   call contour_indx2rz(plasma_params%R, plasma_params%z, rhop_contour)
   ffp%B_min(:) = 200.d0 ! Large value for Bt for which we'll certainly find smaller ones
+  R_vec(2) = 0.d0
   do iint = 1, ffp%N_B_min
     do icurve = 1, rhop_contour%level(iint)%N_curves
       do ipnt = 1, rhop_contour%level(iint)%curve(icurve)%N_pos
@@ -176,7 +178,7 @@ subroutine make_B_min_and_f_inter(svec, f_spl, B_min)
   call deallocate_rect_spline(f_spl)
   !end if
   call make_rect_spline(f_spl, int(ffp%N_u,4), int(ffp%N_pitch,4), &
-       ffp%u, ffp%pitch, f_inter, iopt = 0, m_max=N_absz_large)
+                        ffp%u, ffp%pitch, f_inter, iopt = 0, m_max=N_absz_large)
 !#ifdef NAG
 !  if(double_check_splines) then
 !    call nag_spline_2d_interp(ffp%u, ffp%pitch, f_inter, ffp%f_nag_spl)
