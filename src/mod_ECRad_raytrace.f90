@@ -2764,6 +2764,7 @@ function func_dA_dY(X, Y)
     call sub_local_params(plasma_params, omega, ray_segment(N)%x_vec, ray_segment(N)%N_vec, ray_segment(N)%B_vec, &
                           ray_segment(N)%N_s, ray_segment(N)%n_e, ray_segment(N)%omega_c, &
                            ray_segment(N)%T_e, ray_segment(N)%theta, ray_segment(N)%rhop)
+    if(first_N_plasma < 0) first_N_plasma = N
     last_N = N
     if(straight .or. LOS_end) then
       ray_segment(N)%Hamil = 0.d0
@@ -3530,6 +3531,9 @@ function func_dA_dY(X, Y)
               ray_segment(1:last_N)%N_vec(i) = -ray_segment(1:last_N)%N_vec(i)
             end do
             ! Do not need to do anything with theta it will be computed from N and B
+          end if
+          if(output_level .and. debug_level > 0) then
+            print*, first_N_plasma, last_N_plasma, last_N
           end if
           N_plasma_pnts = last_N_plasma - first_N_plasma + 1
           !last_N = last_N - N_init - 1 ! exclude straight line part in vacuum

@@ -70,6 +70,7 @@ module mod_ECRad_interpol
     end if
     if(.not. all(y(1:n - 1) < y(2:n))) then
       print*, "y has to be monotonically increasing for spline interpolation (2D)"
+      print*, y
       print*, "Check input!"
 #ifdef INTEL
       call tracebackqq()

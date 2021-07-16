@@ -86,6 +86,23 @@ call initialize_ECRad_f2py(N_Te_spline_knots, N_ne_spline_knots, &
                            R, z, rhop, Br, Bt, Bz, R_ax, z_ax, T_e, n_e)
 end subroutine initialize_ECRad_2D_profs
 
+subroutine set_ECRad_FFP_dist(rho, u, pitch, f)
+  use mod_ECRad,        only: set_ECRad_FFP_dist_f2py
+  implicit none
+  real(kind=8), dimension(:), intent(in)             :: rho, u, pitch
+  real(kind=8), dimension(:,:,:), intent(in)         :: f
+  call set_ECRad_FFP_dist_f2py(rho, u, pitch, f)
+end subroutine set_ECRad_FFP_dist
+
+subroutine set_ECRad_GENE_dist(rho, vpar, mu, f_0, g)
+  use mod_ECRad,        only: set_ECRad_GENE_dist_f2py
+  implicit none
+  real(kind=8), dimension(:), intent(in)             :: rho, vpar, mu
+  real(kind=8), dimension(:,:), intent(in)           :: f_0
+  real(kind=8), dimension(:,:,:), intent(in)         :: g
+  call set_ECRad_GENE_dist_f2py(rho, vpar, mu, f_0, g)
+end subroutine set_ECRad_GENE_dist
+
 subroutine make_rays_ECRad(N_ch, rhop_knots_ne, n_e, rhop_knots_Te, T_e, rhop_res)
 use mod_ECRad,        only: make_rays_ECRad_f2py
 implicit none

@@ -266,7 +266,7 @@ type ffp_type
   real(rkind)                        :: delta_u_par = 1.d-4 !for differentiation
   real(rkind)                        :: delta_u_perp = 1.d-4 !for differentiation
   real(rkind), dimension(:,:,:), allocatable :: f
-  real(rkind), dimension(:), allocatable :: rhop, u,pitch
+  real(rkind), dimension(:), allocatable :: rhop, u, pitch
 #ifdef NAG
   logical                            :: nag = .true.
 #else
@@ -437,7 +437,7 @@ type plasma_params_type
                                                     ! if false use linear interpolation (much faster)
   logical                                           :: Te_ne_mat = .false. ! If true an externally given matrix of Te and ne is used instead of the
                                                                               ! Te/ ne profile
-  integer(ikind)                                    :: Debug_level = 0 !* Controls the amount of output of raytracing
+  integer(ikind)                                    :: Debug_level = 1 !* Controls the amount of output of raytracing
                                                       ! (0) No output, (1) some output regarding spline interpolation, (2) much output and stop at first interesting point
   real(rkind)                                       :: h = 1.d-3 !* step size for raytracing - WARNING small values will increase the error!
   real(rkind)                                       :: ab_switch = 1.d0 !* If ab * (b - a) > ab_switch switch to the smallest step size in rad_int (default 5)
