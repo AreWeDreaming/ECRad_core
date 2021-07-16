@@ -20,3 +20,11 @@
 !licenses/
 !ECRad_env.yml
 odepack/a.out
+src/mod_ECRad_utils.f90
+src/constants.mod
+src/f1dim_mod.mod
+src/f90_kind.mod
+src/interpolation_routines.mod
+src/nr_mod.mod
+src/nr_special_funcs.mod
+src/nr_utils.mod

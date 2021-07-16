@@ -510,32 +510,32 @@ end subroutine prepare_ECE_diag_new_IO
 
 !*******************************************************************************
 
-subroutine prepare_ECE_diag_f2py(f, df, R, phi, z, tor, pol, dist_foc, width, freq_weight)
+subroutine prepare_ECE_diag_f2py(f, df, R, phi, z, tor, pol, dist_foc, width, pol_coeff, freq_weight)
 ! Reads f, df from shot files and also prepares the launching positions and angles
   use mod_ECRad_types,                only: plasma_params, ant, rad, &
                                             max_points_svec, mode_cnt, modes, N_ray, N_freq, &
                                             diagnostics, output_level, stand_alone, one_sigma_width
   use constants,                      only: pi
-  real(rkind), dimension(:), intent(in)   :: f, df, R, phi, z, tor, pol, dist_foc, width ! angles in deg.
+  real(rkind), dimension(:), intent(in)   :: f, df, R, phi, z, tor, pol, dist_foc, width, pol_coeff ! angles in deg.
   real(rkind), dimension(:), intent(in), optional   :: freq_weight ! angles in deg.
-  call set_ECE_config(f, df, R, phi, z, tor, pol, dist_foc, width)
+  call set_ECE_config(f, df, R, phi, z, tor, pol, dist_foc, width, pol_coeff)
   call make_launch(freq_weight_in=freq_weight)
 end subroutine prepare_ECE_diag_f2py
 !*******************************************************************************
 
-subroutine prepare_ECE_diag_IDA(working_dir, f, df, R, phi, z, tor, pol, dist_foc, width)
+subroutine prepare_ECE_diag_IDA(working_dir, f, df, R, phi, z, tor, pol, dist_foc, width, pol_coeff)
 ! Reads f, df from shot files and also prepares the launching positions and angles
   use mod_ECRad_types,            only: plasma_params, ant, rad, &
                                             max_points_svec, mode_cnt, modes, N_ray, N_freq, &
                                             diagnostics, output_level, stand_alone, one_sigma_width
   use constants,                      only: pi
   character(*), intent(in)                   :: working_dir
-  real(rkind), dimension(:), optional        :: f, df, R, phi, z, tor, pol, dist_foc, width ! angles in deg.
+  real(rkind), dimension(:), optional        :: f, df, R, phi, z, tor, pol, dist_foc, width, pol_coeff ! angles in deg.
   integer(ikind)                             :: idiag, ich, imode, ir, ifreq
   character(1)                               :: sep
   character(200)                             :: ray_launch_file
   if(present(f)) then
-    call prepare_ECE_diag_f2py(f, df, R, phi, z, tor, pol, dist_foc, width)
+    call prepare_ECE_diag_f2py(f, df, R, phi, z, tor, pol, dist_foc, width, pol_coeff)
   end if
   ray_launch_file = trim(working_dir) // "ECRad_data/" // "ray_launch.dat"
   open(77,file = trim(ray_launch_file))
@@ -579,13 +579,13 @@ end subroutine prepare_ECE_diag_IDA
 
 !*******************************************************************************++
 
-subroutine set_ECE_config(f, df, R, phi, z, tor, pol, dist_foc, width)
+subroutine set_ECE_config(f, df, R, phi, z, tor, pol, dist_foc, width, pol_coeff)
 ! Reads f, df from shot files and also prepares the launching positions and angles
   use mod_ECRad_types,            only: plasma_params, ant, rad, &
                                             max_points_svec, mode_cnt, modes, N_ray, N_freq, &
                                             diagnostics, output_level, stand_alone, one_sigma_width
   use constants,                      only: pi
-  real(rkind), dimension(:)                  :: f, df, R, phi, z, tor, pol, dist_foc, width ! angles in deg.
+  real(rkind), dimension(:)                  :: f, df, R, phi, z, tor, pol, dist_foc, width, pol_coeff ! angles in deg.
   integer(ikind)                             :: idiag, ich, imode, ir, ifreq
   character(1)                               :: sep
   character(200)                             :: ray_launch_file
@@ -613,6 +613,18 @@ subroutine set_ECE_config(f, df, R, phi, z, tor, pol, dist_foc, width)
       if(output_level) allocate(rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(N_ray))
       do ir = 1, N_ray
         allocate(rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(N_freq))
+        rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(:)%use_external_pol_coeff = .true.
+        if(pol_coeff(ich) < 0.d0) then
+          rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(:)%pol_coeff = pol_coeff(ich)
+          rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(:)%pol_coeff_secondary = pol_coeff(ich)
+          rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(:)%use_external_pol_coeff = .false.
+        else if(rad%diag(idiag)%ch(ich)%mode(imode)%mode > 0) then
+          rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(:)%pol_coeff = pol_coeff(ich)
+          rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(:)%pol_coeff_secondary = pol_coeff(ich)
+        else
+          rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(:)%pol_coeff = 1.d0 - pol_coeff(ich)
+          rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(:)%pol_coeff_secondary = 1.d0 - pol_coeff(ich)
+        end if
         do ifreq = 1, N_freq
             allocate(rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%svec(max_points_svec))
             if(output_level) allocate(rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%svec_extra_output(max_points_svec))
@@ -632,7 +644,6 @@ subroutine set_ECE_config(f, df, R, phi, z, tor, pol, dist_foc, width)
     ant%diag(idiag)%ch(ich)%ray_launch(1)%theta_pol = pol(ich) ! angles in IDA already in rad
     ant%diag(idiag)%ch(ich)%width = width(ich)
     ant%diag(idiag)%ch(ich)%dist_focus = dist_foc(ich)
-    rad%diag(idiag)%ch(ich)%mode(1)%ray(1)%freq(1)%pol_coeff = -1.d0 ! For now hardcoded to include polarizer
   end do
 end subroutine set_ECE_config
 
@@ -1780,7 +1791,7 @@ logical                                    :: make_secondary_BPD
                             BPD_second_arr(1:useful_N), k = 1, iopt=0) ! We want linear splines here to avoid ringing
     end if
     where(rad_mode%ray(ir)%freq(1)%svec(i_start:i_end)%freq_2X *  pi * mass_e / e0 > abs(plasma_params%B_ax)) &
-        rhop_arr(1:useful_N) = -rhop_arr(1:useful_N)
+          rhop_arr(1:useful_N) = -rhop_arr(1:useful_N)
     ! To get avoid interpolation errors we have to avoid the discontuity from positive to negative rho_pol
     ! Hence HFS and LFS side have to be treated separately
     i_seg_start = i_start

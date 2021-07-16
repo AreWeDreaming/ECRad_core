@@ -173,7 +173,7 @@ subroutine pre_initialize_ECRad_f2py(ecrad_verbose, dstf_in, ray_tracing, ecrad_
                                      ecrad_ds_large, ecrad_ds_small, ecrad_R_shift, &    ! Allows shifting the equilbrium - moves entire flux matrix
                                      ecrad_z_shift, &    ! Allows shifting the equilbrium - moves entire flux matrix
                                      ecrad_N_ray, ecrad_N_freq, log_flag, N_vessel, vessel_R, vessel_z, &
-                                     f, df, R, phi, z, tor, pol, dist_foc, width)
+                                     f, df, R, phi, z, tor, pol, dist_foc, width, pol_coeff)
 ! Everything that is absolutely static in time is done over here
 use mod_ECRad_types,      only: plasma_params, N_absz, N_absz_large, dstf, pnts_BPD
 use mod_ECRad_utils,      only: parse_ECRad_config, &
@@ -190,7 +190,7 @@ integer(ikind), intent(in)    :: ecrad_modes, ecrad_max_points_svec, N_BPD_pnts,
 logical, intent(in)           :: ecrad_verbose, ecrad_Bt_ripple, ray_tracing, ecrad_weak_rel, log_flag
 integer(ikind), intent(in)    :: N_vessel
 real(rkind), dimension(:), intent(in) :: vessel_R, vessel_z
-real(rkind), dimension(:), intent(in), optional :: f, df, R, phi, z, tor, pol, dist_foc, width
+real(rkind), dimension(:), intent(in), optional :: f, df, R, phi, z, tor, pol, dist_foc, width, pol_coeff
 integer(ikind)                :: idiag
   call parse_ECRad_config(plasma_params, &
                           ecrad_verbose, dstf_in, ray_tracing, ecrad_Bt_ripple, &
@@ -208,7 +208,7 @@ integer(ikind)                :: idiag
   pnts_BPD = N_BPD_pnts
   call prepare_ECE_diag(f=f, df=df, R=R, &
                         phi=phi, z=z, tor=tor, pol=pol, dist_foc=dist_foc, &
-                        width=width)
+                        width=width, pol_coeff=pol_coeff)
   if(dstf == "numeric" .or. trim(dstf) == "gene" .or. trim(dstf) == "gcomp") then
       call abs_Al_init(N_absz_large) ! Initializes the weights and abszissae for the gaussian quadrature
     else
@@ -244,7 +244,7 @@ subroutine pre_initialize_ECRad_IDA(working_dir_in, flag, ecrad_verbose, ray_tra
                                     ecrad_ds_large, ecrad_ds_small, ecrad_R_shift, &    ! Allows shifting the equilbrium - moves entire flux matrix
                                     ecrad_z_shift, &    ! Allows shifting the equilbrium - moves entire flux matrix
                                     ecrad_N_ray, ecrad_N_freq, log_flag, parallelization_mode, &
-                                    f, df, R, phi, z, tor, pol, dist_foc, width)
+                                    f, df, R, phi, z, tor, pol, dist_foc, width, pol_coeff)
 ! Everything that is absolutely static in time is done over here
 use mod_ECRad_types,      only: dstf, dst_data_folder, Ich_name, ray_out_folder, output_level, &
                                       dstf_comp, plasma_params, N_ray, N_freq, working_dir, &
@@ -262,7 +262,7 @@ integer(ikind), intent(in)    :: ecrad_modes, ecrad_max_points_svec, ecrad_N_ray
                                               ecrad_N_freq,ece_1O_flag
 logical, intent(in)           :: ecrad_verbose, ecrad_Bt_ripple, ray_tracing, ecrad_weak_rel, log_flag
 integer(ikind), intent(in), optional  :: parallelization_mode
-real(rkind), dimension(:), intent(in), optional :: f, df, R, phi, z, tor, pol, dist_foc, width
+real(rkind), dimension(:), intent(in), optional :: f, df, R, phi, z, tor, pol, dist_foc, width, pol_coeff
 integer(ikind)                :: idiag
 if(trim(flag) == "init" .or. trim(flag) == "load") then
 ! A few things need to be done both times
@@ -309,7 +309,7 @@ if(trim(flag) == "init" .or. trim(flag) == "load") then
     end if
     call prepare_ECE_diag(working_dir=working_dir, f=f, df=df, R=R, &
     					            phi=phi, z=z, tor=tor, pol=pol, dist_foc=dist_foc, &
-    					            width=width)
+    					            width=width, pol_coeff=pol_coeff)
     ! parses diag info then creates two input files
   else
     call prepare_ECE_diag(working_dir=working_dir)
@@ -415,7 +415,7 @@ end subroutine initialize_ECRad_3D_f2py
 
 #ifdef IDA
 subroutine initialize_ECRad_IDA(flag, N_Te_spline_knots, N_ne_spline_knots, &
-                           R, z, rhop, Br, Bt, Bz, R_ax, z_ax, rhopol_out)
+                                R, z, rhop, Br, Bt, Bz, R_ax, z_ax, rhopol_out)
 ! Hence, to keep the structure similiar all initizalization is performed here
 ! Initializations that depend on time are done here
 use mod_ECRad_types,        only: dstf, dst_data_folder, Ich_name, ray_out_folder, output_level, &
@@ -808,6 +808,9 @@ use f90_kind
      use_ida_spline_Te = .false.
   end if
   plasma_params%rhop_max = min(maxval(rhop_knots_ne), maxval(rhop_knots_Te))
+  if(plasma_params%rhop_exit > plasma_params%rhop_max-plasma_params%delta_rhop_exit) then
+    plasma_params%rhop_exit = plasma_params%rhop_max-plasma_params%delta_rhop_exit
+  end if
 end subroutine update_Te_ne
 
 subroutine update_svecs(rad, rhop_knots_ne, n_e, n_e_dx2, rhop_knots_Te, T_e, T_e_dx2)
@@ -1269,7 +1272,7 @@ do idiag = 1, ant%N_diag
         if(output_level) rad%diag(idiag)%ch(ich)%tau_secondary = rad%diag(idiag)%ch(ich)%tau_secondary + &
                                                                  exp(-rad%diag(idiag)%ch(ich)%mode(imode)%tau_secondary) * &
                                                                  rad%diag(idiag)%ch(ich)%mode(imode)%Trad_mode_frac_secondary
-        if(rad%diag(idiag)%ch(ich)%mode(imode)%s_res /= 0.d0) then
+        if(rad%diag(idiag)%ch(ich)%mode(imode)%s_res > 0.d0) then
           rad%diag(idiag)%ch(ich)%s_res = rad%diag(idiag)%ch(ich)%s_res + &
             rad%diag(idiag)%ch(ich)%mode(imode)%s_res * rad%diag(idiag)%ch(ich)%mode(imode)%Trad_mode_frac
           rad%diag(idiag)%ch(ich)%R_res = rad%diag(idiag)%ch(ich)%R_res + &
@@ -1307,10 +1310,24 @@ do idiag = 1, ant%N_diag
     end if
     if(rad%diag(idiag)%ch(ich)%s_res == 0.d0) then
     ! if both X mode and O mode Trad are zero use primary mode cold resonance (either X or O)
-      rad%diag(idiag)%ch(ich)%s_res = rad%diag(idiag)%ch(ich)%mode(1)%s_res
-      rad%diag(idiag)%ch(ich)%R_res = rad%diag(idiag)%ch(ich)%mode(1)%R_res
-      rad%diag(idiag)%ch(ich)%z_res = rad%diag(idiag)%ch(ich)%mode(1)%z_res
-      rad%diag(idiag)%ch(ich)%rhop_res = rad%diag(idiag)%ch(ich)%mode(1)%rhop_res
+      if(mode_cnt > 1) then
+        if(rad%diag(idiag)%ch(ich)%mode(1)%pol_coeff > rad%diag(idiag)%ch(ich)%mode(2)%pol_coeff ) then
+          rad%diag(idiag)%ch(ich)%s_res = rad%diag(idiag)%ch(ich)%mode(1)%s_res
+          rad%diag(idiag)%ch(ich)%R_res = rad%diag(idiag)%ch(ich)%mode(1)%R_res
+          rad%diag(idiag)%ch(ich)%z_res = rad%diag(idiag)%ch(ich)%mode(1)%z_res
+          rad%diag(idiag)%ch(ich)%rhop_res = rad%diag(idiag)%ch(ich)%mode(1)%rhop_res
+        else
+          rad%diag(idiag)%ch(ich)%s_res = rad%diag(idiag)%ch(ich)%mode(2)%s_res
+          rad%diag(idiag)%ch(ich)%R_res = rad%diag(idiag)%ch(ich)%mode(2)%R_res
+          rad%diag(idiag)%ch(ich)%z_res = rad%diag(idiag)%ch(ich)%mode(2)%z_res
+          rad%diag(idiag)%ch(ich)%rhop_res = rad%diag(idiag)%ch(ich)%mode(2)%rhop_res
+        endif
+      else
+        rad%diag(idiag)%ch(ich)%s_res = rad%diag(idiag)%ch(ich)%mode(1)%s_res
+        rad%diag(idiag)%ch(ich)%R_res = rad%diag(idiag)%ch(ich)%mode(1)%R_res
+        rad%diag(idiag)%ch(ich)%z_res = rad%diag(idiag)%ch(ich)%mode(1)%z_res
+        rad%diag(idiag)%ch(ich)%rhop_res = rad%diag(idiag)%ch(ich)%mode(1)%rhop_res
+      end if
     end if
     if(output_level) then
       rad%diag(idiag)%ch(ich)%rel_s_res = 0.d0
