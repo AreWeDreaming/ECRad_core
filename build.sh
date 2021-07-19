@@ -72,7 +72,7 @@ make DEBUG=True
 make
 make OPEN_MP=True
 make OPEN_MP=True DEBUG=True
-make USE_3D=True DEBUG=True
-make USE_3D=True
-make USE_3D=True DEBUG=True OPEN_MP=True
-make USE_3D=True OPEN_MP=True
+# make USE_3D=True DEBUG=True
+# make USE_3D=True
+# make USE_3D=True DEBUG=True OPEN_MP=True
+# make USE_3D=True OPEN_MP=True
