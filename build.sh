@@ -20,7 +20,7 @@ elif [[ $HOSTNAME == *"cm.cluster"* ]]
   module load anaconda3/2020.11
   module load intel
   module load psfc/netcdf/intel-17/4.4.1.1
-  module load mkl
+  module load psfc/mkl/18
   module load psfc/pgplot/5.2.2
   module load texlive
   module load engaging/git
