@@ -19,6 +19,8 @@
 !update_fit_ode_pack.sh
 !licenses/
 !ECRad_env.yml
+!*.sh
+!*.tcsh
 odepack/a.out
 src/mod_ECRad_utils.f90
 src/constants.mod
