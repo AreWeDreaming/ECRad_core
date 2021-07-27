@@ -1,4 +1,4 @@
-#!/bin/tcsh
+#!/usr/bin/tcsh
 if($HOSTNAME =~ *mpg.de) then
   echo "Current system identified as IPP TOK cluster"
   module purge
@@ -10,6 +10,14 @@ if($HOSTNAME =~ *mpg.de) then
   module load hdf5-serial
   module load netcdf-serial
   setenv LD_LIBRARY_PATH $MKLROOT/lib/intel64/
+  conda env create -f ECRad_env.yml
+# >>> conda initialize >>>
+# !! Contents within this block are managed by 'conda init' !!
+if ( -f "/mpcdf/soft/SLE_15/packages/x86_64/anaconda/3/2020.02/etc/profile.d/conda.csh" ) then
+    source "/mpcdf/soft/SLE_15/packages/x86_64/anaconda/3/2020.02/etc/profile.d/conda.csh"
+else
+    setenv PATH "/mpcdf/soft/SLE_15/packages/x86_64/anaconda/3/2020.02/bin:$PATH"
+endif
   set COMPILER = "i"
 else
   echo "Type g for gfortran or anything else for intel"

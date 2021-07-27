@@ -9,6 +9,7 @@ if [[ $HOSTNAME == *"mpg"* ]]
   module load anaconda/3/2020.02
   module load git
   export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$MKLROOT/lib/intel64/
+  conda activate ECRad_conda
 elif [[ $HOSTNAME == *"cm.cluster"* ]]
   then
   module use /home/software/psfc/modulefiles/
