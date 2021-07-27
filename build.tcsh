@@ -13,11 +13,12 @@ if($HOSTNAME =~ *mpg.de) then
   conda env create -f ECRad_env.yml
 # >>> conda initialize >>>
 # !! Contents within this block are managed by 'conda init' !!
-if ( -f "/mpcdf/soft/SLE_15/packages/x86_64/anaconda/3/2020.02/etc/profile.d/conda.csh" ) then
-    source "/mpcdf/soft/SLE_15/packages/x86_64/anaconda/3/2020.02/etc/profile.d/conda.csh"
-else
-    setenv PATH "/mpcdf/soft/SLE_15/packages/x86_64/anaconda/3/2020.02/bin:$PATH"
-endif
+  if ( -f "/mpcdf/soft/SLE_15/packages/x86_64/anaconda/3/2020.02/etc/profile.d/conda.csh" ) then
+      source "/mpcdf/soft/SLE_15/packages/x86_64/anaconda/3/2020.02/etc/profile.d/conda.csh"
+  else
+      setenv PATH "/mpcdf/soft/SLE_15/packages/x86_64/anaconda/3/2020.02/bin:$PATH"
+  endif
+  conda activate ECRad_conda
   set COMPILER = "i"
 else
   echo "Type g for gfortran or anything else for intel"
