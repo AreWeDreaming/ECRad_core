@@ -3442,7 +3442,7 @@ function func_dA_dY(X, Y)
           rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%rhop_res = 0.d0
           if(rad%diag(idiag)%ch(ich)%mode(imode)%ray(1)%freq(ifreq)%use_external_pol_coeff .and. &
              rad%diag(idiag)%ch(ich)%mode(imode)%ray(1)%freq(ifreq)%pol_coeff == 0.d0) then
-             rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%N = 0
+             if(output_level) rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%N = 0
              cycle
           end if
           rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(1)%max_points_svec_reached = .false.
