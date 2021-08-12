@@ -1,8 +1,4 @@
 #!/bin/bash
-
-Another aspect of PCI measurement--if k_perp is reduced, PCI selectivity goes down and requirements on midplane intersection go away. There may be a low-n, low k_perp soln to our problem
-
-
 if [[ $HOSTNAME == *"mpg.de"* ]]
   then
   module purge
