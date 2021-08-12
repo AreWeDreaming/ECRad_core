@@ -14,14 +14,15 @@ if [[ $HOSTNAME == *"mpg.de"* ]]
 elif [[ $HOSTNAME == *"cm.cluster"* ]]
   then
   module purge
-  module load intel/2020-04
   module use /home/software/psfc/modulefiles/
   module load psfc/config
-  module load anaconda3/2020.11
-  module load psfc/mkl/20
-  module load psfc/pgplot/5.2.2
-  module load texlive
+  module load slurm
+  module load gcc
+  module load intel/2017-01
+  module load psfc/netcdf/intel-17/4.4.1.1
+  module load psfc/mkl/17
   module load engaging/git
+  module load anaconda3/2020.11
   # >>> conda initialize >>>
   # !! Contents within this block are managed by 'conda init' !!
   __conda_setup="$('/home/software/anaconda3/2020.11/bin/conda' 'shell.bash' 'hook' 2> /dev/null)"
