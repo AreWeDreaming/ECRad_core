@@ -3,6 +3,7 @@
 if [[ $HOSTNAME == *"mpg"* ]]
   then
   module purge
+  export PYTHONPATH
   module load intel
   module load mkl
   module load texlive
@@ -13,6 +14,7 @@ if [[ $HOSTNAME == *"mpg"* ]]
 elif [[ $HOSTNAME == *"cm.cluster"* ]]
   then
   module purge
+  export PYTHONPATH
   module use /home/software/psfc/modulefiles/
   module load psfc/config
   module load slurm
@@ -39,6 +41,7 @@ elif [[ $HOSTNAME == *"cm.cluster"* ]]
   conda activate ECRad_conda
 elif [[ $HOSTNAME == *"iter"* ]]; then
   module purge
+  export PYTHONPATH
   module load IMAS
   module load texlive
   export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$HOME/.local/lib/python3.8/site-packages/wx/

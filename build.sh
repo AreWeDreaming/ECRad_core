@@ -2,6 +2,7 @@
 if [[ $HOSTNAME == *"mpg.de"* ]]
   then
   module purge
+  export PYTHONPATH 
   module load texlive
   module load intel
   module load mkl
@@ -14,6 +15,7 @@ if [[ $HOSTNAME == *"mpg.de"* ]]
 elif [[ $HOSTNAME == *"cm.cluster"* ]]
   then
   module purge
+  export PYTHONPATH 
   module use /home/software/psfc/modulefiles/
   module load psfc/config
   module load slurm
@@ -42,6 +44,7 @@ elif [[ $HOSTNAME == *"cm.cluster"* ]]
   export COMPILER="i"
 elif [[ $HOSTNAME == *"iter"* ]]; then
   module purge
+  export PYTHONPATH 
   module load IMAS
   module load texlive
   export COMPILER="i"
