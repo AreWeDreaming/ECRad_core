@@ -14,7 +14,6 @@ if [[ $HOSTNAME == *"mpg"* ]]
 elif [[ $HOSTNAME == *"cm.cluster"* ]]
   then
   module purge
-  export PYTHONPATH
   module use /home/software/psfc/modulefiles/
   module load psfc/config
   module load slurm
@@ -38,6 +37,7 @@ elif [[ $HOSTNAME == *"cm.cluster"* ]]
   fi
   unset __conda_setup
   # <<< conda initialize <<<
+  export PYTHONPATH
   conda activate ECRad_conda
 elif [[ $HOSTNAME == *"iter"* ]]; then
   module purge

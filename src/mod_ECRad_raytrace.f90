@@ -3354,7 +3354,7 @@ function func_dA_dY(X, Y)
   svec(i1:i2)%theta = acos(svec(i1:i2)%cos_theta)
   svec(i1:i2)%sin_theta = sin(svec(i1:i2)%theta)
   ! Do this for all points
-  svec(1:total_LOS_points)%ibb = (omega / ( 2.d0 * pi))**2 * e0 * &
+  svec(i1:i2)%ibb = (omega / ( 2.d0 * pi))**2 * e0 * &
                                  svec(i1:i2)%Te / c0**2
   call deallocate_1d_spline(spl)
   end subroutine interpolate_svec
