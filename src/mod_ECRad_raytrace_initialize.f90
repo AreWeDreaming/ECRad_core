@@ -308,7 +308,7 @@ module mod_ECRad_raytrace_initialize
     real(rkind), dimension(:,:), allocatable    :: B_r, B_t, B_z, T_e_mat, n_e_mat
     integer(ikind), dimension(:), allocatable   :: R_index_lower, z_index_lower, R_index_upper, z_index_upper
     real(rkind)                                 :: B_last, B_vac_R0
-    integer(ikind)                              :: i
+    integer(ikind)                              :: i, m
     integer(ikind)                              :: loaded
     character(1)  :: sep
     character(200)                              :: filename
@@ -444,7 +444,13 @@ module mod_ECRad_raytrace_initialize
     call rect_spline(plasma_params%B_z_spline,plasma_params%R_ax,plasma_params%z_ax,B_last)
     plasma_params%B_ax = plasma_params%B_ax + B_last**2
     plasma_params%B_ax = Sqrt(plasma_params%B_ax)
-    B_vac_R0 = B_t(plasma_params%m, int(plasma_params%n/2)) ! Outer most point of Bt -> pure vacuum
+    do i = 0, plasma_params%m - 1
+      if(abs(B_t(plasma_params%m - i, int(plasma_params%n/2))) > 1.d-1) then
+        m = plasma_params%m - i
+        exit
+      end if
+    end do
+    B_vac_R0 = B_t(m, int(plasma_params%n/2)) ! Outer most point of Bt with Bt > 0 -> pure vacuum
     B_vac_R0 = B_vac_R0 * plasma_params%R(plasma_params%m) / plasma_params%R_ax
     if(plasma_params%w_ripple) call init_ripple(plasma_params%R_ax, B_vac_R0)
     allocate(R_index_lower(plasma_params%n), z_index_lower(plasma_params%m), R_index_upper(plasma_params%n), z_index_upper(plasma_params%m))
