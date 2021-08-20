@@ -45,4 +45,24 @@ elif [[ $HOSTNAME == *"iter"* ]]; then
   module load IMAS
   module load texlive
   export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$HOME/.local/lib/python3.8/site-packages/wx/
+elif [[ $HOSTNAME == *"iris"* ]]; then
+  module purge
+  module load omfit
+  module load gcc-9.2.0
+  export SYS=CENTOS
+  # >>> conda initialize >>>
+  # !! Contents within this block are managed by 'conda init' !!
+  __conda_setup="$('/fusion/projects/codes/atom/omfit_v3.x/atom/miniconda3_3.2021.10.9/bin/conda' 'shell.bash' 'hook' 2> /dev/null)"
+  if [ $? -eq 0 ]; then
+      eval "$__conda_setup"
+  else
+      if [ -f "/fusion/projects/codes/atom/omfit_v3.x/atom/miniconda3_3.2021.10.9/etc/profile.d/conda.sh" ]; then
+          . "/fusion/projects/codes/atom/omfit_v3.x/atom/miniconda3_3.2021.10.9/etc/profile.d/conda.sh"
+      else
+          export PATH="/fusion/projects/codes/atom/omfit_v3.x/atom/miniconda3_3.2021.10.9/bin:$PATH"
+      fi
+  fi
+  unset __conda_setup
+  # <<< conda initialize <<<
+  conda activate ECRad_conda
 fi
