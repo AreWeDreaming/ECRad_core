@@ -69,6 +69,7 @@ elif [[ $HOSTNAME == *"iris"* ]]; then
   # <<< conda initialize <<<
   conda env create -f ECRad_env.yml
   conda activate ECRad_conda
+  export COMPILER="g"
 else
   echo "Type g for gfortran or anything else for intel"
   read COMPILERINP
