@@ -91,7 +91,10 @@ make clean
 make
 cd ../
 make DEBUG=True IDA=True
-make IDA=True
+if [[ $HOSTNAME == *"mpg.de"* ]]
+  then
+  make IDA=True
+fi
 make DEBUG=True
 make
 make OPEN_MP=True
