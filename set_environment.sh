@@ -11,7 +11,7 @@ if [[ $HOSTNAME == *"mpg"* ]]
   module load git
   export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$MKLROOT/lib/intel64/
   conda activate ECRad_conda
-elif [[ $HOSTNAME == *"cm.cluster"* ]] || [[$HOSTNAME == "eofe8" ]]
+elif [[ $HOSTNAME == *"cm.cluster"* ]] || [[ $HOSTNAME == "eofe8" ]]
   then
   module purge
   module use /home/software/psfc/modulefiles/

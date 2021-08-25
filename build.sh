@@ -12,7 +12,7 @@ if [[ $HOSTNAME == *"mpg.de"* ]]
   module load netcdf-serial
   export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$MKLROOT/lib/intel64/
   export COMPILER="i"
-elif [[ $HOSTNAME == *"cm.cluster"* ]] || [[$HOSTNAME == "eofe8" ]]
+elif [[ $HOSTNAME == *"cm.cluster"* ]] || [[ $HOSTNAME == "eofe8" ]]
   then
   module purge
   export PYTHONPATH 
