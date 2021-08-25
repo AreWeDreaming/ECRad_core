@@ -12,7 +12,7 @@ if [[ $HOSTNAME == *"mpg.de"* ]]
   module load netcdf-serial
   export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$MKLROOT/lib/intel64/
   export COMPILER="i"
-elif [[ $HOSTNAME == *"cm.cluster"* ]]
+elif [[ $HOSTNAME == *"cm.cluster"* ]] || [[$HOSTNAME == "eofe8"]]
   then
   module purge
   export PYTHONPATH 
@@ -79,6 +79,8 @@ else
   else
     export COMPILER="i"
   fi
+  conda env create -f ECRad_env.yml
+  conda activate ECRad_conda
 fi
 rm id
 git rev-parse HEAD > id
