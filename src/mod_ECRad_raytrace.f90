@@ -1692,12 +1692,12 @@ function func_dA_dY(X, Y)
         return
     end if
     call sub_spatial_grad_X(plasma_params, omega, x_vec(1:3), rhop_out, grad_rhop, X, spatial_grad_X)
-    if(any(spatial_grad_X==0.d0)) then
+    if(any(spatial_grad_X == 0.d0) .and. (rhop_out < plasma_params%rhop_max .and. rhop_out > 0.d0)) then
       print*, "ERROR: Currently a vanishing gradient in the Stix parameter X is not supported"
       print*, "ERROR: Please check your profiles and equilibrium for points with zero gradients."
-      print*, "Current rho and its gradient", rhop_out, grad_rhop
-      print*, "Gradient of Stix parameter X", spatial_grad_X
-      call abort()
+      print*, "Current rho, rho_max and its gradient", rhop_out, plasma_params%rhop_max, grad_rhop
+      print*, "Value and gradient of Stix parameter X", X, spatial_grad_X
+      call abort() 
     end if
     call sub_spatial_grad_N_par(plasma_params, x_vec(1:3), x_vec(4:6), N_abs, B_vec, grad_B_vec, &
                                 N_par, spatial_grad_N_par, spatial_grad_B_abs, B_abs, N_grad_N_par)
