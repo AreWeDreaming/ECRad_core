@@ -163,7 +163,7 @@ end subroutine initialize_stand_alone
 
 subroutine pre_initialize_ECRad_f2py(ecrad_verbose, dstf_in, ray_tracing, ecrad_Bt_ripple, &
                                      rhopol_max_spline_knot, ecrad_weak_rel, &
-                                     ecrad_ratio_for_third_harmonic, &
+                                     ecrad_ratio_for_third_harmonic, ecrad_tau_ignore, &
                                      ecrad_modes, reflec_X_mode, reflec_O_mode, ece_1O_flag, &
                                      ecrad_max_points_svec, N_BPD_pnts, & ! (modes = 1 -> pure X-mode, 2 -> pure O-mode, 3 both modes and filter
                                      ecrad_O2X_mode_conversion, & ! mode conversion ratio from O-X due to wall reflections
@@ -181,7 +181,7 @@ use mod_ECRad_utils,      only: parse_ECRad_config, &
 use mod_ECRad_abs_Al,     only: abs_Al_init
 implicit none
 character(*), intent(in)        :: dstf_in
-real(rkind), intent(in)       :: rhopol_max_spline_knot, ecrad_ratio_for_third_harmonic, &
+real(rkind), intent(in)       :: rhopol_max_spline_knot, ecrad_ratio_for_third_harmonic, ecrad_tau_ignore, &
                                               reflec_X_mode, reflec_O_mode, ecrad_O2X_mode_conversion, &
                                               rhopol_scal_te, rhopol_scal_ne, &
                                               ecrad_ds_large, ecrad_ds_small, ecrad_R_shift, ecrad_z_shift
@@ -195,7 +195,7 @@ integer(ikind)                :: idiag
   call parse_ECRad_config(plasma_params, &
                           ecrad_verbose, dstf_in, ray_tracing, ecrad_Bt_ripple, &
                           rhopol_max_spline_knot, ecrad_weak_rel, &
-                          ecrad_ratio_for_third_harmonic, &
+                          ecrad_ratio_for_third_harmonic, ecrad_tau_ignore, &
                           ecrad_modes, reflec_X_mode, reflec_O_mode, ece_1O_flag, &
                           ecrad_max_points_svec, & ! (modes = 1 -> pure X-mode, 2 -> pure O-mode, 3 both modes and filter
                           ecrad_O2X_mode_conversion, & ! mode conversion ratio from O-X due to wall reflections
@@ -616,7 +616,8 @@ subroutine make_dat_model_ece_ECRad_f2py(rhop_knots_ne, n_e, n_e_dx2, rhop_knots
                                          ne_rhop_scal, reflec_X_new, & ! in
                                          reflec_O_new, ece_fm_flag_ch, rp_min, &
                                          dat_model_ece, tau, set_grid_dynamic, verbose)
-use mod_ECRad_types,        only: reflec_X, reflec_O, plasma_params, rad, ant, ray_init, static_grid, stand_alone
+use mod_ECRad_types,        only: reflec_X, reflec_O, plasma_params, rad, ant, ray_init, &
+                                  static_grid, stand_alone, output_level
 use mod_ECRad_utils,        only: retrieve_T_e
 implicit none
 real(rkind), dimension(:), intent(in)  :: rhop_knots_ne, n_e, rhop_knots_Te, T_e
@@ -695,9 +696,6 @@ end if
 if(present(verbose) .and. stand_alone) then
   if(verbose) call save_data_to_ASCII()
 end if
-!do ich =1, ant%diag(1)%N_ch
-!  if(ece_fm_flag_ch(ich)) print*, rad%diag(1)%ch(ich)%Trad
-!end do
 end subroutine make_dat_model_ece_ECRad_f2py
 
 subroutine make_dat_model_ece_ECRad_IDA(rhop_knots_ne, n_e, n_e_dx2, rhop_knots_Te, T_e, T_e_dx2, &
@@ -951,7 +949,7 @@ end subroutine set_for_single_eval
 subroutine make_ece_rad_temp()
 use mod_ECRad_types,        only: dstf, reflec_X, reflec_O, mode_cnt, N_ray, N_freq, plasma_params, &
                                       rad, ant, output_level, max_points_svec, mode_conv, reflec_model, &
-                                      vessel_plasma_ratio, stand_alone
+                                      vessel_plasma_ratio, stand_alone, tau_ignore, eval, not_eval
 use mod_ECRad_rad_transp,   only: calculate_Trad
 use constants,                  only: e0, c0, pi
 use mod_ECRad_utils,        only: binary_search, bin_ray_BPD_to_common_rhop, make_warm_res_mode, bin_freq_to_ray
@@ -1517,6 +1515,9 @@ do idiag = 1, ant%N_diag
   !$omp end parallel
 #endif
 end do ! N_diag
+#ifndef OMP
+if(output_level .and. not_eval > 0) print*, "Tau ignore of" , tau_ignore, " saved", not_eval, " of ", not_eval + eval, "evaluations: ", real(not_eval,8) / real( eval + not_eval,8) * 100.d0, "%"
+#endif
 if( stand_alone .and. output_level) call save_data_to_ASCII() !output_level .and.
 !if(stand_alone .and. .not. output_level) call make_BPD_and_warm_res(1, 20)
 end subroutine make_ece_rad_temp

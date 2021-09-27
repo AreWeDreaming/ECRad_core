@@ -427,7 +427,7 @@ contains
     integer(ikind)                :: m_sum, max_harmonic
     real(rkind)                   :: c_abs_m, c_abs_m_secondary, j_m, j_m_secondary
     real(rkind)                   :: w_mass_e, omega_p,omega_p_cold, mu, omega_c, &
-                                     X, Y, omega_bar, N_abs, N_par, N_perp, m_0
+                                     X, Y, omega_bar, N_abs, N_par, N_perp, m_0, tau_step
     complex(r8), dimension(3)     :: e
     type(spl_type_2d) :: f_spl
     type(non_therm_params_type)        :: dist_params
@@ -461,7 +461,8 @@ contains
       max_harmonic = 5
     else
       if((Y * w_mass_e / mass_e) < ratio_for_third_harmonic) max_harmonic = 3
-      if(get_upper_limit_tau(svec, omega, ds2) < tau_ignore .and. .not. present(pol_coeff)) then
+      tau_step = get_upper_limit_tau(svec, omega, ds2)
+      if(tau_step < tau_ignore .and. tau_step > 0.d0 .and. .not. present(pol_coeff)) then
 #ifdef OMP
         return
       end if
