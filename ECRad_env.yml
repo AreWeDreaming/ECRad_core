@@ -1,6 +1,8 @@
 name: ECRad_conda
 channels:
   - conda-forge
+  - conda-forge/label/cf201901
+  - conda-forge/label/cf202003
 dependencies:
   - python=3.7
   - numpy
