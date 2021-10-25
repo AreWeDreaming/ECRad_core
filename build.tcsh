@@ -19,6 +19,7 @@ if($HOSTNAME =~ *mpg.de) then
       setenv PATH "/mpcdf/soft/SLE_15/packages/x86_64/anaconda/3/2020.02/bin:$PATH"
   endif
   conda activate ECRad_conda
+  conda env update -f ECRad_env.yml --prune
   set COMPILER = "i"
 else
   echo "Type g for gfortran or anything else for intel"
