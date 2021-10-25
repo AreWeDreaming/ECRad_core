@@ -41,6 +41,7 @@ elif [[ $HOSTNAME == *"cm.cluster"* ]] || [[ $HOSTNAME == "eofe8" ]]
   # <<< conda initialize <<<
   conda env create -f ECRad_env.yml
   conda activate ECRad_conda
+  conda env update -f ECRad_env.yml --prune
   export COMPILER="i"
 elif [[ $HOSTNAME == *"iter"* ]]; then
   module purge
@@ -69,6 +70,7 @@ elif [[ $HOSTNAME == *"iris"* ]]; then
   # <<< conda initialize <<<
   conda env create -f ECRad_env.yml
   conda activate ECRad_conda
+  conda env update -f ECRad_env.yml --prune
   export COMPILER="g"
 else
   echo "Type g for gfortran or anything else for intel"
@@ -81,6 +83,7 @@ else
   fi
   conda env create -f ECRad_env.yml
   conda activate ECRad_conda
+  conda env update -f ECRad_env.yml --prune
 fi
 rm id
 git rev-parse HEAD > id
