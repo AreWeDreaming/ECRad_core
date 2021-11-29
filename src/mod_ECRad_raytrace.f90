@@ -3839,7 +3839,7 @@ function func_dA_dY(X, Y)
       last_N_plasma = i
     end if
   end do
-  N_plasma_pnts = last_N_plasma - first_N_plasma
+  N_plasma_pnts = last_N_plasma - first_N_plasma + 1
   if(mode > 0) then
     call make_s_grid(plasma_params, omega, Y_res_X, mode, &
                     svec, ray_segment, total_LOS_points, last_N, &
