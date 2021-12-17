@@ -1,6 +1,6 @@
 #!/usr/bin/tcsh
 
-if ($HOSTNAME =~ *"mpg"* ) then
+if ($DOMAIN =~ *"mpg"* ) then
   module purge
   module load intel
   module load mkl
