@@ -16,9 +16,5 @@ if ($DOMAIN =~ *"mpg"* ) then
   endif
 # <<< conda initialize <<<
   conda activate ECRad_conda
-  if ($?LD_LIBRARY_PATH) then
-    setenv LD_LIBRARY_PATH $LD_LIBRARY_PATH\:$MKLROOT/lib/intel64/
-  else
-  	setenv LD_LIBRARY_PATH $MKLROOT/lib/intel64/
-  endif
+  bash -c 'source $INTEL_HOME/setvars.sh ; exec csh'
 endif

@@ -20,6 +20,7 @@ if($DOMAIN =~ *mpg.de) then
   endif
   conda activate ECRad_conda
   conda env update -f ECRad_env.yml --prune
+  bash -c 'source $INTEL_HOME/setvars.sh ; exec csh'
   set COMPILER = "i"
 else
   echo "Type g for gfortran or anything else for intel"
