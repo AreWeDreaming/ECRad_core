@@ -5,11 +5,16 @@ if [[ $HOSTNAME == *"mpg"* ]]
   module purge
   export PYTHONPATH
   module load intel
-  module load mkl
-  module load texlive
-  module load anaconda/3/2020.02
+  module load intel/21.3.0
+  module load mkl/2021.3
+  module load anaconda/3/2021.11
   module load git
   export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$MKLROOT/lib/intel64/
+  if ( -f "/mpcdf/soft/SLE_15/packages/x86_64/anaconda/3/2021.11/etc/profile.d/conda.sh" ) then
+      source "/mpcdf/soft/SLE_15/packages/x86_64/anaconda/3/2021.11/etc/profile.d/conda.sh"
+  else
+      export PATH="/mpcdf/soft/SLE_15/packages/x86_64/anaconda/3/2021.11/bin:$PATH"
+  endif
   conda activate ECRad_conda
 elif [[ $HOSTNAME == *"cm.cluster"* ]] || [[ $HOSTNAME == "eofe8" ]]
   then
