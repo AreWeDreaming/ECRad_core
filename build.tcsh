@@ -1,5 +1,5 @@
 #!/usr/bin/tcsh
-if($HOSTNAME =~ *mpg.de) then
+if($DOMAIN =~ *mpg.de) then
   echo "Current system identified as IPP TOK cluster"
   module purge
   module load texlive
