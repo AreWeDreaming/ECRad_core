@@ -16,7 +16,6 @@ if [[ $HOSTNAME == *"mpg"* ]]
       export PATH="/mpcdf/soft/SLE_15/packages/x86_64/anaconda/3/2021.11/bin:$PATH"
   endif
   conda activate ECRad_conda
-  bash -c 'source $INTEL_HOME/setvars.sh ; exec csh'
 elif [[ $HOSTNAME == *"cm.cluster"* ]] || [[ $HOSTNAME == "eofe8" ]]
   then
   module purge

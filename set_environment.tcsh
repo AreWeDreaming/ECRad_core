@@ -16,5 +16,4 @@ if ($DOMAIN =~ *"mpg"* ) then
   endif
 # <<< conda initialize <<<
   conda activate ECRad_conda
-  bash -c 'source $INTEL_HOME/setvars.sh ; exec csh'
 endif
