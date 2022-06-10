@@ -9,7 +9,8 @@ if($DOMAIN =~ *mpg.de) then
   module load git
   module load hdf5-serial
   module load netcdf-serial
-  setenv LD_LIBRARY_PATH $MKLROOT/lib/intel64/
+  setenv LDFLAGS -Wl,-rpath=-Wl,--start-group ${MKLROOT}/lib/intel64/libmkl_intel_lp64.a ${MKLROOT}/lib/intel64/libmkl_intel_thread.a ${MKLROOT}/lib/intel64/libmkl_core.a -Wl,--end-group
+  setenv NPY_DISTUTILS_APPEND_FLAGS 1
   conda env create -f ECRad_env.yml
 # >>> conda initialize >>>
 # !! Contents within this block are managed by 'conda init' !!
