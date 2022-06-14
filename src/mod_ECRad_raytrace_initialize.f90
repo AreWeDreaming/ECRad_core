@@ -401,7 +401,7 @@ module mod_ECRad_raytrace_initialize
       plasma_params%z_ax = z_ax
     end if
     ! No information on where the profiles start to be good go with the default value
-    if(plasma_params%Te_ne_mat) plasma_params%rhop_max = plasma_params%rhop_entry !
+    if(plasma_params%Te_ne_mat) plasma_params%rhop_max = plasma_params%rhop_max_default !
     h_check = h_x_glob * (1.d0 + 1.e-5)
     plasma_params%R_min = plasma_params%R(1)
     plasma_params%R_max = plasma_params%R(plasma_params%m)
@@ -545,9 +545,6 @@ module mod_ECRad_raytrace_initialize
       rhop_max_ne = maxval(plasma_params%rhop_vec_ne, dim = 1)
       plasma_params%rhop_max = min(rhop_max_te, rhop_max_ne)
       if(output_level) print*, "Largest rhopol in profiles", plasma_params%rhop_max
-      if(plasma_params%rhop_exit > plasma_params%rhop_max-plasma_params%delta_rhop_exit) then
-        plasma_params%rhop_exit = plasma_params%rhop_max-plasma_params%delta_rhop_exit
-      end if
       close(66)
       if(plasma_params%m_T_e_prof < 40 .or. plasma_params%m_n_e_prof < 40) then
         print*, "points for density and Te profile:", plasma_params%m_T_e_prof

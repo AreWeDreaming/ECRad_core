@@ -38,7 +38,7 @@ ifeq ($(F90),gfortran)
 	F2PYLIBFLAGS = -llapack -lblas
 	F2PYCOMPILER = gnu95
 else
-	FFPFLAGS = -fpp -DINTEL -DNPY_NO_DEPRECATED_API=NPY_1_7_API_VERSION
+	FFPFLAGS = -fpp -DINTEL
 	F90OPTFLAGS = -O2 -fpic -fp-model source -axavx 
 	F90DBGFLAGS = -O0 -g -fpic -traceback -shared-intel  #-DTBB_USE_DEBUG -check all -ftrapuv
 	F2PYOPTFLAGS = -O2
@@ -49,8 +49,7 @@ else
 	LIBFLAG =  -Wl,--start-group ${MKLROOT}/lib/intel64/libmkl_intel_lp64.a ${MKLROOT}/lib/intel64/libmkl_intel_thread.a ${MKLROOT}/lib/intel64/libmkl_core.a -Wl,--end-group -liomp5 -lpthread -lm -ldl
 	INCLUDEFLAGS = -I"${MKLROOT}/include"
 	F2PYLIBFLAGS = -L${MKLROOT}/lib/intel64 -lmkl_intel_lp64 -lmkl_intel_thread -lmkl_core -liomp5 -lpthread -lm -ldl
-	LDFLAGS = -Wl,-rpath=${MKLROOT}/lib/intel64
-	NPY_DISTUTILS_APPEND_FLAGS = 1 
+	LDFLAGS = -Wl,-rpath=${MKLROOT}/lib/intel64 NPY_DISTUTILS_APPEND_FLAGS = 1 
 	F2PYCOMPILER = intelem
 	CC = icc
 endif
@@ -114,7 +113,7 @@ ifeq ($(OPEN_MP),True)
 	F2PYLIBS += $(F90PARLIBFLAGS)
 endif
 F2PYLIBS += $(F2PYLIBFLAGS)
-LDFLAGS += -z muldefs
+#LDFLAGS = -z muldefs
 ifeq ($(F90),gfortran)
 	MODULES = $(MODULEFLAG) -J$(MODECRad)
 else

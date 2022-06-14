@@ -871,9 +871,6 @@ use f90_kind
      use_ida_spline_Te = .false.
   end if
   plasma_params%rhop_max = min(maxval(rhop_knots_ne), maxval(rhop_knots_Te))
-  if(plasma_params%rhop_exit > plasma_params%rhop_max-plasma_params%delta_rhop_exit) then
-    plasma_params%rhop_exit = plasma_params%rhop_max-plasma_params%delta_rhop_exit
-  end if
 end subroutine update_Te_ne
 
 subroutine update_svecs(rad, rhop_knots_ne, n_e, n_e_dx2, rhop_knots_Te, T_e, T_e_dx2)
@@ -963,11 +960,11 @@ implicit none
 real(rkind)     :: ds_small, ds_large
 integer(ikind)  :: idiag, ich, imode, ifreq, ir, error, id
 real(rkind), dimension(max_points_svec) :: tau_array, tau_secondary_array
-real(rkind) :: I0_X, I0_O, I_X, I_O, T_X, T_O
+real(rkind) :: I0_X, I0_O, I_X, I_O, T_X, T_O, ray_reweight, freq_reweight ! needed to account for dead rays/freqs
 character(120)  :: out_str
 do idiag = 1, ant%N_diag
 #ifdef OMP
-  !$omp parallel private(id, ich, imode, ir, ifreq, error, ds_small, ds_large)  &
+  !$omp parallel private(id, ich, imode, ir, ifreq, error, ds_small, ds_large, ray_reweight, freq_reweight)  &
   !$omp          firstprivate(out_str, tau_array, tau_secondary_array) default(shared)
   !$omp do schedule(static)
 #endif
@@ -983,6 +980,7 @@ do idiag = 1, ant%N_diag
     rad%diag(idiag)%ch(ich)%z_res = 0.d0
     rad%diag(idiag)%ch(ich)%rhop_res = 0.d0
     do imode = 1, mode_cnt
+      ray_reweight = 0.d0
       rad%diag(idiag)%ch(ich)%mode(imode)%Trad = 0.d0
       if(output_level) rad%diag(idiag)%ch(ich)%mode(imode)%Trad_secondary = 0.d0
       rad%diag(idiag)%ch(ich)%mode(imode)%tau = 0.d0
@@ -1001,6 +999,7 @@ do idiag = 1, ant%N_diag
         rad%diag(idiag)%ch(ich)%mode(imode)%pol_coeff_secondary = rad%diag(idiag)%ch(ich)%mode(imode)%ray(1)%freq(1)%pol_coeff_secondary
       end if
       do ir = 1, N_ray
+        freq_reweight = 0.d0
         if(.not. rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%contributes) cycle
         rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%Trad = 0.d0
         if(output_level) rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%Trad_secondary = 0.d0
@@ -1244,6 +1243,13 @@ do idiag = 1, ant%N_diag
     do imode = 1, mode_cnt
       if(rad%diag(idiag)%ch(ich)%mode(imode)%ray(1)%freq(1)%use_external_pol_coeff .and. &
          rad%diag(idiag)%ch(ich)%mode(imode)%ray(1)%freq(1)%pol_coeff == 0.d0) cycle
+      ! Renormalize the weights here to account for rays that did not see any plasma
+      ray_reweight = 0.d0
+      do ir = 1, N_ray
+          if(rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%contributes) then
+            ray_reweight = ray_reweight + ant%diag(idiag)%ch(ich)%ray_launch(ir)%weight
+          end if
+      end do
       do ir = 1, N_ray
         if(.not. rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%contributes) cycle
         do ifreq = 1, N_freq
@@ -1264,20 +1270,20 @@ do idiag = 1, ant%N_diag
           rad%diag(idiag)%ch(ich)%Trad = rad%diag(idiag)%ch(ich)%Trad + &
                 rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%pol_coeff * ant%diag(idiag)%ch(ich)%freq_weight(ifreq) * &
                 ant%diag(idiag)%ch(ich)%ray_launch(ir)%weight * rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%Trad * &
-              ant%diag(idiag)%ch(ich)%freq_int_weight(ifreq)
+                ant%diag(idiag)%ch(ich)%freq_int_weight(ifreq) / ray_reweight
           if(output_level) rad%diag(idiag)%ch(ich)%Trad_secondary = rad%diag(idiag)%ch(ich)%Trad_secondary + &
             rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%pol_coeff_secondary * ant%diag(idiag)%ch(ich)%freq_weight(ifreq) * &
             ant%diag(idiag)%ch(ich)%ray_launch(ir)%weight * rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%Trad_secondary * &
-              ant%diag(idiag)%ch(ich)%freq_int_weight(ifreq)
+            ant%diag(idiag)%ch(ich)%freq_int_weight(ifreq) / ray_reweight
         end do ! ifreq
         rad%diag(idiag)%ch(ich)%mode(imode)%Trad = rad%diag(idiag)%ch(ich)%mode(imode)%Trad + &
-          ant%diag(idiag)%ch(ich)%ray_launch(ir)%weight * rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%Trad
+          ant%diag(idiag)%ch(ich)%ray_launch(ir)%weight * rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%Trad / ray_reweight
         if(output_level) rad%diag(idiag)%ch(ich)%mode(imode)%Trad_secondary = rad%diag(idiag)%ch(ich)%mode(imode)%Trad_secondary + &
-          ant%diag(idiag)%ch(ich)%ray_launch(ir)%weight * rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%Trad_secondary
+          ant%diag(idiag)%ch(ich)%ray_launch(ir)%weight * rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%Trad_secondary / ray_reweight
         rad%diag(idiag)%ch(ich)%mode(imode)%tau = rad%diag(idiag)%ch(ich)%mode(imode)%tau + &
-          ant%diag(idiag)%ch(ich)%ray_launch(ir)%weight * rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%tau
+          ant%diag(idiag)%ch(ich)%ray_launch(ir)%weight * rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%tau / ray_reweight
         if(output_level) rad%diag(idiag)%ch(ich)%mode(imode)%tau_secondary = rad%diag(idiag)%ch(ich)%mode(imode)%tau_secondary + &
-          ant%diag(idiag)%ch(ich)%ray_launch(ir)%weight * rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%tau_secondary
+          ant%diag(idiag)%ch(ich)%ray_launch(ir)%weight * rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%tau_secondary / ray_reweight
       end do !N_ray
     end do !imode
     if(mode_cnt == 2) then
@@ -1312,6 +1318,7 @@ do idiag = 1, ant%N_diag
         !end if
       end if
     end if
+
     do imode = 1, mode_cnt
       if(mode_cnt == 2) then
         if(rad%diag(idiag)%ch(ich)%Trad > 0.d0) then

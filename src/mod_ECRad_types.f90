@@ -446,10 +446,8 @@ type plasma_params_type
   real(rkind)                                       :: H_last = 1.d-10, trigger_level = 10 !* Used to detect large jump in H
   real(rkind)                                       :: h_min = 5.e-5, h_max = 4.e-3 !* for the adaptive step size we need boundaries
   real(rkind)                                       :: R_ax, z_ax, B_ax ! for HFS, LFS distinction
-  real(rkind)                                       :: rhop_entry = 1.2d0 !*
-  real(rkind)                                       :: rhop_inside = 0.99d0, rhop_exit = 1.05d0 !* Stop if rhop > rhop exit
-                                                                                                !  and rhop_inside was reached before
-  real(rkind)                                       :: delta_rhop_exit = 0.02 !* Used to trigger an early exit of raytracing
+  real(rkind)                                       :: rhop_max_default = 1.2d0 !*
+  real(rkind)                                       :: delta_rhop_exit = 0.005!* Used to trigger an early exit of raytracing
                                                                                ! in case of profiles that stop at the LCFS
   real(rkind)                                       :: X_entry = 0.04 !*
   real(rkind)                                       :: rhop_emit = 1.03 !* Specifies upper limit for the fine grid

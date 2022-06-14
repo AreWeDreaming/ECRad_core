@@ -2174,7 +2174,6 @@ function func_dA_dY(X, Y)
     omega_c = e0 * B_abs /mass_e
     rhop_out = func_rhop(plasma_params, x_vec)
     if(rhop_out > plasma_params%rhop_max .or. &
-       rhop_out > plasma_params%rhop_entry .or. &
        rhop_out == -1.d0) then
       n_e = SOL_ne
       T_e = SOL_Te
@@ -2510,7 +2509,7 @@ function func_dA_dY(X, Y)
           end if
         if(wall_hits == 0) wall_hits = 1
         inside_vessel = .true.
-        if(ray_point%rhop < plasma_params%rhop_max .and. ray_point%rhop > 0.d0) then
+        if(ray_point%rhop < plasma_params%rhop_max - plasma_params%delta_rhop_exit .and. ray_point%rhop > 0.d0) then
           been_in_plasma = .true.
         else
           func_within_plasma = .false.
@@ -2581,17 +2580,17 @@ function func_dA_dY(X, Y)
             print*, "Entered plasma because profiles useful, despite still outside vessel"
         func_within_plasma = .true.
       end if
-      if(ray_point%rhop < plasma_params%rhop_inside) been_in_plasma = .true. ! Inside closed flux surfaces rhop < 0.99d
-    else if (been_in_plasma .and. ray_point%rhop >= plasma_params%rhop_exit) then
+      if(ray_point%rhop < plasma_params%rhop_max - plasma_params%delta_rhop_exit ) been_in_plasma = .true. ! Inside closed flux surfaces rhop < 0.99d
+    else if (been_in_plasma .and. ray_point%rhop >= plasma_params%rhop_max - plasma_params%delta_rhop_exit .and. ray_point%rhop > 0.d0) then
       func_within_plasma = .false.
-      if(debug_level > 0 .and. output_level) print*, "Rhop now larger than rhop_exit after pass through plasma"
+      if(debug_level > 0 .and. output_level) print*, "Rhop now larger than max rhop after pass through plasma"
       if(debug_level > 0 .and. output_level) print*, "Position",  R_vec(1), R_vec(3)
       if(wall_hits == 1) wall_hits =  2 ! Pretend a second wall hit when already propagating to pass consistency test at end of raytracing
-    else if(ray_point%rhop >= plasma_params%rhop_max) then
+    else if(ray_point%rhop >= plasma_params%rhop_max .or. ray_point%rhop < 0.d0) then
       func_within_plasma = .false.
     else
       print*,"Unexpected condition for check if in plasma"
-      print*, ray_point%rhop, plasma_params%rhop_max, plasma_params%rhop_exit
+      print*, ray_point%rhop, plasma_params%rhop_max
       call abort()
     end if
     if(wall_hits > 1) func_within_plasma = .false. ! No need to raytrace into the wall
@@ -2677,7 +2676,7 @@ function func_dA_dY(X, Y)
     !print*, "-----------------Ray init-------------"
     do while(.not. plasma_prop)
       !print*, ray_segment(N)%s
-      if(R_cur < 2.d0 * h) then
+      if(R_cur < 2.d0 * h .and. wall_hits == 0) then
         do while(.true.)
           h = h * 1.d-1
           if(h < 1.d-3) exit
@@ -2699,7 +2698,6 @@ function func_dA_dY(X, Y)
         print*, "travelled distance", ray_segment(N)%s
         if(all(ray_segment(:)%rhop == -1)) print*, "No plasma along the ray - check viewing geometry!"
         last_N = N + 1
-        !stop "Increase MAXIT in sub_make_ray in mod_rayrace.f90"
         return
       end if
       if(wall_hits == 0) then
@@ -2714,6 +2712,8 @@ function func_dA_dY(X, Y)
           print*, "Current position", ray_segment(N)%R_vec
           call abort
         end if
+      else
+        h = 0.005 ! Half a millimeter steps if inside the vessel
       end if
       call sub_remap_coords(ray_segment(N)%x_vec, ray_segment(N)%R_vec)
       if((ray_segment(N)%R_vec(1)  > plasma_params%R_min .and.  ray_segment(N)%R_vec(1)  < plasma_params%R_max) .and.  &
@@ -2721,8 +2721,8 @@ function func_dA_dY(X, Y)
          call sub_local_params(plasma_params, omega, ray_segment(N)%x_vec, ray_segment(N)%N_vec, ray_segment(N)%B_vec, &
                                ray_segment(N)%N_s, ray_segment(N)%n_e, ray_segment(N)%omega_c,  ray_segment(N)%T_e, &
                                ray_segment(N)%theta, ray_segment(N)%rhop)
-         if(ray_segment(N)%rhop > 0.d0 .and. ray_segment(N)%rhop < plasma_params%rhop_max .and.  &
-            ray_segment(N)%rhop < plasma_params%rhop_entry) then
+         if(ray_segment(N)%rhop > 0.d0 .and.   &
+            ray_segment(N)%rhop < plasma_params%rhop_max - plasma_params%delta_rhop_exit) then
            if(first_N_plasma < 0) first_N_plasma = N
            last_N_plasma = N
          end if
@@ -2831,8 +2831,8 @@ function func_dA_dY(X, Y)
       ray_point = ray_segment(N)
       ray_point%x_vec = x_vec_max
       ray_point%rhop = func_rhop(plasma_params, x_vec_max)
-      if(ray_point%rhop > 0.d0 .and. ray_point%rhop < plasma_params%rhop_max .and.  &
-         ray_point%rhop  < plasma_params%rhop_entry) then
+      if(ray_point%rhop > 0.d0 .and. &
+         ray_point%rhop  < plasma_params%rhop_max - plasma_params%delta_rhop_exit) then
         last_N_plasma = N - 1
       end if
       propagating = func_within_plasma(plasma_params, ray_point, omega, wall_hits, been_in_plasma)
@@ -2940,7 +2940,7 @@ function func_dA_dY(X, Y)
     !print*,"Plasma propagation from", ray_segment(first_N)%x_vec, "to", ray_segment(last_N)%x_vec
     if(last_N <= N_start + 2 .and. output_level) then
       print*, "Raytracing stopped after just 2 iterations"
-      print*, "Flagging this channel as no plasma contact"
+      print*, "Flagging this ray as no plasma contact"
       if(debug_level > 1) then
           print*, "place",ray_segment(N - 1)%x_vec
           print*, "trajectory",ray_segment(N - 1)%N_vec
@@ -3481,6 +3481,7 @@ function func_dA_dY(X, Y)
             if(No_plasma) then
               rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%contributes = .false.
               rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%total_LOS_points = 0
+              rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%N = 0
               if(output_level) print*, "Warning a ray did not pass through any plasma"
               cycle
             end if
@@ -3498,7 +3499,8 @@ function func_dA_dY(X, Y)
               print*, ray_segment(1)%R_vec(1), ray_segment(1)%R_vec(2), ray_segment(1)%R_vec(3)
               print*, ray_segment(last_N)%R_vec(1), ray_segment(last_N)%R_vec(2), ray_segment(last_N)%R_vec(3)
               print*, "Distance traveled in plasma", ray_segment(last_N)%s - ray_segment(N_init)%s
-              stop "Error with rays in mod_raytrace.f90"
+              print*, "Please check your inputs. If the error persists this might be due to a bug in ECRad."
+              call abort()
             end if
           else
             cur_ray = ir + N_ray * mode_cnt * (ich - 1) + N_ray * (imode - 1)
@@ -3833,8 +3835,8 @@ function func_dA_dY(X, Y)
   last_N = total_LOS_points
   first_N_plasma = -1
   do i = 1, last_N
-    if(ray_segment(i)%rhop > 0.0 .and. ray_segment(i)%rhop < plasma_params%rhop_max & 
-       .and. ray_segment(i)%rhop < plasma_params%rhop_entry) then
+    if(ray_segment(i)%rhop > 0.0 .and. & 
+    ray_segment(i)%rhop > plasma_params%rhop_max - plasma_params%delta_rhop_exit) then
       if(first_N_plasma < 0) first_N_plasma = i
       last_N_plasma = i
     end if
