@@ -6,6 +6,8 @@ if ($DOMAIN =~ *"mpg"* ) then
   module load intel/21.3.0
   module load mkl/2021.3
   module load anaconda/3/2021.11
+  module load hdf5-serial
+  module load netcdf-serial
   module load git
 # >>> conda initialize >>>
 # !! Contents within this block are managed by 'conda init' !!

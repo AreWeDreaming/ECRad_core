@@ -568,7 +568,6 @@ if(modes == 3) then
 end if
 if(present(rhop_res)) then
   do idiag = 1, ant%N_diag
-    print*, rad%diag(idiag)%ch(:)%rhop_res
     rhop_res = rad%diag(idiag)%ch(:)%rhop_res
   end do
 end if
