@@ -14,7 +14,7 @@ if [[ $HOSTNAME == *"mpg"* ]]
       source "/mpcdf/soft/SLE_15/packages/x86_64/anaconda/3/2021.11/etc/profile.d/conda.sh"
   else
       export PATH="/mpcdf/soft/SLE_15/packages/x86_64/anaconda/3/2021.11/bin:$PATH"
-  endif
+  fi
   conda activate ECRad_conda
 elif [[ $HOSTNAME == *"cm.cluster"* ]] || [[ $HOSTNAME == "eofe8" ]]
   then
