@@ -330,7 +330,7 @@ end subroutine read_input_file
 subroutine parse_ECRad_config(plasma_params, &
                               ecrad_verbose, dstf_in, ray_tracing, ecrad_Bt_ripple, &
                               rhopol_max_spline_knot, ecrad_weak_rel, &
-                              ecrad_ratio_for_third_harmonic, ecrad_tau_ignore, &
+                              ecrad_ratio_for_third_harmonic, ecrad_N_max, ecrad_tau_ignore, &
                               ecrad_modes, reflec_X_mode, reflec_O_mode, ece_1O_flag, &
                               ecrad_max_points_svec, & ! (modes = 1 -> pure X-mode, 2 -> pure O-mode, 3 both modes and filter
                               ecrad_O2X_mode_conversion, & ! mode conversion ratio from O-X due to wall reflections
@@ -342,7 +342,7 @@ subroutine parse_ECRad_config(plasma_params, &
                               ecrad_N_ray, ecrad_N_freq, log_flag, parallelization_mode)
 use mod_ECRad_types,        only : plasma_params_type, ant, rad, output_level, &
                                    N_freq, N_ray, diagnostics, dstf,&
-                                   straight, ratio_for_third_harmonic, tau_ignore, reflec_X, reflec_O, warm_plasma, &
+                                   straight, ratio_for_third_harmonic, N_max, tau_ignore, reflec_X, reflec_O, warm_plasma, &
                                    modes, mode_cnt, mode_conv, vessel_bd_filename, &
                                    stand_alone, dstf_comp, use_ida_spline_Te, use_ida_spline_ne, &
                                    max_points_svec, reflec_model, data_name, data_secondary_name, ffp
@@ -354,7 +354,7 @@ real(rkind), intent(in)                    :: rhopol_max_spline_knot, ecrad_rati
                                               rhopol_scal_te, rhopol_scal_ne, &
                                               ecrad_ds_large, ecrad_ds_small, ecrad_R_shift, ecrad_z_shift
 integer(ikind), intent(in)                 :: ecrad_modes, ecrad_max_points_svec, ecrad_N_ray, &
-                                              ecrad_N_freq,ece_1O_flag
+                                              ecrad_N_freq,ece_1O_flag, ecrad_N_max
 logical, intent(in)                        :: ecrad_verbose, ecrad_Bt_ripple, ray_tracing, ecrad_weak_rel, log_flag
 integer(ikind), intent(in), optional       :: parallelization_mode
 integer(ikind)                             :: istat
@@ -416,6 +416,7 @@ integer(ikind)                             :: istat
   warm_plasma            = ecrad_weak_rel !ida%ece%ecrad_weak_rel
   ! cut off correction incompatible with cold dispersion used in alabajar model
   ratio_for_third_harmonic = ecrad_ratio_for_third_harmonic !ida%ece%ecrad_ratio_for_third_harmonic ! (omega_c / omega = 0.4 => n = 2.5)
+  N_max = ecrad_N_max
   tau_ignore = ecrad_tau_ignore !Level at which the approximation formula causes the absorption coefficient calculation to be skipped
   reflec_X = reflec_X_mode !ida%ece%reflec_X_mode
   reflec_O = reflec_O_mode! ida%ece%reflec_O_mode

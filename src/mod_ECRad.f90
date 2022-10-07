@@ -163,7 +163,7 @@ end subroutine initialize_stand_alone
 
 subroutine pre_initialize_ECRad_f2py(ecrad_verbose, dstf_in, ray_tracing, ecrad_Bt_ripple, &
                                      rhopol_max_spline_knot, ecrad_weak_rel, &
-                                     ecrad_ratio_for_third_harmonic, ecrad_tau_ignore, &
+                                     ecrad_ratio_for_third_harmonic, ecrad_N_max, ecrad_tau_ignore, &
                                      ecrad_modes, reflec_X_mode, reflec_O_mode, ece_1O_flag, &
                                      ecrad_max_points_svec, N_BPD_pnts, & ! (modes = 1 -> pure X-mode, 2 -> pure O-mode, 3 both modes and filter
                                      ecrad_O2X_mode_conversion, & ! mode conversion ratio from O-X due to wall reflections
@@ -182,11 +182,11 @@ use mod_ECRad_abs_Al,     only: abs_Al_init
 implicit none
 character(*), intent(in)        :: dstf_in
 real(rkind), intent(in)       :: rhopol_max_spline_knot, ecrad_ratio_for_third_harmonic, ecrad_tau_ignore, &
-                                              reflec_X_mode, reflec_O_mode, ecrad_O2X_mode_conversion, &
-                                              rhopol_scal_te, rhopol_scal_ne, &
-                                              ecrad_ds_large, ecrad_ds_small, ecrad_R_shift, ecrad_z_shift
+                                 reflec_X_mode, reflec_O_mode, ecrad_O2X_mode_conversion, &
+                                 rhopol_scal_te, rhopol_scal_ne, &
+                                 ecrad_ds_large, ecrad_ds_small, ecrad_R_shift, ecrad_z_shift
 integer(ikind), intent(in)    :: ecrad_modes, ecrad_max_points_svec, N_BPD_pnts, ecrad_N_ray, &
-                                              ecrad_N_freq,ece_1O_flag
+                                 ecrad_N_freq,ece_1O_flag, ecrad_N_max
 logical, intent(in)           :: ecrad_verbose, ecrad_Bt_ripple, ray_tracing, ecrad_weak_rel, log_flag
 integer(ikind), intent(in)    :: N_vessel
 real(rkind), dimension(:), intent(in) :: vessel_R, vessel_z
@@ -195,7 +195,7 @@ integer(ikind)                :: idiag
   call parse_ECRad_config(plasma_params, &
                           ecrad_verbose, dstf_in, ray_tracing, ecrad_Bt_ripple, &
                           rhopol_max_spline_knot, ecrad_weak_rel, &
-                          ecrad_ratio_for_third_harmonic, ecrad_tau_ignore, &
+                          ecrad_ratio_for_third_harmonic, ecrad_N_max, ecrad_tau_ignore, &
                           ecrad_modes, reflec_X_mode, reflec_O_mode, ece_1O_flag, &
                           ecrad_max_points_svec, & ! (modes = 1 -> pure X-mode, 2 -> pure O-mode, 3 both modes and filter
                           ecrad_O2X_mode_conversion, & ! mode conversion ratio from O-X due to wall reflections
@@ -271,7 +271,7 @@ if(trim(flag) == "init" .or. trim(flag) == "load") then
     call parse_ECRad_config(plasma_params, &
                             ecrad_verbose, "Th", ray_tracing, ecrad_Bt_ripple, &
                             rhopol_max_spline_knot, ecrad_weak_rel, &
-                            ecrad_ratio_for_third_harmonic, &
+                            ecrad_ratio_for_third_harmonic, 3, &
                             ecrad_modes, reflec_X_mode, reflec_O_mode, ece_1O_flag, &
                             ecrad_max_points_svec, & ! (modes = 1 -> pure X-mode, 2 -> pure O-mode, 3 both modes and filter
                             ecrad_O2X_mode_conversion, & ! mode conversion ratio from O-X due to wall reflections

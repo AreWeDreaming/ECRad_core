@@ -4,7 +4,7 @@ contains
 
 subroutine pre_initialize_ECRad(ecrad_verbose, dstf, ray_tracing, ecrad_Bt_ripple, &
                                 rhopol_max_spline_knot, ecrad_weak_rel, &
-                                ecrad_ratio_for_third_harmonic, ecrad_tau_ignore, &
+                                ecrad_ratio_for_third_harmonic, ecrad_N_max, ecrad_tau_ignore, &
                                 ecrad_modes, reflec_X_mode, reflec_O_mode, ece_1O_flag, &
                                 ecrad_max_points_svec, N_pts_BPD, &
                                 ecrad_O2X_mode_conversion, &
@@ -18,18 +18,18 @@ use mod_ECRad,      only: pre_initialize_ECRad_f2py
 implicit none
 character(*), intent(in)        :: dstf
 real(kind=8), intent(in)      :: rhopol_max_spline_knot, ecrad_ratio_for_third_harmonic, ecrad_tau_ignore, &
-                                              reflec_X_mode, reflec_O_mode, ecrad_O2X_mode_conversion, &
-                                              rhopol_scal_te, rhopol_scal_ne, &
-                                              ecrad_ds_large, ecrad_ds_small, ecrad_R_shift, ecrad_z_shift
+                                 reflec_X_mode, reflec_O_mode, ecrad_O2X_mode_conversion, &
+                                 rhopol_scal_te, rhopol_scal_ne, &
+                                 ecrad_ds_large, ecrad_ds_small, ecrad_R_shift, ecrad_z_shift
 integer, intent(in)   :: ecrad_modes, ecrad_max_points_svec, N_pts_BPD, ecrad_N_ray, &
-                         ecrad_N_freq,ece_1O_flag
+                         ecrad_N_freq,ece_1O_flag, ecrad_N_max
 logical, intent(in)           :: ecrad_verbose, ecrad_Bt_ripple, ray_tracing, ecrad_weak_rel, log_flag
 integer, intent(in)    :: N_vessel
 real(kind=8), dimension(:), intent(in) :: vessel_R, vessel_z ! vessel contour
 real(kind=8), dimension(:), intent(in), optional :: f, df, R, phi, z, tor, pol, dist_foc, width, pol_coeff
 call pre_initialize_ECRad_f2py(ecrad_verbose, dstf, ray_tracing, ecrad_Bt_ripple, &
                                rhopol_max_spline_knot, ecrad_weak_rel, &
-                               ecrad_ratio_for_third_harmonic, ecrad_tau_ignore, &
+                               ecrad_ratio_for_third_harmonic, ecrad_N_max, ecrad_tau_ignore, &
                                ecrad_modes, reflec_X_mode, reflec_O_mode, ece_1O_flag, &
                                ecrad_max_points_svec, N_pts_BPD ,& ! (modes = 1 -> pure X-mode, 2 -> pure O-mode, 3 both modes and filter
                                ecrad_O2X_mode_conversion, & ! mode conversion ratio from O-X due to wall reflections

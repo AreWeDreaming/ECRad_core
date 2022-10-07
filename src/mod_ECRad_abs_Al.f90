@@ -264,7 +264,7 @@ contains
   ! Calculates the absorption coefficient using Grays warm_disp routine. Note that this always includes both 2nd and 3rd harmonic.
     use mod_ECRad_types,        only: rad_diag_ch_mode_ray_freq_svec_type, &
                                           ratio_for_third_harmonic, dstf, straight, Hamil, &
-                                          ignore_Te, ignore_ne
+                                          ignore_Te, ignore_ne, N_max
     use constants,                  only: pi, e0, mass_e, eps0, c0
     use mod_ECRad_abs_Fa,       only: warmdamp
     implicit none
@@ -295,7 +295,7 @@ contains
       if(dstf /= "Th") then
         max_harmonic = 5 ! always also third harmonic for non-thermal discharges
       else
-        if(sqrt(beta) < ratio_for_third_harmonic) max_harmonic = 3
+        if(sqrt(beta) < ratio_for_third_harmonic) max_harmonic = N_max
       end if
       if(present(pol_coeff_secondary) .or. present(pol_vec)) then
         if(.not. present(pol_vec)) then

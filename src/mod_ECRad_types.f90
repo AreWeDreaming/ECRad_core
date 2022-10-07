@@ -501,6 +501,7 @@ end type plasma_params_type
   type(Spitzer_type)                 :: Spitzer
   type(runaway_type)                 :: runaway
   real(rkind)                        :: ratio_for_third_harmonic = -1.d0! When to include third harmonic
+  integer(ikind)                     :: N_max = 3
   integer(ikind)                     :: m_eq = 65,n_eq = 129
   real(rkind)                        :: min_density = 1.e18, min_Te = 100.d0, max_Te=1.e6 ! Used to double check the input
   real(rkind)                        :: SOL_ne = 1.e14, SOL_Te = 20.0d-3 ! should be smaller than min_density and min_Te
