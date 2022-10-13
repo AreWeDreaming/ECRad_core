@@ -14,7 +14,7 @@ make DEBUG=True
 make
 make OPEN_MP=True
 make OPEN_MP=True DEBUG=True
-rm id
+rm -f id
 git rev-parse HEAD > id
 $PYTHON -m build -n -x
 $PYTHON -m pip install --no-deps .
