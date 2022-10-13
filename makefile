@@ -283,5 +283,5 @@ $(MODECRad)/ECRad_python$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).o: \
 
 clean:
 ifneq ($(ROOTDIR),$(ECRadLIBDir))
-	rm -r $(ECRadLIBDir)
+	rm -rf $(ECRadLIBDir)
 endif
