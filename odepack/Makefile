@@ -3,11 +3,6 @@
 # Usage: make LIB=<libname>
 # Pearu
 LIB=ODEPack
-ifeq ($(COMPILER),g)
-	FC = gfortran
-else
-	FC = ifort
-endif
 ifeq ($(FC),gfortran)
 	FFLAGS = -O2 -mavx -fopenmp -fpic
 else

@@ -16,14 +16,6 @@ else
 	STDPLIB = $(SRCP)/std_lib.f90
 endif
 obj=
-#Linux
-ifeq ($(COMPILER),g)
-	F90 = gfortran
-	F77 = gfortran
-else
-	F90 = ifort
-	F77 = ifort
-endif
 
 ifeq ($(F90),gfortran)
 	F90OPTFLAGS = -O2 -mavx -ffree-form -ffree-line-length-none -fPIC
