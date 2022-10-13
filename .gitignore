@@ -32,3 +32,5 @@ src/nr_mod.mod
 src/nr_special_funcs.mod
 src/nr_utils.mod
 src/ripple3d.mod
+!*.toml
+!*.cfg
