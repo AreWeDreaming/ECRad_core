@@ -1,7 +1,10 @@
-package:
-  name: ECRad_conda
-  version: {{ version }}
+package: 
+  name: ecrad_core
+  version: 1.0.0
 
+source:
+  git_rev: 1.0.0
+  git_url: https://github.com/AreWeDreaming/ECRad_core
 requirements:
     build:
       - make
@@ -11,12 +14,4 @@ requirements:
       - liblapack
     run:
       - python=3.7
-      - numpy
-      - scipy
-      - matplotlib
-      - hdf5
-      - netcdf4 >=1.5.6
-      - h5py
-      - wxpython
-      - conda-forge::f90nml>=1.3.1
-      - AreWeDreaming::plasma_math_tools
+      - numpy>=1.21
