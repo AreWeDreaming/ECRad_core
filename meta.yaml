@@ -1,9 +1,9 @@
 package: 
   name: ecrad_core
-  version: 1.0.7
+  version: 1.0.8
 
 source:
-  git_rev: 1.0.7
+  git_rev: 1.0.8
   git_url: https://github.com/AreWeDreaming/ECRad_core
 requirements:
     build:
@@ -12,11 +12,11 @@ requirements:
       - binutils
       - libblas
       - liblapack
-      - python=3.7.*
-      - numpy>=1.21
+      - python >=3.7.*
+      - numpy >=1.21
       - pip >=21.0
       - setuptools >=57.4
       - build >=0.7
     run:
-      - python=3.7
-      - numpy>=1.21
+      - python >=3.7
+      - numpy >=1.21
