@@ -1,17 +1,16 @@
 package: 
   name: ecrad_core
-  version: 1.0.8
+  version: 1.0.9
 
 source:
-  git_rev: 1.0.8
+  git_rev: 1.0.9
   git_url: https://github.com/AreWeDreaming/ECRad_core
 requirements:
     build:
       - make
       - gfortran
       - binutils
-      - libblas
-      - liblapack
+      - libopenblas
       - python >=3.7.*
       - numpy >=1.21
       - pip >=21.0

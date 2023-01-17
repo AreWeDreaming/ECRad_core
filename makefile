@@ -26,8 +26,9 @@ ifeq ($(F90),gfortran)
 	F90PARLIBFLAGS = -lgomp
 	FFPFLAGS = -cpp
 	MODULEFLAG = 	
-	LIBFLAG = -static-libgcc -llapack -lblas
-	F2PYLIBFLAGS = -llapack -lblas
+	LIBFLAG = -L$(BLAS_DIR)/lib -static-libgcc -lopenblas 
+	F2PYLIBFLAGS = -L$(BLAS_DIR)/lib -lopenblas
+	LDFLAGS = -Wl,-rpath=$(BLAS_DIR)/lib
 	F2PYCOMPILER = gnu95
 else
 	FFPFLAGS = -fpp -DINTEL
@@ -172,7 +173,7 @@ $(MODECRad)/$(APPLICATION)$(OMPFLAG)$(USE3DFLAG)$(DB).o : $(SRCP)/$(APPLICATION)
 	
 $(ECRadLIBDir)/ECRadPython$(OMPFLAG)$(USE3DFLAG)$(DB): $(ECRadLIBDir)/lib$(ECRadLIB)$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).a
 	cd $(ECRadLIBDir); \
-	python3 -m numpy.f2py $(F2PYDBG) -c --fcompiler=$(F2PYCOMPILER) ../src/ECRad_python$(OMPFLAG)$(USE3DFLAG).f90 -m ECRad_python$(OMPFLAG)$(USE3DFLAG)$(DB) \
+	python -m numpy.f2py $(F2PYDBG) -c --fcompiler=$(F2PYCOMPILER) ../src/ECRad_python$(OMPFLAG)$(USE3DFLAG).f90 -m ECRad_python$(OMPFLAG)$(USE3DFLAG)$(DB) \
 		-I$(MODECRad) --opt='' --f90flags='$(F2PYFLAGS)' $(F2PYLIBS); \
 	rm *.c; rm *.f90; \
 	cd ../
