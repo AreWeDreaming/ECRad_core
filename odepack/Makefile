@@ -14,7 +14,15 @@ else
 	FFLAGS = -fpic -O2 -fpic -traceback -shared-intel -qopenmp 
 endif
 OBJ=$(patsubst %.f,%.o,$(shell ls *.f))
+ifdef PREFIX
+all: directory $(LIBDIR)/lib$(LIB).a	
+else
 all: $(LIBDIR)/lib$(LIB).a
+endif
+
+directory:
+	mkdir -p $(LIBDIR)
+
 $(OBJ):
 	$(FC) -c $(FFLAGS) $(FSHARED) $(patsubst %.o,%.f,$(@F)) -o $@
 $(LIBDIR)/lib$(LIB).a: $(OBJ)
