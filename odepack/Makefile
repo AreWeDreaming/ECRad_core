@@ -3,16 +3,22 @@
 # Usage: make LIB=<libname>
 # Pearu
 LIB=ODEPack
+ifdef PREFIX
+	LIBDIR = $(PREFIX)/lib
+else
+	LIBDIR = $(CURDIR)
+endif
 ifeq ($(FC),gfortran)
 	FFLAGS = -O2 -mavx -fopenmp -fpic
 else
 	FFLAGS = -fpic -O2 -fpic -traceback -shared-intel -qopenmp 
 endif
 OBJ=$(patsubst %.f,%.o,$(shell ls *.f))
-all: lib$(LIB).a
+all: $(LIBDIR)/lib$(LIB).a
 $(OBJ):
 	$(FC) -c $(FFLAGS) $(FSHARED) $(patsubst %.o,%.f,$(@F)) -o $@
-lib$(LIB).a: $(OBJ)
-	$(AR) rus lib$(LIB).a $?
+$(LIBDIR)/lib$(LIB).a: $(OBJ)
+	$(AR) rus $(LIBDIR)/lib$(LIB).a $?
 clean:
 	rm -f *.o
+	rm -f $(LIBDIR)/lib$(LIB).a

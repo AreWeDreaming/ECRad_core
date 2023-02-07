@@ -1,11 +1,17 @@
 APPLICATION = ECRad
-ifndef SYS
-	SYS = bin
-endif
 ROOTDIR=$(CURDIR)
-ECRadLIBDir=$(ROOTDIR)/$(SYS)
+ifndef SYS
+		SYS = bin
+endif
 ECRadLIB=$(APPLICATION)
 SRCP=$(ROOTDIR)/src
+ifdef PREFIX
+	ECRadLIBDir=$(PREFIX)/lib
+	CONDALIBS = $(ECRadLIBDir)
+else
+	ECRadLIBDir=$(ROOTDIR)/$(SYS)
+endif
+
 
 ifeq ($(IDA),True)
 	STDP=/afs/ipp/cips/ipp/data_analysis/lib_std/$(SYS)
@@ -26,9 +32,9 @@ ifeq ($(COMPILER),GNU)
 	F90PARLIBFLAGS = -lgomp
 	FFPFLAGS = -cpp
 	MODULEFLAG = 	
-	LIBFLAG = -L$(CONDA_PREFIX)/lib -static-libgcc -lopenblas 
-	F2PYLIBFLAGS = -L$(CONDA_PREFIX)/lib -lopenblas
-	LDFLAGS = -Wl,-rpath=$(CONDA_PREFIX)/lib
+	LIBFLAG = -L$(CONDALIBS) -static-libgcc -lopenblas 
+	F2PYLIBFLAGS = -L$(CONDALIBS) -lopenblas
+	LDFLAGS = -Wl,-rpath=$(CONDALIBS)/lib
 	F2PYCOMPILER = gnu95
 else
 	COMPILER=INTEL
@@ -155,11 +161,17 @@ OBJS := $(addprefix $(MODECRad)/, $(OBJECTS))
 # Rules
 .PHONY: INFO
 ifeq ($(IDA),True)
-all: INFO directories $(ECRadLIBDir)/lib$(ECRadLIB)$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).a
+all: INFO directories lib
 else
-all: INFO directories $(ECRadLIBDir)/lib$(ECRadLIB)$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).a \
+all: INFO directories lib \
 	$(ECRadLIBDir)/ECRadPython$(OMPFLAG)$(USE3DFLAG)$(DB) $(ECRadLIBDir)/$(APPLICATION)$(OMPFLAG)$(USE3DFLAG)$(DB)
 endif
+
+lib: directories \
+	$(ECRadLIBDir)/lib$(ECRadLIB)$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).a \
+	$(ECRadLIBDir)/ECRadPython$(OMPFLAG)$(USE3DFLAG)$(DB)
+	
+
 ifeq ($(COMPILER),GNU)
 INFO:
 	echo "Assuming GNU toochain"
@@ -179,7 +191,7 @@ $(MODECRad)/$(APPLICATION)$(OMPFLAG)$(USE3DFLAG)$(DB).o : $(SRCP)/$(APPLICATION)
 	
 $(ECRadLIBDir)/ECRadPython$(OMPFLAG)$(USE3DFLAG)$(DB): $(ECRadLIBDir)/lib$(ECRadLIB)$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).a
 	cd $(ECRadLIBDir); \
-	python -m numpy.f2py $(F2PYDBG) -c --fcompiler=$(F2PYCOMPILER) ../src/ECRad_python$(OMPFLAG)$(USE3DFLAG).f90 -m ECRad_python$(OMPFLAG)$(USE3DFLAG)$(DB) \
+	python -m numpy.f2py $(F2PYDBG) -c --fcompiler=$(F2PYCOMPILER) $(ROOTDIR)/src/ECRad_python$(OMPFLAG)$(USE3DFLAG).f90 -m ECRad_python$(OMPFLAG)$(USE3DFLAG)$(DB) \
 		-I$(MODECRad) --opt='' --f90flags='$(F2PYFLAGS)' $(F2PYLIBS); \
 	rm *.c; rm *.f90; \
 	cd ../
@@ -194,7 +206,7 @@ $(MODECRad)/%$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).o: $(SRCP)/%.f90
 	 $(F90) $(MODULES) $(FFPFLAGS) -c $(F90FLAGS) $< -o $@
 	 
 #making the directories
-directories: ${MODECRad}
+directories: ${ECRadLIBDir} ${MODECRad}
 
 ${ECRadLIBDir}:
 	${MKDIR_P} ${ECRadLIBDir}
