@@ -17,7 +17,7 @@ else
 endif
 obj=
 
-ifeq ($(F90),gfortran)
+ifeq ($(COMPILER),GNU)
 	F90OPTFLAGS = -O2 -mavx -ffree-form -ffree-line-length-none -fPIC
 	F90DBGFLAGS = -g -ffree-form -ffree-line-length-none -fPIC -fbacktrace
 	F2PYOPTFLAGS = -O2 -mavx -ffree-form -ffree-line-length-none
@@ -26,11 +26,12 @@ ifeq ($(F90),gfortran)
 	F90PARLIBFLAGS = -lgomp
 	FFPFLAGS = -cpp
 	MODULEFLAG = 	
-	LIBFLAG = -L$(BLAS_DIR)/lib -static-libgcc -lopenblas 
-	F2PYLIBFLAGS = -L$(BLAS_DIR)/lib -lopenblas
-	LDFLAGS = -Wl,-rpath=$(BLAS_DIR)/lib
+	LIBFLAG = -L$(CONDA_PREFIX)/lib -static-libgcc -lopenblas 
+	F2PYLIBFLAGS = -L$(CONDA_PREFIX)/lib -lopenblas
+	LDFLAGS = -Wl,-rpath=$(CONDA_PREFIX)/lib
 	F2PYCOMPILER = gnu95
 else
+	COMPILER=INTEL
 	FFPFLAGS = -fpp -DINTEL
 	F90OPTFLAGS = -O2 -fpic -fp-model source -axavx 
 	F90DBGFLAGS = -O0 -g -fpic -traceback -shared-intel  #-DTBB_USE_DEBUG -check all -ftrapuv
@@ -64,7 +65,6 @@ endif
 OBJJ = $(obj)
 NAG_MOD = $(NAGF90MOD)
 MODECRad=$(ROOTDIR)/$(SYS)/mod$(COMPILER)$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)
-$(shell   mkdir -p $(MODECRad))
 # Debugging -> enable if DEBUG==		True
 ifeq ($(DEBUG),True)
 	F90FLAGS = $(F90DBGFLAGS)
@@ -107,7 +107,7 @@ ifeq ($(OPEN_MP),True)
 endif
 F2PYLIBS += $(F2PYLIBFLAGS)
 #LDFLAGS = -z muldefs
-ifeq ($(F90),gfortran)
+ifeq ($(COMPILER),GNU)
 	MODULES = $(MODULEFLAG) -J$(MODECRad)
 else
 	MODULES = $(MODULEFLAG) $(MODECRad) $(INCLUDEFLAGS)
@@ -153,16 +153,22 @@ ECRadPythonOBJ = ECRad_python$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).o
 OBJS := $(addprefix $(MODECRad)/, $(OBJECTS))
 
 # Rules
-#ECRad application
-# directories
+.PHONY: INFO
 ifeq ($(IDA),True)
-all: $(ECRadLIBDir)/lib$(ECRadLIB)$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).a
+all: INFO directories $(ECRadLIBDir)/lib$(ECRadLIB)$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).a
 else
-all: $(ECRadLIBDir)/lib$(ECRadLIB)$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).a \
+all: INFO directories $(ECRadLIBDir)/lib$(ECRadLIB)$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).a \
 	$(ECRadLIBDir)/ECRadPython$(OMPFLAG)$(USE3DFLAG)$(DB) $(ECRadLIBDir)/$(APPLICATION)$(OMPFLAG)$(USE3DFLAG)$(DB)
 endif
+ifeq ($(COMPILER),GNU)
+INFO:
+	echo "Assuming GNU toochain"
+else
+INFO:
+	echo "Assuming INTEL toochain"
+endif
 
-$(ECRadLIBDir)/$(APPLICATION)$(OMPFLAG)$(USE3DFLAG)$(DB): $(OBJJ) \
+$(ECRadLIBDir)/$(APPLICATION)$(OMPFLAG)$(USE3DFLAG)$(DB): $(OBJJ)  \
 	$(ECRadLIBDir)/lib$(ECRadLIB)$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).a $(MODECRad)/$(APPLICATION)$(OMPFLAG)$(USE3DFLAG)$(DB).o makefile
 	echo $(OBJJ$(SYS))
 	$(F90) $(LDFLAGS) $(MODECRad)/$(APPLICATION)$(OMPFLAG)$(USE3DFLAG)$(DB).o ${OBJJ} $(LIBS) \
@@ -177,24 +183,24 @@ $(ECRadLIBDir)/ECRadPython$(OMPFLAG)$(USE3DFLAG)$(DB): $(ECRadLIBDir)/lib$(ECRad
 		-I$(MODECRad) --opt='' --f90flags='$(F2PYFLAGS)' $(F2PYLIBS); \
 	rm *.c; rm *.f90; \
 	cd ../
-#
+
 #libECRad
 $(ECRadLIBDir)/lib$(ECRadLIB)$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).a: $(OBJS)
 	ar rv $@ $(OBJS)
 
-$(ECRadLIB)$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).a: $(OBJS) 
+$(ECRadLIB)$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).a: $(OBJS)
 
 $(MODECRad)/%$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).o: $(SRCP)/%.f90
 	 $(F90) $(MODULES) $(FFPFLAGS) -c $(F90FLAGS) $< -o $@
 	 
-# making the directories
-#directories: ${MODECRad}
+#making the directories
+directories: ${MODECRad}
 
-#${ECRadLIBDir}:
-#	${MKDIR_P} ${ECRadLIBDir}
+${ECRadLIBDir}:
+	${MKDIR_P} ${ECRadLIBDir}
 
-#${MODECRad}:
-#	${MKDIR_P} ${MODECRad}
+${MODECRad}:
+	${MKDIR_P} ${MODECRad}
 
 #Dependencies
 

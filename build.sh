@@ -10,10 +10,10 @@ cd ../odepack
 make clean
 make
 cd ../
-make DEBUG=True
-make
-make OPEN_MP=True
-make OPEN_MP=True DEBUG=True
+make DEBUG=True COMPILER=GNU
+make COMPILER=GNU
+make OPEN_MP=True COMPILER=GNU
+make OPEN_MP=True DEBUG=True COMPILER=GNU
 rm -f id
 git rev-parse HEAD > id
 $PYTHON -m build -n -x
