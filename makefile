@@ -22,7 +22,7 @@ else
 	STDPLIB = $(SRCP)/std_lib.f90
 endif
 obj=
-
+F2PYEXT_SUFFIX := $(shell python3-config --extension-suffix)
 ifeq ($(COMPILER),GNU)
 	F90OPTFLAGS = -O2 -mavx -ffree-form -ffree-line-length-none -fPIC
 	F90DBGFLAGS = -g -ffree-form -ffree-line-length-none -fPIC -fbacktrace
@@ -169,7 +169,7 @@ endif
 
 lib: directories \
 	$(ECRadLIBDir)/lib$(ECRadLIB)$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).a \
-	$(ECRadLIBDir)/ECRadPython$(OMPFLAG)$(USE3DFLAG)$(DB)
+	$(ECRadLIBDir)/ECRadPython$(OMPFLAG)$(USE3DFLAG)$(DB)$(F2PYEXT_SUFFIX)
 	
 
 ifeq ($(COMPILER),GNU)
@@ -189,12 +189,11 @@ $(ECRadLIBDir)/$(APPLICATION)$(OMPFLAG)$(USE3DFLAG)$(DB): $(OBJJ)  \
 $(MODECRad)/$(APPLICATION)$(OMPFLAG)$(USE3DFLAG)$(DB).o : $(SRCP)/$(APPLICATION).f90
 	$(F90) ${MODULES} $(FFPFLAGS) -c $(F90FLAGS) $< -o $@
 	
-$(ECRadLIBDir)/ECRadPython$(OMPFLAG)$(USE3DFLAG)$(DB): $(ECRadLIBDir)/lib$(ECRadLIB)$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).a
+$(ECRadLIBDir)/ECRadPython$(OMPFLAG)$(USE3DFLAG)$(DB)$(F2PYEXT_SUFFIX): $(ECRadLIBDir)/lib$(ECRadLIB)$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).a
 	cd $(ECRadLIBDir); \
 	python -m numpy.f2py $(F2PYDBG) -c --fcompiler=$(F2PYCOMPILER) $(ROOTDIR)/src/ECRad_python$(OMPFLAG)$(USE3DFLAG).f90 -m ECRad_python$(OMPFLAG)$(USE3DFLAG)$(DB) \
 		-I$(MODECRad) --opt='' --f90flags='$(F2PYFLAGS)' $(F2PYLIBS); \
-	rm *.c; rm *.f90; \
-	cd ../
+	cd -
 
 #libECRad
 $(ECRadLIBDir)/lib$(ECRadLIB)$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).a: $(OBJS)
@@ -292,7 +291,13 @@ $(MODECRad)/mod_ECRad$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).o: \
 $(MODECRad)/ECRad_python$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).o: \
 	$(SRCP)/mod_ECRad.f90
 
+ifndef PREFIX
 clean:
-ifneq ($(ROOTDIR),$(ECRadLIBDir))
-	rm -rf $(ECRadLIBDir)
+	ifneq ($(ROOTDIR),$(ECRadLIBDir))
+		rm -rf $(ECRadLIBDir)
+	endif
+else
+clean:
+	rm -rf $(ECRadLIBDir)/*ECRad*
+	rm -rf $(ECRadLIBDir)/*ecrad*
 endif
