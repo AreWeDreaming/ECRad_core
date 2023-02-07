@@ -1,5 +1,5 @@
 [build-system]
-requires = ["make","gfortran","binutils","openblas",
-            "libopenblas","setuptools>=59","matplotlib>=3.3",
+requires = ["make","gfortran","binutils","openblas","libgomp",
+            "openmp","libopenblas","setuptools>=59","matplotlib>=3.3",
             "numpy>=1.21"]
 build-backend = "setuptools.build_meta"
