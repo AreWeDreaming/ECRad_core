@@ -2,9 +2,9 @@
 module mod_ECRad
 
 use f90_kind
-#ifdef OMP
-  use omp_lib
-#endif
+! #ifdef OMP
+!   use omp_lib
+! #endif
 
 public :: initialize_stand_alone, &
           initialize_ECRad_f2py, &
@@ -951,9 +951,9 @@ use constants,                  only: e0, c0, pi
 use mod_ECRad_utils,        only: binary_search, bin_ray_BPD_to_common_rhop, make_warm_res_mode, bin_freq_to_ray
 use mod_ECRad_raytrace,     only: reinterpolate_svec
 use mod_ECRad_interpol,     only: spline_1d
-#ifdef OMP
-use omp_lib,                only: omp_get_thread_num
-#endif
+! #ifdef OMP
+! use omp_lib,                only: omp_get_thread_num
+! #endif
 implicit none
 
 real(rkind)     :: ds_small, ds_large

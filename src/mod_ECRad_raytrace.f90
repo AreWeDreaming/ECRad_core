@@ -3369,9 +3369,9 @@ function func_dA_dY(X, Y)
   use mod_ECRad_utils,       only: deallocate_ext_rays
   use f90_kind
   use constants,                  only: pi,e0, mass_e
-#ifdef OMP
-  use omp_lib,                    only: omp_get_thread_num
-#endif
+! #ifdef OMP
+!   use omp_lib,                    only: omp_get_thread_num
+! #endif
   implicit none
   type(plasma_params_type), intent(inout)                       :: plasma_params
   integer(ikind)                                                :: idiag, last_N, ich, ir, cur_ray, &

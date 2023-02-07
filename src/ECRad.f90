@@ -5,9 +5,9 @@ program ECRad
                                           data_name, modes
     use mod_ECRad, only : initialize_stand_alone, make_ece_rad_temp!, simulate_ida
     use mod_ECRad_utils, only : export_all_ece_data
-#ifdef OMP
-    use omp_lib
-#endif
+! #ifdef OMP
+!     use omp_lib
+! #endif
     implicit none
     Character(len=200) :: filename
     Character(len=200) :: working_dir

@@ -297,9 +297,9 @@ module mod_ECRad_raytrace_initialize
 #ifdef USE_3D
     use magconfig,                only: MConf_Setup_Config, MConf_Load_MagConfig, mcClone
 #endif
-#ifdef OMP
-    use omp_lib,                    only: omp_get_max_threads
-#endif
+! #ifdef OMP
+!     use omp_lib,                    only: omp_get_max_threads
+! #endif
     implicit none
     type(plasma_params_type), intent(inout)     :: plasma_params
 	  real(rkind), dimension(:), intent(in), optional :: R_in, z_in

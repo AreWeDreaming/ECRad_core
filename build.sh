@@ -2,6 +2,7 @@
 export F90=gfortran
 export FC=gfortran
 export F77=gfortran
+export COMPILER=GNU
 make clean # Just for good measure
 cd fitpack
 make clean

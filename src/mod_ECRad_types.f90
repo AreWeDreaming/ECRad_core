@@ -8,9 +8,9 @@ module mod_ECRad_types
 use f90_kind
 use constants,                  only: pi
 use magconfig,                only: Scenario_type
-#ifdef OMP
-use omp_lib
-#endif
+! #ifdef OMP
+! use omp_lib
+! #endif
 #ifdef NAG
 USE nag_spline_2d             , only: nag_spline_2d_comm_wp => nag_spline_2d_comm_dp
 USE nag_spline_1d             , only: nag_spline_1d_comm_wp => nag_spline_1d_comm_dp
