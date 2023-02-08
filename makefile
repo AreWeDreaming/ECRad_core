@@ -8,8 +8,10 @@ SRCP=$(ROOTDIR)/src
 ifdef PREFIX
 	ECRadLIBDir=$(PREFIX)/lib
 	CONDALIBS = $(ECRadLIBDir)
+	ECRadPPythonDir = $(ROOTDIR)/src/ecrad_python
 else
 	ECRadLIBDir=$(ROOTDIR)/$(SYS)
+	ECRadPPythonDir = $(ECRadLIBDir)
 endif
 
 
@@ -190,7 +192,7 @@ $(MODECRad)/$(APPLICATION)$(OMPFLAG)$(USE3DFLAG)$(DB).o : $(SRCP)/$(APPLICATION)
 	$(F90) ${MODULES} $(FFPFLAGS) -c $(F90FLAGS) $< -o $@
 	
 $(ECRadLIBDir)/ECRadPython$(OMPFLAG)$(USE3DFLAG)$(DB)$(F2PYEXT_SUFFIX): $(ECRadLIBDir)/lib$(ECRadLIB)$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).a
-	cd $(ECRadLIBDir); \
+	cd $(ECRadPPythonDir); \
 	python -m numpy.f2py $(F2PYDBG) -c --fcompiler=$(F2PYCOMPILER) $(ROOTDIR)/src/ECRad_python$(OMPFLAG)$(USE3DFLAG).f90 -m ECRad_python$(OMPFLAG)$(USE3DFLAG)$(DB) \
 		-I$(MODECRad) --opt='' --f90flags='$(F2PYFLAGS)' $(F2PYLIBS); \
 	cd -
@@ -205,13 +207,8 @@ $(MODECRad)/%$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).o: $(SRCP)/%.f90
 	 $(F90) $(MODULES) $(FFPFLAGS) -c $(F90FLAGS) $< -o $@
 	 
 #making the directories
-directories: ${ECRadLIBDir} ${MODECRad}
-
-${ECRadLIBDir}:
-	${MKDIR_P} ${ECRadLIBDir}
-
-${MODECRad}:
-	${MKDIR_P} ${MODECRad}
+directories: ${ECRadLIBDir} ${MODECRad} $(ECRadPPythonDir)
+	${MKDIR_P} $<
 
 #Dependencies
 

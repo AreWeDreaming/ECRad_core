@@ -2,6 +2,7 @@
 *
 !src
 !src/*
+!src/ecrad_core/*.py
 !odepack/
 !odepack/*
 !fitpack/
