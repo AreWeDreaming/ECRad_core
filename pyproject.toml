@@ -1,5 +1,5 @@
 [build-system]
 requires = ["make","libgcc-ng","gfortran","binutils",
-            "libgfortran5"."libopenblas","openblas",
+            "libgfortran5","libopenblas","openblas",
             "libgomp","setuptools>=59","numpy>=1.21"]
 build-backend = "setuptools.build_meta"
