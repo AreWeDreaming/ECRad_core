@@ -8,7 +8,7 @@ SRCP=$(ROOTDIR)/src
 ifdef PREFIX
 	ECRadLIBDir=$(PREFIX)/lib
 	CONDALIBS = $(ECRadLIBDir)
-	ECRadPPythonDir = $(ROOTDIR)/src/ecrad_python
+	ECRadPPythonDir = $(ROOTDIR)/src/ecrad_core
 else
 	ECRadLIBDir=$(ROOTDIR)/$(SYS)
 	ECRadPPythonDir = $(ECRadLIBDir)
