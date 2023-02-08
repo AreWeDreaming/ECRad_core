@@ -207,8 +207,10 @@ $(MODECRad)/%$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).o: $(SRCP)/%.f90
 	 $(F90) $(MODULES) $(FFPFLAGS) -c $(F90FLAGS) $< -o $@
 	 
 #making the directories
-directories: ${ECRadLIBDir} ${MODECRad} $(ECRadPPythonDir)
-	${MKDIR_P} $<
+directories:
+	${MKDIR_P} ${ECRadLIBDir}
+	${MKDIR_P} ${MODECRad} 
+	${MKDIR_P} $(ECRadPPythonDir)
 
 #Dependencies
 
