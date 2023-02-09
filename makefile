@@ -8,10 +8,10 @@ SRCP=$(ROOTDIR)/src
 ifdef PREFIX
 	ECRadLIBDir=$(PREFIX)/lib
 	CONDALIBS = $(ECRadLIBDir)
-	ECRadPPythonDir = $(ROOTDIR)/src/ecrad_core
+	ECRadPythonDir = $(ROOTDIR)/src/ecrad_core
 else
 	ECRadLIBDir=$(ROOTDIR)/$(SYS)
-	ECRadPPythonDir = $(ECRadLIBDir)
+	ECRadPythonDir = $(ECRadLIBDir)
 endif
 
 
@@ -169,11 +169,12 @@ all: INFO directories lib \
 	$(ECRadLIBDir)/ECRadPython$(OMPFLAG)$(USE3DFLAG)$(DB) $(ECRadLIBDir)/$(APPLICATION)$(OMPFLAG)$(USE3DFLAG)$(DB)
 endif
 
-lib: directories \
+lib: directories MANIFEST \
 	$(ECRadLIBDir)/lib$(ECRadLIB)$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).a \
 	$(ECRadLIBDir)/ECRadPython$(OMPFLAG)$(USE3DFLAG)$(DB)$(F2PYEXT_SUFFIX)
 	
-
+MANIFEST: 
+	echo include src/ecrad_core/ECRadPython$(OMPFLAG)$(USE3DFLAG)$(DB)$(F2PYEXT_SUFFIX) >> MANIFEST.in
 ifeq ($(COMPILER),GNU)
 INFO:
 	echo "Assuming GNU toochain"
@@ -192,7 +193,7 @@ $(MODECRad)/$(APPLICATION)$(OMPFLAG)$(USE3DFLAG)$(DB).o : $(SRCP)/$(APPLICATION)
 	$(F90) ${MODULES} $(FFPFLAGS) -c $(F90FLAGS) $< -o $@
 	
 $(ECRadLIBDir)/ECRadPython$(OMPFLAG)$(USE3DFLAG)$(DB)$(F2PYEXT_SUFFIX): $(ECRadLIBDir)/lib$(ECRadLIB)$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).a
-	cd $(ECRadPPythonDir); \
+	cd $(ECRadPythonDir); \
 	python -m numpy.f2py $(F2PYDBG) -c --fcompiler=$(F2PYCOMPILER) $(ROOTDIR)/src/ECRad_python$(OMPFLAG)$(USE3DFLAG).f90 -m ECRad_python$(OMPFLAG)$(USE3DFLAG)$(DB) \
 		-I$(MODECRad) --opt='' --f90flags='$(F2PYFLAGS)' $(F2PYLIBS); \
 	cd -
@@ -210,7 +211,7 @@ $(MODECRad)/%$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).o: $(SRCP)/%.f90
 directories:
 	${MKDIR_P} ${ECRadLIBDir}
 	${MKDIR_P} ${MODECRad} 
-	${MKDIR_P} $(ECRadPPythonDir)
+	${MKDIR_P} $(ECRadPythonDir)
 
 #Dependencies
 
@@ -299,4 +300,6 @@ else
 clean:
 	rm -rf $(ECRadLIBDir)/*ECRad*
 	rm -rf $(ECRadLIBDir)/*ecrad*
+	rm -rf 
+	rm -rf $(ROOTDIR)/MANIFEST.in
 endif
