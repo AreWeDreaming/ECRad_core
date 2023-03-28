@@ -1,0 +1,20 @@
+<parameters>
+    <extra_output> true </extra_output>
+    <dstf> "Th" </dstf>
+    <raytracing> true </raytracing>
+    <ripple> false </ripple>
+    <ratio_for_3rd_harm> 0.4 </ratio_for_3rd_harm>
+    <N_max> 3 </N_max>
+    <tau_ignore> 1.e-8 </tau_ignore>
+    <considered_modes> 1 </considered_modes>
+    <reflec_X> 0.9 </reflec_X>
+    <reflec_O> 0.9 </reflec_O>
+    <max_points_svec> 20000 </max_points_svec>
+    <N_pts_BPD> 2000 </N_pts_BPD>
+    <mode_conv> 0 </mode_conv>
+    <weak_rel> true </weak_rel>
+    <large_ds> 2.5e-3 </large_ds>
+    <small_ds> 2.5e-4 </small_ds>
+    <N_ray> 1 </N_ray>
+    <N_freq> 1 </N_freq>
+</parameters>

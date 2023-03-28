@@ -206,9 +206,11 @@ integer(ikind)                :: idiag
                           ecrad_z_shift, &    ! Allows shifting the equilbrium - moves entire flux matrix
                           ecrad_N_ray, ecrad_N_freq, log_flag, 0)
   pnts_BPD = N_BPD_pnts
-  call prepare_ECE_diag(f=f, df=df, R=R, &
-                        phi=phi, z=z, tor=tor, pol=pol, dist_foc=dist_foc, &
-                        width=width, pol_coeff=pol_coeff)
+  if(present(f)) then
+    call prepare_ECE_diag(f=f, df=df, R=R, &
+                          phi=phi, z=z, tor=tor, pol=pol, dist_foc=dist_foc, &
+                          width=width, pol_coeff=pol_coeff)
+  end if
   if(dstf == "numeric" .or. trim(dstf) == "gene" .or. trim(dstf) == "gcomp") then
       call abs_Al_init(N_absz_large) ! Initializes the weights and abszissae for the gaussian quadrature
     else
@@ -366,9 +368,11 @@ logical                                           :: old_straight
     call init_raytrace(plasma_params, R, z, rhop, Br, Bt, Bz, R_ax, z_ax, T_e_mat, n_e_mat)
   else
     call init_raytrace(plasma_params, R, z, rhop, Br, Bt, Bz, R_ax, z_ax)
-    allocate(plasma_params%IDA_rhop_knots_ne(N_ne_spline_knots), plasma_params%IDA_n_e(N_ne_spline_knots), &
-             plasma_params%IDA_n_e_dx2(N_ne_spline_knots), plasma_params%IDA_rhop_knots_Te(N_Te_spline_knots), &
-             plasma_params%IDA_T_e(N_Te_spline_knots), plasma_params%IDA_T_e_dx2(N_Te_spline_knots))
+    if(N_Te_spline_knots > 0 .and. N_ne_spline_knots > 0) then
+      allocate(plasma_params%IDA_rhop_knots_ne(N_ne_spline_knots), plasma_params%IDA_n_e(N_ne_spline_knots), &
+              plasma_params%IDA_n_e_dx2(N_ne_spline_knots), plasma_params%IDA_rhop_knots_Te(N_Te_spline_knots), &
+              plasma_params%IDA_T_e(N_Te_spline_knots), plasma_params%IDA_T_e_dx2(N_Te_spline_knots))
+    end if
   end if
 end subroutine initialize_ECRad_f2py
 
@@ -536,7 +540,7 @@ subroutine set_ECRad_GENE_dist_f2py(rho, vpar, mu, f_0, f)
 end subroutine set_ECRad_GENE_dist_f2py
 
 subroutine make_rays_ECRad_f2py(rhop_knots_ne, n_e, n_e_dx2, rhop_knots_Te, T_e, T_e_dx2, &
-                                rhop_res)
+                                rhop_res, use_spline_coeffs)
 ! At the moment to identical routines for f2py and IDA. This is mainly a preparation for the future.
 ! Simulates the structure used in IDA
 ! While in the stand alone make_ece_rad_temp is only called once it is called many times in IDA
@@ -546,9 +550,15 @@ use mod_ECRad_raytrace,               only: span_svecs
 implicit none
 real(rkind), dimension(:), intent(in), optional   :: rhop_knots_ne, n_e, n_e_dx2, rhop_knots_Te, T_e, T_e_dx2
 real(rkind), dimension(:),  intent(out), optional :: rhop_res
+logical, intent(in), optional           :: use_spline_coeffs
 integer(ikind)                          :: idiag, ich
+logical                                 :: from_spline_coeffs
 ! Updates the values of the splines: Te, ne
-if(.not. (plasma_params%No_ne_te .or. plasma_params%Te_ne_mat)) then
+from_spline_coeffs = .false.
+if present(use_spline_coeffs) from_spline_coeffs = use_spline_coeffs
+if(.not. plasma_params%No_ne_te .and. from_spline_coeffs) then
+  call update_Te_ne_from_coeffs(rhop_knots_ne, n_e, rhop_knots_Te, T_e)
+else if(.not. plasma_params%No_ne_te .or. plasma_params%Te_ne_mat) then
   call update_Te_ne(rhop_knots_ne, n_e, n_e_dx2, rhop_knots_Te, T_e, T_e_dx2)
 end if
 call span_svecs(plasma_params)
@@ -574,7 +584,7 @@ end if
 end subroutine make_rays_ECRad_f2py
 
 subroutine make_rays_ECRad_IDA(rhop_knots_ne, n_e, n_e_dx2, rhop_knots_Te, T_e, T_e_dx2, &
-                               rhop_res)
+                               rhop_res, use_spline_coeffs)
 ! Simulates the structure used in IDA
 ! While in the stand alone make_ece_rad_temp is only called once it is called many times in IDA
 ! Hence, to keep the structure similiar all initizalization is performed here
@@ -583,9 +593,15 @@ use mod_ECRad_raytrace,               only: span_svecs
 implicit none
 real(rkind), dimension(:), intent(in), optional   :: rhop_knots_ne, n_e, n_e_dx2, rhop_knots_Te, T_e, T_e_dx2
 real(rkind), dimension(:),  intent(out), optional :: rhop_res
+logical , intent(in), optional                    :: use_spline_coeffs
 integer(ikind)                          :: idiag, ich
+logical                                 :: from_spline_coeffs
 ! Updates the values of the splines: Te, ne
-if(.not. plasma_params%No_ne_te .or. plasma_params%Te_ne_mat) then
+from_spline_coeffs = .false.
+if present(use_spline_coeffs) from_spline_coeffs = use_spline_coeffs
+if(from_spline_coeffs) then
+  call update_Te_ne_from_coeffs(rhop_knots_ne, n_e, rhop_knots_Te, T_e)
+else if(.not. plasma_params%No_ne_te .or. plasma_params%Te_ne_mat) then
   call update_Te_ne(rhop_knots_ne, n_e, n_e_dx2, rhop_knots_Te, T_e, T_e_dx2)
 end if
 call span_svecs(plasma_params)
@@ -614,7 +630,7 @@ end subroutine make_rays_ECRad_IDA
 subroutine make_dat_model_ece_ECRad_f2py(rhop_knots_ne, n_e, n_e_dx2, rhop_knots_Te, T_e, T_e_dx2, &
                                          ne_rhop_scal, reflec_X_new, & ! in
                                          reflec_O_new, ece_fm_flag_ch, rp_min, &
-                                         dat_model_ece, tau, set_grid_dynamic, verbose)
+                                         dat_model_ece, tau, set_grid_dynamic, verbose, use_spline_coeffs)
 use mod_ECRad_types,        only: reflec_X, reflec_O, plasma_params, rad, ant, ray_init, &
                                   static_grid, stand_alone, output_level
 use mod_ECRad_utils,        only: retrieve_T_e
@@ -627,6 +643,9 @@ real(rkind), dimension(:), intent(out) :: dat_model_ece
 real(rkind), dimension(:), intent(out), optional  :: tau
 logical,      intent(in), optional     :: verbose
 logical, intent(in), optional          :: set_grid_dynamic
+logical , intent(in), optional         :: use_spline_coeffs
+logical                                :: from_spline_coeffs
+! Updates the values of the splines: Te, ne
 integer(ikind)                         :: ich
 if(.not. ray_init) then
   print*, "Something wrong with the sequencing!!"
@@ -643,12 +662,16 @@ if(present(set_grid_dynamic)) then
 else
   static_grid = .true.
 end if
-reflec_X = reflec_X_new
-reflec_O = reflec_O_new
+if(reflec_X_new > 0 ) reflec_X = reflec_X_new
+if(reflec_O_new > 0 ) reflec_O = reflec_O_new
 rad%diag(1)%ch(:)%eval_ch = ece_fm_flag_ch
 plasma_params%rp_min = rp_min
 plasma_params%rhop_scale_ne =  ne_rhop_scal
-if(.not. present(T_e_dx2) .and. .not. present(n_e_dx2)) then
+from_spline_coeffs = .false.
+if present(use_spline_coeffs) from_spline_coeffs = use_spline_coeffs
+if(from_spline_coeffs) then
+  call update_Te_ne_from_coeffs(rhop_knots_ne, n_e, rhop_knots_Te, T_e)
+else if(.not. present(T_e_dx2) .and. .not. present(n_e_dx2)) then
 ! Use univariate spline for both
    call update_svecs(rad, rhop_knots_ne=rhop_knots_ne, n_e=n_e, &
                      rhop_knots_Te=rhop_knots_Te, T_e=T_e)
@@ -824,6 +847,15 @@ integer(ikind)                               :: imode
   rhop_res_warm = rad%diag(idiag)%ch(ich)%rel_rhop_res
 end subroutine make_BPD_w_res_ch_IDA
 
+subroutine update_Te_ne_from_coeffs(t_n_e, c_n_e, t_t_e, c_n_e)
+  use mod_ECRad_types,               only: plasma_params
+  use mod_ECRad_interpol,            only: set_spline_from_knots_and_coeffs
+    call set_spline_from_knots_and_coeffs( plasma_params%ne_spline, int(size(t_n_e),4), t_n_e, c_n_e)
+    call set_spline_from_knots_and_coeffs( plasma_params%Te_spline, int(size(t_t_e),4), t_t_e, c_t_e)
+    use_ida_spline_ne = .false.
+    plasma_params%rhop_max = min(maxval(t_n_e), maxval(t_t_e))
+end subroutine
+
 subroutine update_Te_ne(rhop_knots_ne, n_e, n_e_dx2, rhop_knots_Te, T_e, T_e_dx2)
 use mod_ECRad_types,               only: plasma_params, use_ida_spline_Te, use_ida_spline_ne, SOL_ne, SOL_Te
 use mod_ECRad_interpol,            only: make_1d_spline
@@ -872,7 +904,7 @@ use f90_kind
   plasma_params%rhop_max = min(maxval(rhop_knots_ne), maxval(rhop_knots_Te))
 end subroutine update_Te_ne
 
-subroutine update_svecs(rad, rhop_knots_ne, n_e, n_e_dx2, rhop_knots_Te, T_e, T_e_dx2)
+subroutine update_svecs(rad, rhop_knots_ne, n_e, n_e_dx2, rhop_knots_Te, T_e, T_e_dx2, use_spline_coeffs)
   ! This routine has to be called every time before Trad is calculated.
   use mod_ECRad_types,               only: rad_type, ant, plasma_params, &
                                                N_ray, N_freq, mode_cnt, stand_alone, &
@@ -884,6 +916,8 @@ subroutine update_svecs(rad, rhop_knots_ne, n_e, n_e_dx2, rhop_knots_Te, T_e, T_
   real(rkind), dimension(:), intent(in)   :: rhop_knots_ne, n_e, rhop_knots_Te, T_e
   real(rkind), dimension(:), intent(in), optional   :: n_e_dx2, T_e_dx2
   type(rad_type), intent(inout)    :: rad
+  logical , intent(in), optional                    :: use_spline_coeffs
+  logical                                 :: from_spline_coeffs
   integer(ikind)                                  :: idiag, last_N, grid_size, ich, ir, &
                                                      ifreq, imode, i
   real(rkind), dimension(max_points_svec)         :: x_temp, y_temp
@@ -896,7 +930,13 @@ subroutine update_svecs(rad, rhop_knots_ne, n_e, n_e_dx2, rhop_knots_Te, T_e, T_
     stop "Te_ne_mat = T in update_svecs"
   end if
   ! If no second derivatives for Te and ne provided -> univariate spline
-  if(.not. present(T_e_dx2) .and. .not. present(n_e_dx2)) then
+
+! Updates the values of the splines: Te, ne
+from_spline_coeffs = .false.
+  if present(use_spline_coeffs) from_spline_coeffs = use_spline_coeffs
+  if(from_spline_coeffs) then
+    call update_Te_ne_from_coeffs(rhop_knots_ne, n_e, rhop_knots_Te, T_e)
+  else if(.not. present(T_e_dx2) .and. .not. present(n_e_dx2)) then
      call update_Te_ne(rhop_knots_ne=rhop_knots_ne, n_e=n_e, rhop_knots_Te=rhop_knots_Te, T_e=T_e)
   else if(.not. present(T_e_dx2)) then
     call update_Te_ne(rhop_knots_ne, n_e, n_e_dx2, rhop_knots_Te, T_e)

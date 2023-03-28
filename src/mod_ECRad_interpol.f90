@@ -220,6 +220,48 @@ module mod_ECRad_interpol
     end if
   end subroutine make_1d_spline
 
+  subroutine set_spline_from_knots_and_coeffs(spl, m, knots, coeffs, k)
+      use f90_kind
+      use mod_ECRad_types,        only: spl_type_1d
+#ifdef INTEL
+use ifcore,                     only: tracebackqq
+#endif
+      implicit none
+      type(spl_type_1d), intent(inout)      :: spl
+      integer*4, intent(in)                 :: m!=size(knots)
+      real(rkind), dimension(:), intent(in) :: knots, coeffs
+      integer*4,   intent(in)               :: k
+      real*8                                :: fp
+      real*8, dimension(m)                  :: w
+      if(present(k)) then
+        if(k == 1 .or. k == 3) then
+          spl%k = k
+      else
+      print*, "The order of the splines must be either linear or cubic"
+#ifdef INTEL
+      call tracebackqq()
+#else
+      call backtrace()
+#endif
+        call abort()
+        end if
+      end if
+      if(.not. allocated(spl%t) .or. size(splt%t) /= m) then !
+        if(allocated(spl%t)) then
+          deallocate(spl%t, spl%c, spl%wrk, spl%iwrk)
+        end if
+        spl%nest= m + spl%k + 2*spl%k+2
+        spl%n = spl%nest
+        spl%lwrk = (spl%k + 1) * m + spl%nest * (7 + 3 * spl%k)
+        allocate(spl%t(spl%nest), &
+                 spl%c(spl%nest), spl%wrk(spl%lwrk), spl%iwrk(spl%nest))
+      end if
+      spl%t(:) = t(:)
+      spl%c(:) = c(:)
+      spl%x_start = t(1)
+      spl%x_end = t(m)
+  end subroutine
+
   subroutine deallocate_rect_spline(spl)
     use f90_kind
     use mod_ECRad_types,        only: spl_type_2d

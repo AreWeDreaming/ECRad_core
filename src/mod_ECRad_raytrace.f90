@@ -2677,10 +2677,8 @@ function func_dA_dY(X, Y)
     do while(.not. plasma_prop)
       !print*, ray_segment(N)%s
       if(R_cur < 2.d0 * h .and. wall_hits == 0) then
-        do while(.true.)
+        do while(R_cur < 2.d0 * h .and. h >= 1.d-3)
           h = h * 1.d-1
-          if(h < 1.d-3) exit
-          if(2.d0 * h < R_last) exit
         end do
       end if
       if(any(ray_segment(N)%x_vec /= ray_segment(N)%x_vec)) then
@@ -2696,6 +2694,8 @@ function func_dA_dY(X, Y)
         call sub_remap_coords(ray_segment(N)%x_vec, R_vec)
         print*, "R final", R_vec
         print*, "travelled distance", ray_segment(N)%s
+        print*, "Distance to vessel", R_cur, "Smallest distance to vessel achieved", R_min
+        print*, "Current step size", h
         if(all(ray_segment(:)%rhop == -1)) print*, "No plasma along the ray - check viewing geometry!"
         last_N = N + 1
         return

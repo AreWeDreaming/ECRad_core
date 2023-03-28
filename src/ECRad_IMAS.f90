@@ -1,0 +1,222 @@
+module ECRad_IMAS
+
+contains
+
+subroutine pre_initialize_ECRad_IMAS(codeparam_string, wall, &
+                                     error_flag, error_message)
+  use mod_ECRad, only: pre_initialize_ECRad_f2py
+  use xml2eg_mdl, only: xml2eg_parse_memory, xml2eg_get, &
+                        type_xml2eg_document, xml2eg_free_doc, set_verbose
+  use ids_schemas, only: ids_wall, ids_is_valid
+  implicit none
+  ! Input/Output
+  character(len=132), pointer, intent(in) :: codeparam_string(:)
+  type(ids_wall):: wall
+  integer, intent(out) :: error_flag
+  character(len=:), pointer, intent(out) :: error_message
+  ! Internal
+  type(type_xml2eg_document) :: doc
+  real(kind=8)     :: ratio_for_3rd_harm, tau_ignore, &
+                      reflec_X, reflec_O, mode_conv, &
+                      large_ds, small_ds
+  character(2)     :: dstf
+  integer   :: considered_modes, max_points_svec, N_pts_BPD, N_ray, &
+               N_freq, N_max, N_vessel
+  logical    :: extra_output, ripple, ray_tracing, weak_rel
+  real(kind=8), dimension(:), allocatable :: vessel_R, vessel_z
+  ! Parse the "codeparam_string". This means that the data is put into a document "doc"
+  call xml2eg_parse_memory(codeparam_string,doc)
+  call set_verbose(.TRUE.) ! Only needed if you want to see what's going on in the parsing
+   
+  call xml2eg_get(doc,'extra_output', extra_output)
+  call xml2eg_get(doc,'dstf', dstf)
+  call xml2eg_get(doc,'ray_tracing', ray_tracing)
+  call xml2eg_get(doc,'ripple', ripple)
+  call xml2eg_get(doc,'weak_rel', weak_rel)
+  call xml2eg_get(doc,'ratio_for_3rd_harm', ratio_for_3rd_harm)
+  call xml2eg_get(doc,'N_max', N_max)
+  call xml2eg_get(doc,'tau_ignore', tau_ignore)
+  call xml2eg_get(doc,'considered_modes', considered_modes)
+  call xml2eg_get(doc,'reflec_X', reflec_X)
+  call xml2eg_get(doc,'reflec_O', reflec_O)
+  call xml2eg_get(doc,'max_points_svec', max_points_svec)
+  call xml2eg_get(doc,'N_pts_BPD', N_pts_BPD)
+  call xml2eg_get(doc,'mode_conv', mode_conv)
+  call xml2eg_get(doc,'large_ds', large_ds)
+  call xml2eg_get(doc,'small_ds', small_ds)
+  call xml2eg_get(doc,'N_ray', N_ray)
+  call xml2eg_get(doc,'N_freq', N_freq)
+  call xml2eg_free_doc(doc)
+  if (ids_is_valid(wall%description_2d)) then
+    N_vessel = size(wall%description_2d(1)%limiter%unit(1)%outline%R)
+    allocate(R_wall(N_wall), z_wall(N_wall))
+    vessel_R = wall%description_2d(1)%limiter%unit(1)%outline%R
+    vessel_z = wall%description_2d(1)%limiter%unit(1)%outline%z
+    error_flag = 0
+  else
+    error_flag = -1
+    allocate(character(50):: error_message)
+    error_message = 'Error in pre_initialize_ECRad_IMAS: input IDS not valid'
+    return
+  end if
+  call pre_initialize_ECRad_f2py(extra_output, dstf, ray_tracing, ripple, &
+                                 1.2, weak_rel, &
+                                 ratio_for_3rd_harm, N_max, tau_ignore, &
+                                 considered_modes, reflec_X, reflec_O, .false., &
+                                 max_points_svec, N_pts_BPD ,&
+                                 mode_conv, &
+                                 1.0, 1.0, &
+                                 large_ds, small_ds, 0.0, &
+                                 0.0, N_ray, N_freq, .true., N_vessel, vessel_R, vessel_z)
+  deallocate(vessel_R, vessel_z)
+end subroutine pre_initialize_ECRad_IMAS
+
+subroutine set_ece_ECRad_IMAS(ece, itime, error_flag, error_message)
+  use mod_ECRad, only: prepare_ECE_diag_f2py
+  use ids_schemas, only: ids_equilibrium, ids_ece, ids_is_valid
+  ! Input/Output
+  type(ids_ece):: ece
+  integer, intent(in) :; itime
+  integer, intent(out) :: error_flag
+  character(len=:), pointer, intent(out) :: error_message
+  ! Internal
+  real(kind=8), dimension(:), allocatable :: f, df, R, phi, z, tor, pol, dist_foc, width, pol_coeff
+  real(kind=8), dimension(:,:), allocatable :: x1_vec, x2_vec
+  integer :: N_ch
+  ! CHECK IF INPUT IDS IS VALID
+  if (ids_is_valid(ece%channel) .and. ids_is_valid(ece%line_of_sight)) then
+    N_ch = len(ece%channel)
+    allocate(f(N_ch), df(N_ch), R(N_ch), phi(N_ch), z(N_ch), &
+              tor(N_ch), pol(N_ch), dist_foc(N_ch), width(N_ch), pol_coeff(N_ch),
+              x1_vec(N_ch,2), x2_vec(N_ch,2))
+    f = ece%channel(:)%frequency%data(itime)
+    df =  ece%channel(:)%if_bandwidth
+    R(:) = ece%line_of_sight%first_point%r
+    phi(:) = ece%line_of_sight%first_point%phi
+    z(:) = ece%line_of_sight%first_point%z
+    x1_vec(1) = ece%line_of_sight%first_point%r * cos(ece%line_of_sight%first_point%phi)
+    x1_vec(2) = ece%line_of_sight%first_point%r * sin(ece%line_of_sight%first_point%phi)
+    x2_vec(1) = ece%line_of_sight%second_point%r * cos(ece%line_of_sight%first_point%phi)
+    x2_vec(2) = ece%line_of_sight%second_point%r * sin(ece%line_of_sight%first_point%phi)
+    theta_pol(:) = atan((ece%line_of_sight%first_point%z - ece%line_of_sight%second_point%z) / &
+                      (ece%line_of_sight%first_point%r - ece%line_of_sight%second_point%r))
+    phi_tor(:) = -acos((-x1_vec(1) * (x2_vec(1) - x1_vec(1)) - x1_vec(2) * (x2_vec(2) - x1_vec(2))) / &
+                          (R * sqrt(sum((x2_vec - x1_vec)**2, dim=2))))
+    width(:) = ece%channel(:)%beam%spot%size%data(itime)
+    dist_focus(:) = -ece%channel(:)%beam%phase%curvature%data(itime)
+    pol_coeff(:) = -1
+    error_flag = 0
+    call prepare_ECE_diag_f2py(f, df, R, phi, z, tor, pol, dist_foc, width, pol_coeff)
+    deallocate(f, df, R, phi, z, tor, pol, dist_foc, width, pol_coeff,
+               x1_vec, x2_vec)
+  else
+      ! ERROR IF THE CODE DOES NOT COMPLETE TO THE END
+      error_flag = -1
+      allocate(character(50):: error_message)
+      error_message = 'Error in set_ece_ECRad_IMAS: input IDS not valid'
+
+  endif
+
+end subroutine
+
+subroutine set_ECRad_thread_count(num_threads)
+use mod_ECRad, only: set_omp_threads_ECRad_f2py
+implicit None
+  integer, intent(in) :: num_threads
+  call set_omp_threads_ECRad_f2py(num_threads)
+end subroutine set_ECRad_thread_count
+
+subroutine reset_ECRad()
+use mod_ECRad,      only: clean_up_ECRad
+implicit none
+  call clean_up_ECRad()
+end subroutine reset_ECRad
+
+subroutine initialize_ECRad_IMAS(equilibrium, itime, error_flag, error_message, rhopol_out)
+! Hence, to keep the structure similiar all initizalization is performed here
+! Initializations that depend on time are done here
+use mod_ECRad,  only: initialize_ECRad_f2py
+use ids_schemas, only: ids_equilibrium, ids_ece, ids_is_valid
+  ! Input/Output
+implicit none
+type(ids_equilibrium):: equilibrium
+integer(kind=4), intent(in)                       :: itime
+integer, intent(out) :: error_flag
+character(len=:), pointer, intent(out) :: error_message
+real(kind=8), dimension(*), intent(out)            :: rhopol_out
+real(kind=8), dimension(:), allocatable :: R_ax, z_ax, psi_ax, psi_sep
+real(kind=8), dimension(:), allocatable :: R, z
+real(kind=8), dimension(:,:), allocatable :: rhop, Br, Bt, Bz
+integer(kind=4) :: m,n
+  if (ids_is_valid(equilibrium%time_slice(itime))) then
+    m = size(equilibrium%time_slice(itime)%profiles_2d(1)%grid%dim1)
+    n = size(equilibrium%time_slice(itime)%profiles_2d(1)%grid%dim2)
+    allocate(R(m), z(n), rhop(m,n), Br(m,n), Bt(m,n), Bz(m,n))
+    R(:) = equilibrium%time_slice(itime)%profiles_2d(1)%grid%dim1(:)
+    z(:) = equilibrium%time_slice(itime)%profiles_2d(1)%grid%dim2(:)
+    psi_ax = psi_axis
+    psi_sep = psi_boundary
+    R_ax = magnetic_axis%r
+    z_ax = magnetic_axis%z
+    do i = 1,n
+      rhop(:,i) = equilibrium%time_slice(itime)%profiles_2d(1)%psi(:,i)
+      rhop(:,i) = sqrt((rhop - psi_ax) / (psi_sep - psi_ax))
+      Br(:,i) = equilibrium%time_slice(itime)%profiles_2d(1)%b_field_r(:,i)
+      Bt(:,i) = equilibrium%time_slice(itime)%profiles_2d(1)%b_field_tor(:,i)
+      Bz(:,i) = equilibrium%time_slice(itime)%profiles_2d(1)%b_field_z(:,i)
+    end do
+    call initialize_ECRad_f2py(0, 0, R, z, rhop, Br, Bt, Bz, R_ax, z_ax)
+    deallocate(R, z, rhop, Br, Bt, Bz)
+    error_flag = 0
+  else
+    ! ERROR IF THE CODE DOES NOT COMPLETE TO THE END
+    error_flag = -1
+    allocate(character(50):: error_message)
+    error_message = 'Error in set_ece_ECRad_IMAS: input IDS not valid'
+  endif               
+end subroutine initialize_ECRad_IMAS
+
+subroutine make_rays_ECRad_IMAS(N_ch, rhop_knots_ne, n_e, rhop_knots_Te, T_e, rhop_res)
+use mod_ECRad,        only: make_rays_ECRad_f2py
+implicit none
+integer, intent(in)                        :: N_ch
+real(kind=8), dimension(:), intent(in) :: rhop_knots_ne, n_e, rhop_knots_Te, T_e
+real(kind=8), dimension(N_ch),  intent(out) :: rhop_res
+integer                          :: idiag, ich
+call make_rays_ECRad_f2py(rhop_knots_ne=rhop_knots_ne, n_e=n_e, rhop_knots_Te=rhop_knots_Te, &
+					                T_e=T_e,  rhop_res=rhop_res, use_spline_coeffs=.true.)
+end subroutine make_rays_ECRad_IMAS
+
+subroutine make_rays_ECRad_spline_IMAS(rhop_knots_ne, n_e, n_e_dx2, rhop_knots_Te, T_e, T_e_dx2, &
+                                       rhop_res)
+use mod_ECRad,        only: make_rays_ECRad_f2py
+implicit none
+real(kind=8), dimension(:), intent(in) :: rhop_knots_ne, n_e, rhop_knots_Te, T_e
+real(kind=8), dimension(:),  intent(out) :: rhop_res
+integer                          :: idiag, ich
+call make_rays_ECRad_f2py(rhop_knots_ne, n_e, rhop_knots_Te, T_e, rhop_res, use_spline_coeffs=.true.)
+end subroutine make_rays_ECRad_spline_IMAS
+
+subroutine make_dat_model_ECRad(rhop_knots_ne, n_e, rhop_knots_Te, T_e, &
+                                ece_fm_flag_ch, &
+                                dat_model_ece, tau, set_grid_dynamic, verbose)
+use mod_ECRad,        only: make_dat_model_ece_ECRad_f2py
+implicit none
+real(kind=8), dimension(:), intent(in)  :: rhop_knots_ne, n_e, rhop_knots_Te, T_e
+logical,     dimension(:), intent(in)  :: ece_fm_flag_ch
+real(kind=8), intent(out) :: dat_model_ece(:)
+real(kind=8), intent(out)  :: tau(:)
+logical,      intent(in)     :: verbose
+real(kind=8)                 :: rp_min
+logical, intent(in)          :: set_grid_dynamic
+integer                         :: ich
+rp_min = max(minval(rhop_knots_ne), minval(rhop_knots_Te))
+call make_dat_model_ece_ECRad_f2py(rhop_knots_ne=rhop_knots_ne, n_e=n_e, rhop_knots_Te=rhop_knots_Te, &
+								                   T_e=T_e, ne_rhop_scal=1.0, reflec_X_new=-1.d0, & ! in
+                                   reflec_O_new=-1.d0, ece_fm_flag_ch=ece_fm_flag_ch, rp_min=rp_min, &
+                                   dat_model_ece=dat_model_ece, tau=tau, set_grid_dynamic=set_grid_dynamic, &
+                                   verbose=verbose, use_spline_coeffs=.true.)
+end subroutine make_dat_model_ECRad
+
+
+end module ECRad_IMAS

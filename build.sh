@@ -16,7 +16,6 @@ make lib COMPILER=GNU
 make lib OPEN_MP=True COMPILER=GNU
 make lib OPEN_MP=True DEBUG=True COMPILER=GNU
 rm -f id
-git rev-parse HEAD > id
 $PYTHON -m build -n -x
 $PYTHON -m pip install --no-deps .
 # make USE_3D=True DEBUG=True
