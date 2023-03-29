@@ -555,7 +555,7 @@ integer(ikind)                          :: idiag, ich
 logical                                 :: from_spline_coeffs
 ! Updates the values of the splines: Te, ne
 from_spline_coeffs = .false.
-if present(use_spline_coeffs) from_spline_coeffs = use_spline_coeffs
+if(present(use_spline_coeffs)) from_spline_coeffs = use_spline_coeffs
 if(.not. plasma_params%No_ne_te .and. from_spline_coeffs) then
   call update_Te_ne_from_coeffs(rhop_knots_ne, n_e, rhop_knots_Te, T_e)
 else if(.not. plasma_params%No_ne_te .or. plasma_params%Te_ne_mat) then
@@ -598,7 +598,7 @@ integer(ikind)                          :: idiag, ich
 logical                                 :: from_spline_coeffs
 ! Updates the values of the splines: Te, ne
 from_spline_coeffs = .false.
-if present(use_spline_coeffs) from_spline_coeffs = use_spline_coeffs
+if(present(use_spline_coeffs)) from_spline_coeffs = use_spline_coeffs
 if(from_spline_coeffs) then
   call update_Te_ne_from_coeffs(rhop_knots_ne, n_e, rhop_knots_Te, T_e)
 else if(.not. plasma_params%No_ne_te .or. plasma_params%Te_ne_mat) then
@@ -668,7 +668,7 @@ rad%diag(1)%ch(:)%eval_ch = ece_fm_flag_ch
 plasma_params%rp_min = rp_min
 plasma_params%rhop_scale_ne =  ne_rhop_scal
 from_spline_coeffs = .false.
-if present(use_spline_coeffs) from_spline_coeffs = use_spline_coeffs
+if(present(use_spline_coeffs)) from_spline_coeffs = use_spline_coeffs
 if(from_spline_coeffs) then
   call update_Te_ne_from_coeffs(rhop_knots_ne, n_e, rhop_knots_Te, T_e)
 else if(.not. present(T_e_dx2) .and. .not. present(n_e_dx2)) then
@@ -847,11 +847,13 @@ integer(ikind)                               :: imode
   rhop_res_warm = rad%diag(idiag)%ch(ich)%rel_rhop_res
 end subroutine make_BPD_w_res_ch_IDA
 
-subroutine update_Te_ne_from_coeffs(t_n_e, c_n_e, t_t_e, c_n_e)
-  use mod_ECRad_types,               only: plasma_params
+subroutine update_Te_ne_from_coeffs(t_n_e, c_n_e, t_t_e, c_t_e)
+  use mod_ECRad_types,               only: plasma_params, use_ida_spline_ne
   use mod_ECRad_interpol,            only: set_spline_from_knots_and_coeffs
-    call set_spline_from_knots_and_coeffs( plasma_params%ne_spline, int(size(t_n_e),4), t_n_e, c_n_e)
-    call set_spline_from_knots_and_coeffs( plasma_params%Te_spline, int(size(t_t_e),4), t_t_e, c_t_e)
+  implicit None
+  real(rkind), dimension(:), intent(in)   :: t_n_e, c_n_e, t_t_e, c_t_e
+    call set_spline_from_knots_and_coeffs( plasma_params%ne_spline, int(size(t_n_e),4), t_n_e, c_n_e, 3)
+    call set_spline_from_knots_and_coeffs( plasma_params%Te_spline, int(size(t_t_e),4), t_t_e, c_t_e, 3)
     use_ida_spline_ne = .false.
     plasma_params%rhop_max = min(maxval(t_n_e), maxval(t_t_e))
 end subroutine
@@ -933,7 +935,7 @@ subroutine update_svecs(rad, rhop_knots_ne, n_e, n_e_dx2, rhop_knots_Te, T_e, T_
 
 ! Updates the values of the splines: Te, ne
 from_spline_coeffs = .false.
-  if present(use_spline_coeffs) from_spline_coeffs = use_spline_coeffs
+  if(present(use_spline_coeffs)) from_spline_coeffs = use_spline_coeffs
   if(from_spline_coeffs) then
     call update_Te_ne_from_coeffs(rhop_knots_ne, n_e, rhop_knots_Te, T_e)
   else if(.not. present(T_e_dx2) .and. .not. present(n_e_dx2)) then

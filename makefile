@@ -67,12 +67,17 @@ ifeq ($(USE_3D),True)
 	FFPFLAGS += -DUSE_3D
 	USE3DFLAG = USE3D
 endif
+ifeq ($(IMAS),True)
+	FFPFLAGS += -DIMAS
+	IMASFLAG = IMAS
+endif
+FLAVORFLAG = $(OMPFLAG)$(USE3DFLAG)$(IMASFLAG)
 #ifeq ($(IDA)$(USE_3D),TrueFalse)
 #	FFPFLAGS += -DIDAUSE_2D
 #endif
 OBJJ = $(obj)
 NAG_MOD = $(NAGF90MOD)
-MODECRad=$(ROOTDIR)/$(SYS)/mod$(COMPILER)$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)
+MODECRad=$(ROOTDIR)/$(SYS)/mod$(COMPILER)$(IDAFLAG)$(FLAVORFLAG)
 # Debugging -> enable if DEBUG==		True
 ifeq ($(DEBUG),True)
 	F90FLAGS = $(F90DBGFLAGS)
@@ -97,9 +102,9 @@ F77FLAGS = $(F90FLAGS) -C
 # Libraries
 FITPACK = -L$(ROOTDIR)/fitpack/ -lFITPack
 ODEPACK = -L$(ROOTDIR)/odepack/ -lODEPack
-F2PYLIBS = -L$(ECRadLIBDir) -l$(ECRadLIB)$(OMPFLAG)$(USE3DFLAG)$(DB) \
+F2PYLIBS = -L$(ECRadLIBDir) -l$(ECRadLIB)$(FLAVORFLAG)$(DB) \
 	$(NAGF90LIB) $(NAGFLIB) $(FITPACK) $(ODEPACK)
-LIBS = -L$(ECRadLIBDir) -l$(ECRadLIB)$(OMPFLAG)$(USE3DFLAG)$(DB) \
+LIBS = -L$(ECRadLIBDir) -l$(ECRadLIB)$(FLAVORFLAG)$(DB) \
 	$(NAGF90LIB) $(NAGFLIB) $(FITPACK) $(ODEPACK) \
 	$(LIBFLAG)
 ifeq ($(USE_3D),True)
@@ -133,30 +138,34 @@ endif
 ifeq ($(IDA),True)
 OBJECTS =
 else
-OBJECTS = std_lib$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).o
+OBJECTS = std_lib$(IDAFLAG)$(FLAVORFLAG)$(DB).o
 endif
 ifeq ($(USE_3D),True)
-OBJECTS = std_lib$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).o
+OBJECTS = std_lib$(IDAFLAG)$(FLAVORFLAG)$(DB).o
 endif
 OBJECTS += \
-	quadrature$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).o \
-	mod_contour$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).o \
-	magconfig3D$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).o \
-	mod_ECRad_types$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).o \
-	mod_ECRad_interpol$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).o \
-	mod_ECRad_abs_Fa$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).o \
-	mod_ECRad_fp_dist_utils$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).o \
-	mod_ECRad_gene_dist_utils$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).o \
-	mod_ECRad_utils$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).o \
-	mod_ECRad_dist$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).o \
-	mod_ECRad_abs_Al$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).o \
-	mod_ripple3d$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).o \
-	mod_ECRad_raytrace_initialize$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).o \
-	mod_ECRad_raytrace$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).o \
-	mod_ECRad_rad_transp$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).o \
-	mod_ECRad$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).o
+	quadrature$(IDAFLAG)$(FLAVORFLAG)$(DB).o \
+	mod_contour$(IDAFLAG)$(FLAVORFLAG)$(DB).o \
+	magconfig3D$(IDAFLAG)$(FLAVORFLAG)$(DB).o \
+	mod_ECRad_types$(IDAFLAG)$(FLAVORFLAG)$(DB).o \
+	mod_ECRad_interpol$(IDAFLAG)$(FLAVORFLAG)$(DB).o \
+	mod_ECRad_abs_Fa$(IDAFLAG)$(FLAVORFLAG)$(DB).o \
+	mod_ECRad_fp_dist_utils$(IDAFLAG)$(FLAVORFLAG)$(DB).o \
+	mod_ECRad_gene_dist_utils$(IDAFLAG)$(FLAVORFLAG)$(DB).o \
+	mod_ECRad_utils$(IDAFLAG)$(FLAVORFLAG)$(DB).o \
+	mod_ECRad_dist$(IDAFLAG)$(FLAVORFLAG)$(DB).o \
+	mod_ECRad_abs_Al$(IDAFLAG)$(FLAVORFLAG)$(DB).o \
+	mod_ripple3d$(IDAFLAG)$(FLAVORFLAG)$(DB).o \
+	mod_ECRad_raytrace_initialize$(IDAFLAG)$(FLAVORFLAG)$(DB).o \
+	mod_ECRad_raytrace$(IDAFLAG)$(FLAVORFLAG)$(DB).o \
+	mod_ECRad_rad_transp$(IDAFLAG)$(FLAVORFLAG)$(DB).o \
+	mod_ECRad$(IDAFLAG)$(FLAVORFLAG)$(DB).o
+
+ifeq ($(IMAS),True)
+OBJECTS += ECRad_IMAS$(IDAFLAG)$(FLAVORFLAG)$(DB).o
+endif
 	
-ECRad_pythonOBJ = ECRad_python$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).o
+ECRad_pythonOBJ = ECRad_python$(IDAFLAG)$(FLAVORFLAG)$(DB).o
 
 OBJS := $(addprefix $(MODECRad)/, $(OBJECTS))
 
@@ -164,47 +173,55 @@ OBJS := $(addprefix $(MODECRad)/, $(OBJECTS))
 .PHONY: INFO
 ifeq ($(IDA),True)
 all: INFO directories lib
+else ifeq ($(IMAS),True)
+all: INFO directories lib
 else
 all: INFO directories lib \
-	$(ECRadLIBDir)/ECRad_python$(OMPFLAG)$(USE3DFLAG)$(DB) $(ECRadLIBDir)/$(APPLICATION)$(OMPFLAG)$(USE3DFLAG)$(DB)
+	 F2PY_wrapper
 endif
 
 lib: directories MANIFEST \
-	$(ECRadLIBDir)/lib$(ECRadLIB)$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).a \
-	$(ECRadLIBDir)/ECRad_python$(OMPFLAG)$(USE3DFLAG)$(DB)$(F2PYEXT_SUFFIX)
+	$(ECRadLIBDir)/lib$(ECRadLIB)$(IDAFLAG)$(FLAVORFLAG)$(DB).a \
 	
+F2PY_wrapper: lib $(ECRadLIBDir)/ECRad_python$(FLAVORFLAG)$(DB)$(F2PYEXT_SUFFIX)
+	$(ECRadLIBDir)/ECRad_python$(FLAVORFLAG)$(DB) $(ECRadLIBDir)/$(APPLICATION)$(FLAVORFLAG)$(DB)
+
 MANIFEST: 
-	echo include src/ecrad_core/ECRad_python$(OMPFLAG)$(USE3DFLAG)$(DB)$(F2PYEXT_SUFFIX) >> MANIFEST.in
+	echo include src/ecrad_core/ECRad_python$(FLAVORFLAG)$(DB)$(F2PYEXT_SUFFIX) >> MANIFEST.in
+
 ifeq ($(COMPILER),GNU)
 INFO:
-	echo "Assuming GNU toochain"
+	echo "Assuming GNU toolchain"
 else
 INFO:
-	echo "Assuming INTEL toochain"
+	echo "Assuming INTEL toolchain"
 endif
 
-$(ECRadLIBDir)/$(APPLICATION)$(OMPFLAG)$(USE3DFLAG)$(DB): $(OBJJ)  \
-	$(ECRadLIBDir)/lib$(ECRadLIB)$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).a $(MODECRad)/$(APPLICATION)$(OMPFLAG)$(USE3DFLAG)$(DB).o makefile
+$(ECRadLIBDir)/$(APPLICATION)$(FLAVORFLAG)$(DB): $(OBJJ)  \
+	$(ECRadLIBDir)/lib$(ECRadLIB)$(IDAFLAG)$(FLAVORFLAG)$(DB).a $(MODECRad)/$(APPLICATION)$(FLAVORFLAG)$(DB).o makefile
 	echo $(OBJJ$(SYS))
-	$(F90) $(LDFLAGS) $(MODECRad)/$(APPLICATION)$(OMPFLAG)$(USE3DFLAG)$(DB).o ${OBJJ} $(LIBS) \
-	-o $(ECRadLIBDir)/$(APPLICATION)$(OMPFLAG)$(USE3DFLAG)$(DB)
+	$(F90) $(LDFLAGS) $(MODECRad)/$(APPLICATION)$(FLAVORFLAG)$(DB).o ${OBJJ} $(LIBS) \
+	-o $(ECRadLIBDir)/$(APPLICATION)$(FLAVORFLAG)$(DB)
 	
-$(MODECRad)/$(APPLICATION)$(OMPFLAG)$(USE3DFLAG)$(DB).o : $(SRCP)/$(APPLICATION).f90
-	$(F90) ${MODULES} $(FFPFLAGS) -c $(F90FLAGS) $< -o $@
+$(MODECRad)/$(APPLICATION)$(FLAVORFLAG)$(DB).o : $(SRCP)/$(APPLICATION).f90
+	$(F90) $(MODULES) $(FFPFLAGS) -c $(F90FLAGS) $< -o $@
 	
-$(ECRadLIBDir)/ECRad_python$(OMPFLAG)$(USE3DFLAG)$(DB)$(F2PYEXT_SUFFIX): $(ECRadLIBDir)/lib$(ECRadLIB)$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).a
+$(ECRadLIBDir)/ECRad_python$(FLAVORFLAG)$(DB)$(F2PYEXT_SUFFIX): $(ECRadLIBDir)/lib$(ECRadLIB)$(IDAFLAG)$(FLAVORFLAG)$(DB).a
 	cd $(ECRad_pythonDir); \
-	python -m numpy.f2py $(F2PYDBG) -c --fcompiler=$(F2PYCOMPILER) $(ROOTDIR)/src/ECRad_python$(OMPFLAG)$(USE3DFLAG).f90 -m ECRad_python$(OMPFLAG)$(USE3DFLAG)$(DB) \
+	python -m numpy.f2py $(F2PYDBG) -c --fcompiler=$(F2PYCOMPILER) $(ROOTDIR)/src/ECRad_python$(FLAVORFLAG).f90 -m ECRad_python$(FLAVORFLAG)$(DB) \
 		-I$(MODECRad) --opt='' --f90flags='$(F2PYFLAGS)' $(F2PYLIBS); \
 	cd -
 
+$(ECRadLIBDir)/ECRad_IMAS$(FLAVORFLAG)$(DB)$.o: $(ECRadLIBDir)/lib$(ECRadLIB)$(IDAFLAG)$(FLAVORFLAG)$(DB).a
+	$(F90) $(MODULES) $(FFPFLAGS) -c $(F90FLAGS) $(SRCP)/ECRad_IMAS.f90 -o $@
+
 #libECRad
-$(ECRadLIBDir)/lib$(ECRadLIB)$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).a: $(OBJS)
+$(ECRadLIBDir)/lib$(ECRadLIB)$(IDAFLAG)$(FLAVORFLAG)$(DB).a: $(OBJS)
 	ar rv $@ $(OBJS)
 
-$(ECRadLIB)$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).a: $(OBJS)
+$(ECRadLIB)$(IDAFLAG)$(FLAVORFLAG)$(DB).a: $(OBJS)
 
-$(MODECRad)/%$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).o: $(SRCP)/%.f90
+$(MODECRad)/%$(IDAFLAG)$(FLAVORFLAG)$(DB).o: $(SRCP)/%.f90
 	 $(F90) $(MODULES) $(FFPFLAGS) -c $(F90FLAGS) $< -o $@
 	 
 #making the directories
@@ -215,38 +232,38 @@ directories:
 
 #Dependencies
 
-$(MODECRad)/mod_contour$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).o: $(STDPLIB)
+$(MODECRad)/mod_contour$(IDAFLAG)$(FLAVORFLAG)$(DB).o: $(STDPLIB)
 
-$(MODECRad)/mod_ECRad_types$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).o: $(STDPLIB) \
+$(MODECRad)/mod_ECRad_types$(IDAFLAG)$(FLAVORFLAG)$(DB).o: $(STDPLIB) \
 	$(SRCP)/magconfig3D.f90
 
-$(MODECRad)/mod_ECRad_interpol$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).o: $(STDPLIB) \
+$(MODECRad)/mod_ECRad_interpol$(IDAFLAG)$(FLAVORFLAG)$(DB).o: $(STDPLIB) \
 	$(SRCP)/mod_ECRad_types.f90
 
-$(MODECRad)/mod_ECRad_abs_Fa$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).o: $(STDPLIB)
+$(MODECRad)/mod_ECRad_abs_Fa$(IDAFLAG)$(FLAVORFLAG)$(DB).o: $(STDPLIB)
 
-$(MODECRad)/mod_ECRad_fp_dist_utils$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).o: $(STDPLIB) \
+$(MODECRad)/mod_ECRad_fp_dist_utils$(IDAFLAG)$(FLAVORFLAG)$(DB).o: $(STDPLIB) \
 	$(SRCP)/mod_ECRad_types.f90 \
 	$(SRCP)/mod_ECRad_interpol.f90 \
 	$(SRCP)/mod_contour.f90
 
-$(MODECRad)/mod_ECRad_gene_dist_utils$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).o: $(STDPLIB) \
+$(MODECRad)/mod_ECRad_gene_dist_utils$(IDAFLAG)$(FLAVORFLAG)$(DB).o: $(STDPLIB) \
 	$(SRCP)/mod_ECRad_types.f90 \
 	$(SRCP)/mod_ECRad_interpol.f90
 
-$(MODECRad)/mod_ECRad_dist$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).o: $(STDPLIB) \
+$(MODECRad)/mod_ECRad_dist$(IDAFLAG)$(FLAVORFLAG)$(DB).o: $(STDPLIB) \
 	$(SRCP)/mod_ECRad_fp_dist_utils.f90 \
 	$(SRCP)/mod_ECRad_gene_dist_utils.f90 \
   $(SRCP)/mod_ECRad_interpol.f90
 
-$(MODECRad)/mod_ECRad_utils$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).o: $(STDPLIB) \
+$(MODECRad)/mod_ECRad_utils$(IDAFLAG)$(FLAVORFLAG)$(DB).o: $(STDPLIB) \
 	$(SRCP)/quadrature.f90 \
 	$(SRCP)/mod_ECRad_types.f90 \
 	$(SRCP)/mod_ECRad_interpol.f90 \
 	$(SRCP)/mod_ECRad_fp_dist_utils.f90 \
 	$(SRCP)/mod_ECRad_gene_dist_utils.f90
 
-$(MODECRad)/mod_ECRad_abs_Al$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).o: $(STDPLIB) \
+$(MODECRad)/mod_ECRad_abs_Al$(IDAFLAG)$(FLAVORFLAG)$(DB).o: $(STDPLIB) \
 	$(SRCP)/quadrature.f90 \
 	$(SRCP)/mod_ECRad_types.f90 \
 	$(SRCP)/mod_ECRad_utils.f90 \
@@ -255,17 +272,17 @@ $(MODECRad)/mod_ECRad_abs_Al$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).o: $(STDPLIB) 
 	$(SRCP)/mod_ECRad_dist.f90 \
 	$(SRCP)/mod_ECRad_abs_Fa.f90
 
-$(MODECRad)/mod_ripple3d$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).o: $(STDPLIB) \
+$(MODECRad)/mod_ripple3d$(IDAFLAG)$(FLAVORFLAG)$(DB).o: $(STDPLIB) \
 	$(SRCP)/mod_ECRad_types.f90 
 
-$(MODECRad)/mod_ECRad_raytrace_initialize$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).o: $(STDPLIB) \
+$(MODECRad)/mod_ECRad_raytrace_initialize$(IDAFLAG)$(FLAVORFLAG)$(DB).o: $(STDPLIB) \
 	$(SRCP)/magconfig3D.f90 \
 	$(SRCP)/mod_ECRad_types.f90 \
 	$(SRCP)/mod_ripple3d.f90 \
 	$(SRCP)/mod_ECRad_interpol.f90 \
 	$(SRCP)/mod_ECRad_utils.f90
 
-$(MODECRad)/mod_ECRad_raytrace$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).o: $(STDPLIB) \
+$(MODECRad)/mod_ECRad_raytrace$(IDAFLAG)$(FLAVORFLAG)$(DB).o: $(STDPLIB) \
 	$(SRCP)/magconfig3D.f90 \
 	$(SRCP)/mod_ECRad_types.f90 \
 	$(SRCP)/mod_ripple3d.f90 \
@@ -273,13 +290,13 @@ $(MODECRad)/mod_ECRad_raytrace$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).o: $(STDPLIB
 	$(SRCP)/mod_ECRad_interpol.f90 \
 	$(SRCP)/mod_ECRad_utils.f90
 
-$(MODECRad)/mod_ECRad_rad_transp$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).o: $(STDPLIB) \
+$(MODECRad)/mod_ECRad_rad_transp$(IDAFLAG)$(FLAVORFLAG)$(DB).o: $(STDPLIB) \
 	$(SRCP)/mod_ECRad_types.f90 \
 	$(SRCP)/mod_ECRad_utils.f90 \
 	$(SRCP)/mod_ECRad_abs_Al.f90 \
 	$(SRCP)/mod_ECRad_raytrace.f90
 
-$(MODECRad)/mod_ECRad$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).o: \
+$(MODECRad)/mod_ECRad$(IDAFLAG)$(FLAVORFLAG)$(DB).o: \
 	$(SRCP)/mod_ECRad_types.f90 \
 	$(SRCP)/mod_ECRad_rad_transp.f90 \
 	$(SRCP)/mod_ECRad_abs_Al.f90 \
@@ -288,7 +305,10 @@ $(MODECRad)/mod_ECRad$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).o: \
 	$(SRCP)/mod_ECRad_interpol.f90 \
 	$(SRCP)/mod_ECRad_utils.f90
 
-$(MODECRad)/ECRad_python$(IDAFLAG)$(OMPFLAG)$(USE3DFLAG)$(DB).o: \
+$(MODECRad)/ECRad_python$(IDAFLAG)$(FLAVORFLAG)$(DB).o: \
+	$(SRCP)/mod_ECRad.f90
+
+$(MODECRad)/ECRad_IMAS$(IDAFLAG)$(FLAVORFLAG)$(DB).o: \
 	$(SRCP)/mod_ECRad.f90
 
 ifndef PREFIX

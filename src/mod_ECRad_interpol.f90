@@ -233,20 +233,8 @@ use ifcore,                     only: tracebackqq
       integer*4,   intent(in)               :: k
       real*8                                :: fp
       real*8, dimension(m)                  :: w
-      if(present(k)) then
-        if(k == 1 .or. k == 3) then
-          spl%k = k
-      else
-      print*, "The order of the splines must be either linear or cubic"
-#ifdef INTEL
-      call tracebackqq()
-#else
-      call backtrace()
-#endif
-        call abort()
-        end if
-      end if
-      if(.not. allocated(spl%t) .or. size(splt%t) /= m) then !
+      spl%k = k
+      if(.not. allocated(spl%t) .or. size(spl%t) /= m) then !
         if(allocated(spl%t)) then
           deallocate(spl%t, spl%c, spl%wrk, spl%iwrk)
         end if
@@ -256,10 +244,10 @@ use ifcore,                     only: tracebackqq
         allocate(spl%t(spl%nest), &
                  spl%c(spl%nest), spl%wrk(spl%lwrk), spl%iwrk(spl%nest))
       end if
-      spl%t(:) = t(:)
-      spl%c(:) = c(:)
-      spl%x_start = t(1)
-      spl%x_end = t(m)
+      spl%t(:) = knots(:)
+      spl%c(:) = coeffs(:)
+      spl%x_start = knots(1)
+      spl%x_end = knots(m)
   end subroutine
 
   subroutine deallocate_rect_spline(spl)
