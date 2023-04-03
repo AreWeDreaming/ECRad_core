@@ -47,9 +47,9 @@ subroutine pre_initialize_ECRad_IMAS(codeparam_string, wall, &
   call xml2eg_get(doc,'N_ray', N_ray)
   call xml2eg_get(doc,'N_freq', N_freq)
   call xml2eg_free_doc(doc)
-  if (ids_is_valid(wall%description_2d)) then
+  if (ids_is_valid(wall%description_2d(1)%limiter%unit(1)%outline%R)) then
     N_vessel = size(wall%description_2d(1)%limiter%unit(1)%outline%R)
-    allocate(R_wall(N_wall), z_wall(N_wall))
+    allocate(vessel_R(N_vessel), vessel_z(N_vessel))
     vessel_R = wall%description_2d(1)%limiter%unit(1)%outline%R
     vessel_z = wall%description_2d(1)%limiter%unit(1)%outline%z
     error_flag = 0
@@ -60,55 +60,59 @@ subroutine pre_initialize_ECRad_IMAS(codeparam_string, wall, &
     return
   end if
   call pre_initialize_ECRad_f2py(extra_output, dstf, ray_tracing, ripple, &
-                                 1.2, weak_rel, &
+                                 1.2d0, weak_rel, &
                                  ratio_for_3rd_harm, N_max, tau_ignore, &
-                                 considered_modes, reflec_X, reflec_O, .false., &
+                                 considered_modes, reflec_X, reflec_O, 0, &
                                  max_points_svec, N_pts_BPD ,&
                                  mode_conv, &
-                                 1.0, 1.0, &
-                                 large_ds, small_ds, 0.0, &
-                                 0.0, N_ray, N_freq, .true., N_vessel, vessel_R, vessel_z)
+                                 1.d0, 1.d0, &
+                                 large_ds, small_ds, 0.d0, &
+                                 0.d0, N_ray, N_freq, .true., N_vessel, vessel_R, vessel_z)
   deallocate(vessel_R, vessel_z)
 end subroutine pre_initialize_ECRad_IMAS
 
 subroutine set_ece_ECRad_IMAS(ece, itime, error_flag, error_message)
   use mod_ECRad, only: prepare_ECE_diag_f2py
   use ids_schemas, only: ids_equilibrium, ids_ece, ids_is_valid
+  implicit None
   ! Input/Output
   type(ids_ece):: ece
-  integer, intent(in) :; itime
+  integer, intent(in) :: itime
   integer, intent(out) :: error_flag
   character(len=:), pointer, intent(out) :: error_message
   ! Internal
-  real(kind=8), dimension(:), allocatable :: f, df, R, phi, z, tor, pol, dist_foc, width, pol_coeff
-  real(kind=8), dimension(:,:), allocatable :: x1_vec, x2_vec
-  integer :: N_ch
+  real(kind=8), dimension(:), allocatable :: f, df, R, phi, z, phi_tor, theta_pol, &
+                                             dist_focus, width, pol_coeff, x1_vec, x2_vec
+  integer :: i, N_ch
   ! CHECK IF INPUT IDS IS VALID
-  if (ids_is_valid(ece%channel) .and. ids_is_valid(ece%line_of_sight)) then
-    N_ch = len(ece%channel)
+  if (ids_is_valid(ece%line_of_sight%first_point%r)) then
+    N_ch = size(ece%channel)
     allocate(f(N_ch), df(N_ch), R(N_ch), phi(N_ch), z(N_ch), &
-              tor(N_ch), pol(N_ch), dist_foc(N_ch), width(N_ch), pol_coeff(N_ch),
-              x1_vec(N_ch,2), x2_vec(N_ch,2))
-    f = ece%channel(:)%frequency%data(itime)
-    df =  ece%channel(:)%if_bandwidth
-    R(:) = ece%line_of_sight%first_point%r
-    phi(:) = ece%line_of_sight%first_point%phi
-    z(:) = ece%line_of_sight%first_point%z
-    x1_vec(1) = ece%line_of_sight%first_point%r * cos(ece%line_of_sight%first_point%phi)
-    x1_vec(2) = ece%line_of_sight%first_point%r * sin(ece%line_of_sight%first_point%phi)
-    x2_vec(1) = ece%line_of_sight%second_point%r * cos(ece%line_of_sight%first_point%phi)
-    x2_vec(2) = ece%line_of_sight%second_point%r * sin(ece%line_of_sight%first_point%phi)
-    theta_pol(:) = atan((ece%line_of_sight%first_point%z - ece%line_of_sight%second_point%z) / &
-                      (ece%line_of_sight%first_point%r - ece%line_of_sight%second_point%r))
-    phi_tor(:) = -acos((-x1_vec(1) * (x2_vec(1) - x1_vec(1)) - x1_vec(2) * (x2_vec(2) - x1_vec(2))) / &
-                          (R * sqrt(sum((x2_vec - x1_vec)**2, dim=2))))
-    width(:) = ece%channel(:)%beam%spot%size%data(itime)
-    dist_focus(:) = -ece%channel(:)%beam%phase%curvature%data(itime)
-    pol_coeff(:) = -1
-    error_flag = 0
-    call prepare_ECE_diag_f2py(f, df, R, phi, z, tor, pol, dist_foc, width, pol_coeff)
-    deallocate(f, df, R, phi, z, tor, pol, dist_foc, width, pol_coeff,
-               x1_vec, x2_vec)
+    phi_tor(N_ch), theta_pol(N_ch), dist_focus(N_ch), width(N_ch), pol_coeff(N_ch), &
+              x1_vec(2), x2_vec(2))
+    do i = 1, N_ch
+      f = ece%channel(i)%frequency%data(itime)
+      df =  ece%channel(i)%if_bandwidth
+      R(i) = ece%line_of_sight%first_point%r
+      phi(i) = ece%line_of_sight%first_point%phi
+      z(i) = ece%line_of_sight%first_point%z
+      x1_vec(1) = ece%line_of_sight%first_point%r * cos(ece%line_of_sight%first_point%phi)
+      x1_vec(2) = ece%line_of_sight%first_point%r * sin(ece%line_of_sight%first_point%phi)
+      x2_vec(1) = ece%line_of_sight%second_point%r * cos(ece%line_of_sight%first_point%phi)
+      x2_vec(2) = ece%line_of_sight%second_point%r * sin(ece%line_of_sight%first_point%phi)
+      theta_pol(i) = atan2((ece%line_of_sight%first_point%r - ece%line_of_sight%second_point%r), &
+                           (ece%line_of_sight%first_point%z - ece%line_of_sight%second_point%z))
+      phi_tor(i) = -acos((-x1_vec(1) * (x2_vec(1) - x1_vec(1)) - x1_vec(2) * (x2_vec(2) - x1_vec(2))) / &
+                         (R(i) * sqrt(sum((x2_vec - x1_vec)**2))))
+      width(i) = (ece%channel(i)%beam%spot%size%data(1,itime) + &
+                  ece%channel(i)%beam%spot%size%data(1,itime)) / 2.d0 ! Average the ellipse to a circle
+      dist_focus(i) = -(ece%channel(i)%beam%phase%curvature%data(1, itime) + &
+                        ece%channel(i)%beam%phase%curvature%data(1, itime)) / 2.d0  ! Average the ellipse to a circle
+      pol_coeff(i) = -1
+      error_flag = 0
+    end do
+    call prepare_ECE_diag_f2py(f, df, R, phi, z, phi_tor, theta_pol, dist_focus, width, pol_coeff)
+    deallocate(f, df, R, phi, z, phi_tor, theta_pol, dist_focus, width, pol_coeff, x1_vec, x2_vec)
   else
       ! ERROR IF THE CODE DOES NOT COMPLETE TO THE END
       error_flag = -1
@@ -144,23 +148,24 @@ integer(kind=4), intent(in)                       :: itime
 integer, intent(out) :: error_flag
 character(len=:), pointer, intent(out) :: error_message
 real(kind=8), dimension(*), intent(out)            :: rhopol_out
-real(kind=8), dimension(:), allocatable :: R_ax, z_ax, psi_ax, psi_sep
+real(kind=8)                            :: R_ax, z_ax, psi_ax, psi_sep
 real(kind=8), dimension(:), allocatable :: R, z
 real(kind=8), dimension(:,:), allocatable :: rhop, Br, Bt, Bz
-integer(kind=4) :: m,n
-  if (ids_is_valid(equilibrium%time_slice(itime))) then
+integer(kind=4) :: i, m, n
+  if (ids_is_valid(equilibrium%ids_properties%homogeneous_time) .and. &
+      size(equilibrium%time)>0) then
     m = size(equilibrium%time_slice(itime)%profiles_2d(1)%grid%dim1)
     n = size(equilibrium%time_slice(itime)%profiles_2d(1)%grid%dim2)
     allocate(R(m), z(n), rhop(m,n), Br(m,n), Bt(m,n), Bz(m,n))
     R(:) = equilibrium%time_slice(itime)%profiles_2d(1)%grid%dim1(:)
     z(:) = equilibrium%time_slice(itime)%profiles_2d(1)%grid%dim2(:)
-    psi_ax = psi_axis
-    psi_sep = psi_boundary
-    R_ax = magnetic_axis%r
-    z_ax = magnetic_axis%z
+    psi_ax = equilibrium%time_slice(itime)%global_quantities%psi_axis
+    psi_sep = equilibrium%time_slice(itime)%global_quantities%psi_boundary
+    R_ax = equilibrium%time_slice(itime)%global_quantities%magnetic_axis%r
+    z_ax = equilibrium%time_slice(itime)%global_quantities%magnetic_axis%z
     do i = 1,n
       rhop(:,i) = equilibrium%time_slice(itime)%profiles_2d(1)%psi(:,i)
-      rhop(:,i) = sqrt((rhop - psi_ax) / (psi_sep - psi_ax))
+      rhop(:,i) = sqrt((rhop(:,i) - psi_ax) / (psi_sep - psi_ax))
       Br(:,i) = equilibrium%time_slice(itime)%profiles_2d(1)%b_field_r(:,i)
       Bt(:,i) = equilibrium%time_slice(itime)%profiles_2d(1)%b_field_tor(:,i)
       Bz(:,i) = equilibrium%time_slice(itime)%profiles_2d(1)%b_field_z(:,i)
@@ -187,7 +192,7 @@ call make_rays_ECRad_f2py(rhop_knots_ne=rhop_knots_ne, n_e=n_e, rhop_knots_Te=rh
 					                T_e=T_e,  rhop_res=rhop_res, use_spline_coeffs=.true.)
 end subroutine make_rays_ECRad_IMAS
 
-subroutine make_rays_ECRad_spline_IMAS(rhop_knots_ne, n_e, n_e_dx2, rhop_knots_Te, T_e, T_e_dx2, &
+subroutine make_rays_ECRad_spline_IMAS(rhop_knots_ne, n_e, rhop_knots_Te, T_e, &
                                        rhop_res)
 use mod_ECRad,        only: make_rays_ECRad_f2py
 implicit none
@@ -212,7 +217,7 @@ logical, intent(in)          :: set_grid_dynamic
 integer                         :: ich
 rp_min = max(minval(rhop_knots_ne), minval(rhop_knots_Te))
 call make_dat_model_ece_ECRad_f2py(rhop_knots_ne=rhop_knots_ne, n_e=n_e, rhop_knots_Te=rhop_knots_Te, &
-								                   T_e=T_e, ne_rhop_scal=1.0, reflec_X_new=-1.d0, & ! in
+								                   T_e=T_e, ne_rhop_scal=1.d0, reflec_X_new=-1.d0, & ! in
                                    reflec_O_new=-1.d0, ece_fm_flag_ch=ece_fm_flag_ch, rp_min=rp_min, &
                                    dat_model_ece=dat_model_ece, tau=tau, set_grid_dynamic=set_grid_dynamic, &
                                    verbose=verbose, use_spline_coeffs=.true.)

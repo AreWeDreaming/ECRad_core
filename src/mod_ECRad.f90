@@ -176,8 +176,7 @@ subroutine pre_initialize_ECRad_f2py(ecrad_verbose, dstf_in, ray_tracing, ecrad_
                                      f, df, R, phi, z, tor, pol, dist_foc, width, pol_coeff)
 ! Everything that is absolutely static in time is done over here
 use mod_ECRad_types,      only: plasma_params, N_absz, N_absz_large, dstf, pnts_BPD
-use mod_ECRad_utils,      only: parse_ECRad_config, &
-                                prepare_ECE_diag
+use mod_ECRad_utils,      only: parse_ECRad_config
 use mod_ECRad_abs_Al,     only: abs_Al_init
 implicit none
 character(*), intent(in)        :: dstf_in
@@ -196,7 +195,7 @@ integer(ikind)                :: idiag
                           ecrad_verbose, dstf_in, ray_tracing, ecrad_Bt_ripple, &
                           rhopol_max_spline_knot, ecrad_weak_rel, &
                           ecrad_ratio_for_third_harmonic, ecrad_N_max, ecrad_tau_ignore, &
-                          ecrad_modes, reflec_X_mode, reflec_O_mode, ece_1O_flag, &
+                          ecrad_modes, reflec_X_mode, reflec_O_mode, 0, &
                           ecrad_max_points_svec, & ! (modes = 1 -> pure X-mode, 2 -> pure O-mode, 3 both modes and filter
                           ecrad_O2X_mode_conversion, & ! mode conversion ratio from O-X due to wall reflections
                           ! Scaling of rhop axis for shifting on ne or Te
@@ -207,9 +206,7 @@ integer(ikind)                :: idiag
                           ecrad_N_ray, ecrad_N_freq, log_flag, 0)
   pnts_BPD = N_BPD_pnts
   if(present(f)) then
-    call prepare_ECE_diag(f=f, df=df, R=R, &
-                          phi=phi, z=z, tor=tor, pol=pol, dist_foc=dist_foc, &
-                          width=width, pol_coeff=pol_coeff)
+    call prepare_ECE_diag_f2py(f, df, R, phi, z, tor, pol, dist_foc, width, pol_coeff)
   end if
   if(dstf == "numeric" .or. trim(dstf) == "gene" .or. trim(dstf) == "gcomp") then
       call abs_Al_init(N_absz_large) ! Initializes the weights and abszissae for the gaussian quadrature
@@ -222,6 +219,16 @@ integer(ikind)                :: idiag
   plasma_params%vessel_poly%x(:) = vessel_R
   plasma_params%vessel_poly%y(:) = vessel_z
 end subroutine pre_initialize_ECRad_f2py
+
+subroutine prepare_ECE_diag_f2py(f, df, R, phi, z, tor, pol, dist_foc, width, pol_coeff)
+! Everything that is absolutely static in time is done over here
+use mod_ECRad_utils,      only: prepare_ECE_diag
+implicit none
+real(rkind), dimension(:), intent(in) :: f, df, R, phi, z, tor, pol, dist_foc, width, pol_coeff
+call prepare_ECE_diag(f=f, df=df, R=R, &
+                      phi=phi, z=z, tor=tor, pol=pol, dist_foc=dist_foc, &
+                      width=width, pol_coeff=pol_coeff)
+end subroutine prepare_ECE_diag_f2py
 
 #ifdef OMP
 subroutine set_omp_threads_ECRad_f2py(thread_count)

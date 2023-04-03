@@ -38,6 +38,9 @@ ifeq ($(COMPILER),GNU)
 	F2PYLIBFLAGS = -L$(CONDALIBS) -lopenblas
 	LDFLAGS = -Wl,-rpath=$(CONDALIBS)/lib
 	F2PYCOMPILER = gnu95
+	ifeq ($(IMAS),True)
+		MODULEFLAG += $(shell pkg-config imas-gfortran --cflags)
+	endif
 else
 	COMPILER=INTEL
 	FFPFLAGS = -fpp -DINTEL
@@ -54,6 +57,11 @@ else
 	LDFLAGS = -Wl,-rpath=${MKLROOT}/lib/intel64
 	F2PYCOMPILER = intelem
 	CC = icc
+	ifeq ($(IMAS),True)
+		MODULEFLAG += $(shell pkg-config imas-ifort --cflags)
+		MODULEFLAG += -I/work/imas/opt/EasyBuild/software/xmlf90/1.5.4-iccifort-2020.4.304/include
+		LIBFLAG += -L/work/imas/opt/EasyBuild/software/xmlf90/1.5.4-GCC-10.2.0/lib
+	endif
 endif
 MKDIR_P = mkdir -p
 ifeq ($(IDA),True)
@@ -70,6 +78,9 @@ endif
 ifeq ($(IMAS),True)
 	FFPFLAGS += -DIMAS
 	IMASFLAG = IMAS
+	LIBFLAG += $(shell pkg-config imas-ifort --libs)
+	LIBFLAG += $(shell pkg-config xmllib --libs)
+	MODULEFLAG += $(shell pkg-config xmllib --cflags)
 endif
 FLAVORFLAG = $(OMPFLAG)$(USE3DFLAG)$(IMASFLAG)
 #ifeq ($(IDA)$(USE_3D),TrueFalse)
