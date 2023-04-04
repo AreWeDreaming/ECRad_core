@@ -24,7 +24,7 @@ else
 	STDPLIB = $(SRCP)/std_lib.f90
 endif
 obj=
-F2PYEXT_SUFFIX := $(shell python3-config --extension-suffix)
+F2PYEXT_SUFFIX = $(shell python3-config --extension-suffix)
 ifeq ($(COMPILER),GNU)
 	F90OPTFLAGS = -O2 -mavx -ffree-form -ffree-line-length-none -fPIC
 	F90DBGFLAGS = -g -ffree-form -ffree-line-length-none -fPIC -fbacktrace
@@ -192,10 +192,11 @@ all: INFO directories lib \
 endif
 
 lib: directories MANIFEST \
-	$(ECRadLIBDir)/lib$(ECRadLIB)$(IDAFLAG)$(FLAVORFLAG)$(DB).a \
+	$(ECRadLIBDir)/lib$(ECRadLIB)$(IDAFLAG)$(FLAVORFLAG)$(DB).a
 	
-F2PY_wrapper: lib $(ECRadLIBDir)/ECRad_python$(FLAVORFLAG)$(DB)$(F2PYEXT_SUFFIX)
-	$(ECRadLIBDir)/ECRad_python$(FLAVORFLAG)$(DB) $(ECRadLIBDir)/$(APPLICATION)$(FLAVORFLAG)$(DB)
+F2PY_wrapper: lib \
+	$(ECRadLIBDir)/ECRad_python$(FLAVORFLAG)$(DB)$(F2PYEXT_SUFFIX)
+#$(ECRadLIBDir)/ECRad_python$(FLAVORFLAG)$(DB) $(ECRadLIBDir)/$(APPLICATION)$(FLAVORFLAG)$(DB)
 
 MANIFEST: 
 	echo include src/ecrad_core/ECRad_python$(FLAVORFLAG)$(DB)$(F2PYEXT_SUFFIX) >> MANIFEST.in
@@ -324,9 +325,9 @@ $(MODECRad)/ECRad_IMAS$(IDAFLAG)$(FLAVORFLAG)$(DB).o: \
 
 ifndef PREFIX
 clean:
-	ifneq ($(ROOTDIR),$(ECRadLIBDir))
-		rm -rf $(ECRadLIBDir)
-	endif
+ifneq ($(ROOTDIR),$(ECRadLIBDir))
+	rm -rf $(ECRadLIBDir)
+endif
 else
 clean:
 	rm -rf $(ECRadLIBDir)/*ECRad*
