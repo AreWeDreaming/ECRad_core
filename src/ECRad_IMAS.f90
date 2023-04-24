@@ -123,12 +123,14 @@ subroutine set_ece_ECRad_IMAS(ece, itime, error_flag, error_message)
 
 end subroutine
 
+#ifdef OMP
 subroutine set_ECRad_thread_count(num_threads)
 use mod_ECRad, only: set_omp_threads_ECRad_f2py
 implicit None
   integer, intent(in) :: num_threads
   call set_omp_threads_ECRad_f2py(num_threads)
 end subroutine set_ECRad_thread_count
+#endif
 
 subroutine reset_ECRad()
 use mod_ECRad,      only: clean_up_ECRad
@@ -136,7 +138,7 @@ implicit none
   call clean_up_ECRad()
 end subroutine reset_ECRad
 
-subroutine initialize_ECRad_IMAS(equilibrium, itime, error_flag, error_message, rhopol_out)
+subroutine initialize_ECRad_IMAS(equilibrium, itime, error_flag, error_message)
 ! Hence, to keep the structure similiar all initizalization is performed here
 ! Initializations that depend on time are done here
 use mod_ECRad,  only: initialize_ECRad_f2py
@@ -147,7 +149,6 @@ type(ids_equilibrium):: equilibrium
 integer(kind=4), intent(in)                       :: itime
 integer, intent(out) :: error_flag
 character(len=:), pointer, intent(out) :: error_message
-real(kind=8), dimension(*), intent(out)            :: rhopol_out
 real(kind=8)                            :: R_ax, z_ax, psi_ax, psi_sep
 real(kind=8), dimension(:), allocatable :: R, z
 real(kind=8), dimension(:,:), allocatable :: rhop, Br, Bt, Bz
@@ -181,47 +182,46 @@ integer(kind=4) :: i, m, n
   endif               
 end subroutine initialize_ECRad_IMAS
 
-subroutine make_rays_ECRad_IMAS(N_ch, rhop_knots_ne, n_e, rhop_knots_Te, T_e, rhop_res)
+subroutine make_rays_ECRad_IMAS(core_profiles, itime)
+use ids_schemas, only: ids_core_profiles
 use mod_ECRad,        only: make_rays_ECRad_f2py
 implicit none
-integer, intent(in)                        :: N_ch
-real(kind=8), dimension(:), intent(in) :: rhop_knots_ne, n_e, rhop_knots_Te, T_e
-real(kind=8), dimension(N_ch),  intent(out) :: rhop_res
-integer                          :: idiag, ich
-call make_rays_ECRad_f2py(rhop_knots_ne=rhop_knots_ne, n_e=n_e, rhop_knots_Te=rhop_knots_Te, &
-					                T_e=T_e,  rhop_res=rhop_res, use_spline_coeffs=.true.)
+type(ids_core_profiles), intent(in) :: core_profiles
+integer(kind=4), intent(in) :: itime
+call make_rays_ECRad_f2py(rhop_knots_ne=core_profiles%profiles_1d(itime)%grid%rho_pol_norm, &
+                          n_e=core_profiles%profiles_1d(itime)%electrons%density, &
+                          rhop_knots_Te=core_profiles%profiles_1d(itime)%grid%rho_pol_norm, &
+                          T_e=core_profiles%profiles_1d(itime)%electrons%temperature)
 end subroutine make_rays_ECRad_IMAS
 
-subroutine make_rays_ECRad_spline_IMAS(rhop_knots_ne, n_e, rhop_knots_Te, T_e, &
-                                       rhop_res)
-use mod_ECRad,        only: make_rays_ECRad_f2py
-implicit none
-real(kind=8), dimension(:), intent(in) :: rhop_knots_ne, n_e, rhop_knots_Te, T_e
-real(kind=8), dimension(:),  intent(out) :: rhop_res
-integer                          :: idiag, ich
-call make_rays_ECRad_f2py(rhop_knots_ne, n_e, rhop_knots_Te, T_e, rhop_res, use_spline_coeffs=.true.)
-end subroutine make_rays_ECRad_spline_IMAS
 
-subroutine make_dat_model_ECRad(rhop_knots_ne, n_e, rhop_knots_Te, T_e, &
-                                ece_fm_flag_ch, &
-                                dat_model_ece, tau, set_grid_dynamic, verbose)
-use mod_ECRad,        only: make_dat_model_ece_ECRad_f2py
+subroutine make_dat_model_ECRad(core_profiles, ece, itime)
+use ids_schemas, only: ids_core_profiles, ids_ece
+use mod_ECRad,        only: get_N_ch, make_dat_model_ece_ECRad_f2py
 implicit none
-real(kind=8), dimension(:), intent(in)  :: rhop_knots_ne, n_e, rhop_knots_Te, T_e
-logical,     dimension(:), intent(in)  :: ece_fm_flag_ch
-real(kind=8), intent(out) :: dat_model_ece(:)
-real(kind=8), intent(out)  :: tau(:)
-logical,      intent(in)     :: verbose
-real(kind=8)                 :: rp_min
-logical, intent(in)          :: set_grid_dynamic
-integer                         :: ich
-rp_min = max(minval(rhop_knots_ne), minval(rhop_knots_Te))
-call make_dat_model_ece_ECRad_f2py(rhop_knots_ne=rhop_knots_ne, n_e=n_e, rhop_knots_Te=rhop_knots_Te, &
-								                   T_e=T_e, ne_rhop_scal=1.d0, reflec_X_new=-1.d0, & ! in
-                                   reflec_O_new=-1.d0, ece_fm_flag_ch=ece_fm_flag_ch, rp_min=rp_min, &
-                                   dat_model_ece=dat_model_ece, tau=tau, set_grid_dynamic=set_grid_dynamic, &
-                                   verbose=verbose, use_spline_coeffs=.true.)
+type(ids_core_profiles), intent(in) :: core_profiles
+type(ids_ece), intent(inout) :: ece
+integer(kind=4), intent(in) :: itime
+integer                      :: N_ch, ich
+real(kind=8), dimension(:), allocatable :: dat_model_ece
+logical, dimension(:), allocatable :: ece_fm_flag_ch
+N_ch = get_N_ch()
+allocate(dat_model_ece(N_ch), ece_fm_flag_ch(N_ch))
+ece_fm_flag_ch(:) = .true.
+call make_dat_model_ece_ECRad_f2py(rhop_knots_ne=core_profiles%profiles_1d(itime)%grid%rho_pol_norm, &
+                                   n_e=core_profiles%profiles_1d(itime)%electrons%density, &
+                                   rhop_knots_Te=core_profiles%profiles_1d(itime)%grid%rho_pol_norm, &
+                                   T_e=core_profiles%profiles_1d(itime)%electrons%temperature, &
+                                   ne_rhop_scal=1.d0, reflec_X_new=-1.d0, & ! in
+                                   reflec_O_new=-1.d0, ece_fm_flag_ch=ece_fm_flag_ch, &
+                                   rp_min=minval(core_profiles%profiles_1d(itime)%grid%rho_pol_norm), &
+                                   dat_model_ece=dat_model_ece, set_grid_dynamic=.false., &
+                                   verbose=.false.)
+do ich = 1, N_ch
+  ece%channel(ich)%T_e%data(itime) = dat_model_ece(ich)
+end do
+deallocate(dat_model_ece, ece_fm_flag_ch)
 end subroutine make_dat_model_ECRad
-
-
 end module ECRad_IMAS
+
+

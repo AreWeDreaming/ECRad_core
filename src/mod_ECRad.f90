@@ -11,6 +11,7 @@ public :: initialize_stand_alone, &
           initialize_ECRad_IDA, &
           make_rays_ECRad_f2py, &
           make_rays_ECRad_IDA, &
+          get_N_ch, &
           make_dat_model_ece_ECRad_IDA, &
           make_dat_model_ece_ECRad_f2py, &
           pre_initialize_ECRad_f2py, &
@@ -633,6 +634,14 @@ if(present(rhop_res)) then
   end do
 end if
 end subroutine make_rays_ECRad_IDA
+
+function get_N_ch()
+  use mod_ECRad_types,        only: ant
+  implicit None
+  integer(ikind)      :: get_N_ch
+  get_N_ch = ant%diag(1)%N_ch
+end function get_N_ch
+
 
 subroutine make_dat_model_ece_ECRad_f2py(rhop_knots_ne, n_e, n_e_dx2, rhop_knots_Te, T_e, T_e_dx2, &
                                          ne_rhop_scal, reflec_X_new, & ! in
