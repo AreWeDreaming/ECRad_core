@@ -63,6 +63,10 @@ else
 		LIBFLAG += -L/work/imas/opt/EasyBuild/software/xmlf90/1.5.4-GCC-10.2.0/lib
 	endif
 endif
+APP = $(APPLICATION)
+ifeq ($(IMAS),True)
+	APP = $(APPLICATION)_IMAS
+endif
 MKDIR_P = mkdir -p
 ifeq ($(IDA),True)
 	FFPFLAGS += -DIDA
@@ -173,7 +177,7 @@ OBJECTS += \
 	mod_ECRad$(IDAFLAG)$(FLAVORFLAG)$(DB).o
 
 ifeq ($(IMAS),True)
-OBJECTS += ECRad_IMAS$(IDAFLAG)$(FLAVORFLAG)$(DB).o
+OBJECTS += mod_ECRad_IMAS$(IDAFLAG)$(FLAVORFLAG)$(DB).o
 endif
 	
 ECRad_pythonOBJ = ECRad_python$(IDAFLAG)$(FLAVORFLAG)$(DB).o
@@ -185,18 +189,17 @@ OBJS := $(addprefix $(MODECRad)/, $(OBJECTS))
 ifeq ($(IDA),True)
 all: INFO directories lib
 else ifeq ($(IMAS),True)
-all: INFO directories lib
+all: INFO directories lib $(ECRadLIBDir)/$(APP)$(FLAVORFLAG)$(DB)
 else
 all: INFO directories lib \
 	 F2PY_wrapper
 endif
 
-lib: directories MANIFEST \
+lib: directories \
 	$(ECRadLIBDir)/lib$(ECRadLIB)$(IDAFLAG)$(FLAVORFLAG)$(DB).a
 	
-F2PY_wrapper: lib \
+F2PY_wrapper: MANIFEST lib \
 	$(ECRadLIBDir)/ECRad_python$(FLAVORFLAG)$(DB)$(F2PYEXT_SUFFIX)
-#$(ECRadLIBDir)/ECRad_python$(FLAVORFLAG)$(DB) $(ECRadLIBDir)/$(APPLICATION)$(FLAVORFLAG)$(DB)
 
 MANIFEST: 
 	echo include src/ecrad_core/ECRad_python$(FLAVORFLAG)$(DB)$(F2PYEXT_SUFFIX) >> MANIFEST.in
@@ -209,13 +212,12 @@ INFO:
 	echo "Assuming INTEL toolchain"
 endif
 
-$(ECRadLIBDir)/$(APPLICATION)$(FLAVORFLAG)$(DB): $(OBJJ)  \
-	$(ECRadLIBDir)/lib$(ECRadLIB)$(IDAFLAG)$(FLAVORFLAG)$(DB).a $(MODECRad)/$(APPLICATION)$(FLAVORFLAG)$(DB).o makefile
-	echo $(OBJJ$(SYS))
-	$(F90) $(LDFLAGS) $(MODECRad)/$(APPLICATION)$(FLAVORFLAG)$(DB).o ${OBJJ} $(LIBS) \
-	-o $(ECRadLIBDir)/$(APPLICATION)$(FLAVORFLAG)$(DB)
+$(ECRadLIBDir)/$(APP)$(FLAVORFLAG)$(DB): \
+	$(ECRadLIBDir)/lib$(ECRadLIB)$(IDAFLAG)$(FLAVORFLAG)$(DB).a $(MODECRad)/$(APP)$(FLAVORFLAG)$(DB).o
+	$(F90) $(LDFLAGS) $(MODECRad)/$(APP)$(FLAVORFLAG)$(DB).o $(LIBS) \
+	-o $(ECRadLIBDir)/$(APP)$(FLAVORFLAG)$(DB)
 	
-$(MODECRad)/$(APPLICATION)$(FLAVORFLAG)$(DB).o : $(SRCP)/$(APPLICATION).f90
+$(MODECRad)/$(APP)$(FLAVORFLAG)$(DB).o : $(SRCP)/$(APP).f90
 	$(F90) $(MODULES) $(FFPFLAGS) -c $(F90FLAGS) $< -o $@
 	
 $(ECRadLIBDir)/ECRad_python$(FLAVORFLAG)$(DB)$(F2PYEXT_SUFFIX): $(ECRadLIBDir)/lib$(ECRadLIB)$(IDAFLAG)$(FLAVORFLAG)$(DB).a
@@ -224,8 +226,8 @@ $(ECRadLIBDir)/ECRad_python$(FLAVORFLAG)$(DB)$(F2PYEXT_SUFFIX): $(ECRadLIBDir)/l
 		-I$(MODECRad) --opt='' --f90flags='$(F2PYFLAGS)' $(F2PYLIBS); \
 	cd -
 
-$(ECRadLIBDir)/ECRad_IMAS$(FLAVORFLAG)$(DB)$.o: $(ECRadLIBDir)/lib$(ECRadLIB)$(IDAFLAG)$(FLAVORFLAG)$(DB).a
-	$(F90) $(MODULES) $(FFPFLAGS) -c $(F90FLAGS) $(SRCP)/ECRad_IMAS.f90 -o $@
+$(ECRadLIBDir)/mod_ECRad_IMAS$(FLAVORFLAG)$(DB)$.o: $(ECRadLIBDir)/lib$(ECRadLIB)$(IDAFLAG)$(FLAVORFLAG)$(DB).a
+	$(F90) $(MODULES) $(FFPFLAGS) -c $(F90FLAGS) $(SRCP)/mod_ECRad_IMAS.f90 -o $@
 
 #libECRad
 $(ECRadLIBDir)/lib$(ECRadLIB)$(IDAFLAG)$(FLAVORFLAG)$(DB).a: $(OBJS)
@@ -320,7 +322,7 @@ $(MODECRad)/mod_ECRad$(IDAFLAG)$(FLAVORFLAG)$(DB).o: \
 $(MODECRad)/ECRad_python$(IDAFLAG)$(FLAVORFLAG)$(DB).o: \
 	$(SRCP)/mod_ECRad.f90
 
-$(MODECRad)/ECRad_IMAS$(IDAFLAG)$(FLAVORFLAG)$(DB).o: \
+$(MODECRad)/mod_ECRad_IMAS$(IDAFLAG)$(FLAVORFLAG)$(DB).o: \
 	$(SRCP)/mod_ECRad.f90
 
 ifndef PREFIX

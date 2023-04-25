@@ -3,125 +3,155 @@
     <xs:annotation>
         <xs:documentation>Code parameters for ECRad</xs:documentation>
     </xs:annotation>
-  
-    <xs:simpleType name="extra_output">
-        <xs:restriction base="xs:boolean">
-        </xs:restriction>
-    </xs:simpleType>
+    
+    <xs:element name="parameters">
+     <xs:complexType>
+       <xs:all>
+         <xs:element ref="extra_output" minOccurs="1"/>
+         <xs:element ref="dstf" minOccurs="1"/>
+         <xs:element ref="ray_tracing" minOccurs="1"/>
+         <xs:element ref="ripple" minOccurs="1"/>
+         <xs:element ref="ratio_for_3rd_harm" minOccurs="0"/>
+         <xs:element ref="N_max" minOccurs="0"/>
+         <xs:element ref="tau_ignore" minOccurs="0"/>
+         <xs:element ref="considered_modes" minOccurs="0"/>
+         <xs:element ref="reflec_X" minOccurs="0"/>
+         <xs:element ref="reflec_O" minOccurs="0"/>
+         <xs:element ref="max_points_svec" minOccurs="0"/>
+         <xs:element ref="N_pts_BPD" minOccurs="0"/>
+         <xs:element ref="mode_conv" minOccurs="0"/>
+         <xs:element ref="weak_rel" minOccurs="0"/>
+         <xs:element ref="large_ds" minOccurs="0"/>
+         <xs:element ref="small_ds" minOccurs="0"/>
+         <xs:element ref="N_ray" minOccurs="0"/>
+         <xs:element ref="N_freq" minOccurs="0"/>
+       </xs:all>
+     </xs:complexType>
+   </xs:element>
 
-    <xs:simpleType name="dstf">
-        <xs:restriction base="xs:string">
-        </xs:restriction>
-    </xs:simpleType>
-
-    <xs:simpleType name="raytracing">
-        <xs:restriction base="xs:boolean">
-        </xs:restriction>
-    </xs:simpleType>
-
-    <xs:simpleType name="ripple">
-        <xs:restriction base="xs:boolean">
-        </xs:restriction>
-    </xs:simpleType>
-
-    <xs:simpleType name="weak_rel">
-        <xs:restriction base="xs:boolean">
-        </xs:restriction>
-    </xs:simpleType>
  
-    <xs:simpleType name="ratio_for_third_harmonic">
+    <xs:simpleType name="float_0_1">
         <xs:restriction base="xs:float">
         <xs:minInclusive value="0"/>
         <xs:maxInclusive value="1"/>
         </xs:restriction>    
     </xs:simpleType>
 
-    <xs:simpleType name="N_max">
+    <xs:simpleType name="int_2_5">
         <xs:restriction base="xs:integer">
         <xs:minInclusive value="2"/>
         <xs:maxInclusive value="5"/>
         </xs:restriction>
     </xs:simpleType>
 
-    <xs:simpleType name="tau_ignore">
+    <xs:simpleType name="float_1em7">
         <xs:restriction base="xs:float">
         <xs:minInclusive value="0"/>
         <xs:maxInclusive value="1.e-7"/>
         </xs:restriction>
     </xs:simpleType>
  
-    <xs:simpleType name="considered_modes">
+    <xs:simpleType name="int_1_3">
         <xs:restriction base="xs:integer">
         <xs:minInclusive value="1"/>
         <xs:maxInclusive value="3"/>
         </xs:restriction>
     </xs:simpleType>
 
-    <xs:simpleType name="reflec_X">
-        <xs:restriction base="xs:float">
-        <xs:minInclusive value="0"/>
-        <xs:maxInclusive value="1"/>
-        </xs:restriction>
-    </xs:simpleType>
-
-    <xs:simpleType name="reflec_O">
-        <xs:restriction base="xs:float">
-        <xs:minInclusive value="0"/>
-        <xs:maxInclusive value="1"/>
-        </xs:restriction>
-    </xs:simpleType>
-
-    <xs:simpleType name="max_points_svec">
+    <xs:simpleType name="int_1000_200000">
         <xs:restriction base="xs:integer">
         <xs:minInclusive value="1000"/>
         <xs:maxInclusive value="200000"/>
         </xs:restriction>
     </xs:simpleType>
 
-    <xs:simpleType name="N_pts_BPD">
+    <xs:simpleType name="int_100_10000">
         <xs:restriction base="xs:integer">
         <xs:minInclusive value="100"/>
         <xs:maxInclusive value="10000"/>
         </xs:restriction>
     </xs:simpleType>
 
-    <xs:simpleType name="mode_conv">
-        <xs:restriction base="xs:float">
-        <xs:minInclusive value="0"/>
-        <xs:maxInclusive value="1"/>
-        </xs:restriction>
-    </xs:simpleType>
-
-    <xs:simpleType name="large_ds">
+    <xs:simpleType name="float_0001_01">
         <xs:restriction base="xs:float">
         <xs:minInclusive value="1.e-4"/>
         <xs:maxInclusive value="0.1"/>
         </xs:restriction>
     </xs:simpleType>
 
-    <xs:simpleType name="small_ds">
+    <xs:simpleType name="float_00001_001">
         <xs:restriction base="xs:float">
         <xs:minInclusive value="1.e-5"/>
         <xs:maxInclusive value="0.01"/>
         </xs:restriction>
     </xs:simpleType>
 
-    <xs:simpleType name="N_ray">
+    <xs:simpleType name="int_1_37">
         <xs:restriction base="xs:integer">
         <xs:minInclusive value="1"/>
         <xs:maxInclusive value="37"/>
         </xs:restriction>
     </xs:simpleType>
 
-    <xs:simpleType name="N_freq">
+    <xs:simpleType name="int_1_51">
         <xs:restriction base="xs:integer">
         <xs:minInclusive value="1"/>
         <xs:maxInclusive value="51"/>
         </xs:restriction>
     </xs:simpleType>
     
+    <xs:element name="extra_output" type="xs:boolean">
+    </xs:element>
 
+    <xs:element name="dstf" type="xs:string">
+    </xs:element>
+    
+    <xs:element name="ray_tracing" type="xs:boolean">
+    </xs:element>
+    
+    <xs:element name="ripple" type="xs:boolean">
+    </xs:element>
 
+    <xs:element name="weak_rel" type="xs:boolean">
+    </xs:element>
 
+    <xs:element name="ratio_for_3rd_harm" type="float_0_1">
+    </xs:element>
+
+    <xs:element name="N_max" type="int_2_5">
+    </xs:element>
+
+    <xs:element name="tau_ignore" type="float_1em7">
+    </xs:element>
+
+    <xs:element name="considered_modes" type="int_1_3">
+    </xs:element>
+
+    <xs:element name="reflec_X" type="float_0_1">
+    </xs:element>
+    
+    <xs:element name="reflec_O" type="float_0_1">
+    </xs:element>
+
+    <xs:element name="max_points_svec" type="int_1000_200000">
+    </xs:element>
+
+    <xs:element name="N_pts_BPD" type="int_100_10000">
+    </xs:element>
+
+    <xs:element name="mode_conv" type="float_0_1">
+    </xs:element>
+
+    <xs:element name="large_ds" type="float_0001_01">
+    </xs:element>
+
+    <xs:element name="small_ds" type="float_00001_001">
+    </xs:element>
+
+    <xs:element name="N_ray" type="int_1_37">
+    </xs:element>
+
+    <xs:element name="N_freq" type="int_1_51">
+    </xs:element>
     
 </xs:schema>
