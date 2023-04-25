@@ -2,7 +2,7 @@
 
     <extra_output>true</extra_output>
 
-    <dstf> "Th" </dstf>
+    <dstf>Th</dstf>
 
     <ray_tracing>true</ray_tracing>
 

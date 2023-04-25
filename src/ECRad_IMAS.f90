@@ -33,22 +33,16 @@ program ECRad_IMAS
 
     ! OPEN INPUT DATAFILE FROM OFFICIAL IMAS SCENARIO DATABASE
     write(*,*) '=> Read input IDSs'
-    call imas_open_env('ids',116000,2,idx,'public','iter','3')
+    call imas_open_env('ids',116000,2,idx,'public','ITER_MD','3')
     call ids_get(idx,'wall', wall)
-    call imas_close(idx)
-    write(*,*) 'Finished reading input IDSs'
 
     call imas_open_env('ids',104103,13,idx,'public','iter','3')
     call ids_get(idx,'equilibrium', equilibrium)
-    call imas_close(idx)
-    write(*,*) 'Finished reading input IDSs'
 
     call imas_open_env('ids',104103,13,idx,'public','iter','3')
     call ids_get(idx,'core_profiles', core_profiles)
-    call imas_close(idx)
-    write(*,*) 'Finished reading input IDSs'
 
-    call imas_open_env('ids',150601,1,idx,'public','iter','3')
+    call imas_open_env('ids',150601,1,idx,'public','ITER_MD','3')
     call ids_get(idx,'ece', ece_in)
     call imas_close(idx)
     write(*,*) 'Finished reading input IDSs'
@@ -56,17 +50,17 @@ program ECRad_IMAS
    
     ! EXECUTE PHYSICS CODE
     call pre_initialize_ECRad_IMAS(buffer, wall, error_flag, error_message)
-    call set_ece_ECRad_IMAS(ece_in, 0, error_flag, error_message)
-    call initialize_ECRad_IMAS(equilibrium, 0, error_flag,  &
+    call set_ece_ECRad_IMAS(ece_in, 1, error_flag, error_message)
+    call initialize_ECRad_IMAS(equilibrium, 200, error_flag,  &
                                error_message)
-    call make_rays_ECRad_IMAS(core_profiles, 0)
+    call make_rays_ECRad_IMAS(core_profiles, 200)
     if(error_flag.eq.0) then
       
        ! EXPORT RESULTS TO LOCAL DATABASE
        write(*,*) '=> Export output IDSs to local database'
        call imas_create_env('ids',104103,1,0,0,idx,trim(user),trim(machine),'3')
        call ids_put(idx,'ece', ece_out)
-       call make_dat_model_ECRad(core_profiles, 0, ece_out)
+       call make_dat_model_ECRad(core_profiles, 200, ece_out)
        call imas_close(idx)
        write(*,*) 'Done exporting.'
        write(*,*) ' '
