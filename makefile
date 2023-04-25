@@ -99,7 +99,7 @@ ifeq ($(DEBUG),True)
 	F2PYFLAGS = $(F2PYDBGFLAGS)
 	F2PYDBG = --debug-capi
 	DB = db
-	# Optimized
+        # Optimized
 else
   F90FLAGS = $(F90OPTFLAGS)
   F2PYFLAGS = $(F2PYOPTFLAGS)
@@ -123,11 +123,11 @@ LIBS = -L$(ECRadLIBDir) -l$(ECRadLIB)$(FLAVORFLAG)$(DB) \
 	$(NAGF90LIB) $(NAGFLIB) $(FITPACK) $(ODEPACK) \
 	$(LIBFLAG)
 ifeq ($(USE_3D),True)
- 	LIBS += $(ROOTDIR)/MConf/lib/libmconf64.a
+	LIBS += $(ROOTDIR)/MConf/lib/libmconf64.a
 #   LIBS += $(ROOTDIR)/../magconf/lib/libmconf64.a
 #../Mconf/unix/mconf_matlab64.so
 	LIBS += -lpthread -lstdc++
-	#LIBS += -L${NETCDF_HOME}/lib/  -lnetcdf_c++4  -lnetcdf 
+        #LIBS += -L${NETCDF_HOME}/lib/  -lnetcdf_c++4  -lnetcdf 
 endif
 ifeq ($(OPEN_MP),True)
 	LIBS += $(F90PARLIBFLAGS)
@@ -177,9 +177,9 @@ OBJECTS += \
 	mod_ECRad$(IDAFLAG)$(FLAVORFLAG)$(DB).o
 
 ifeq ($(IMAS),True)
-OBJECTS += mod_ECRad_IMAS$(IDAFLAG)$(FLAVORFLAG)$(DB).o
+OBJECTS += mod_ECRad_IMAS$(IDAFLAG)$(FLAVORFLAG)$(DB).o mod_codeparam_standalone_IMAS$(IDAFLAG)$(FLAVORFLAG)$(DB).o mod_ECRad_actor_IMAS$(IDAFLAG)$(FLAVORFLAG)$(DB).o
 endif
-	
+
 ECRad_pythonOBJ = ECRad_python$(IDAFLAG)$(FLAVORFLAG)$(DB).o
 
 OBJS := $(addprefix $(MODECRad)/, $(OBJECTS))
@@ -197,7 +197,7 @@ endif
 
 lib: directories \
 	$(ECRadLIBDir)/lib$(ECRadLIB)$(IDAFLAG)$(FLAVORFLAG)$(DB).a
-	
+
 F2PY_wrapper: MANIFEST lib \
 	$(ECRadLIBDir)/ECRad_python$(FLAVORFLAG)$(DB)$(F2PYEXT_SUFFIX)
 
@@ -216,10 +216,10 @@ $(ECRadLIBDir)/$(APP)$(FLAVORFLAG)$(DB): \
 	$(ECRadLIBDir)/lib$(ECRadLIB)$(IDAFLAG)$(FLAVORFLAG)$(DB).a $(MODECRad)/$(APP)$(FLAVORFLAG)$(DB).o
 	$(F90) $(LDFLAGS) $(MODECRad)/$(APP)$(FLAVORFLAG)$(DB).o $(LIBS) \
 	-o $(ECRadLIBDir)/$(APP)$(FLAVORFLAG)$(DB)
-	
+
 $(MODECRad)/$(APP)$(FLAVORFLAG)$(DB).o : $(SRCP)/$(APP).f90
 	$(F90) $(MODULES) $(FFPFLAGS) -c $(F90FLAGS) $< -o $@
-	
+
 $(ECRadLIBDir)/ECRad_python$(FLAVORFLAG)$(DB)$(F2PYEXT_SUFFIX): $(ECRadLIBDir)/lib$(ECRadLIB)$(IDAFLAG)$(FLAVORFLAG)$(DB).a
 	cd $(ECRad_pythonDir); \
 	python -m numpy.f2py $(F2PYDBG) -c --fcompiler=$(F2PYCOMPILER) $(ROOTDIR)/src/ECRad_python$(FLAVORFLAG).f90 -m ECRad_python$(FLAVORFLAG)$(DB) \
@@ -237,7 +237,7 @@ $(ECRadLIB)$(IDAFLAG)$(FLAVORFLAG)$(DB).a: $(OBJS)
 
 $(MODECRad)/%$(IDAFLAG)$(FLAVORFLAG)$(DB).o: $(SRCP)/%.f90
 	 $(F90) $(MODULES) $(FFPFLAGS) -c $(F90FLAGS) $< -o $@
-	 
+
 #making the directories
 directories:
 	${MKDIR_P} ${ECRadLIBDir}
@@ -324,6 +324,12 @@ $(MODECRad)/ECRad_python$(IDAFLAG)$(FLAVORFLAG)$(DB).o: \
 
 $(MODECRad)/mod_ECRad_IMAS$(IDAFLAG)$(FLAVORFLAG)$(DB).o: \
 	$(SRCP)/mod_ECRad.f90
+
+validate:
+	xmllint --noout input/standalone.xsd input/standalone.xml
+	xmllint --noout --schema input/standalone.xsd input/standalone.xml
+	xmllint --noout input//code_params.xsd input//code_params.xml
+	xmllint --noout --schema input//code_params.xsd input//code_params.xml
 
 ifndef PREFIX
 clean:

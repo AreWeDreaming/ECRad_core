@@ -1,0 +1,54 @@
+---
+actor_description:
+    actor_name: ecrad
+    actor_type: python
+    data_type: legacy
+code_description:
+    arguments:
+    -   intent: IN
+        name: equilibrium_in
+        type: equilibrium
+    -   intent: IN
+        name: core_profiles_in
+        type: core_profiles
+    -   intent: IN
+        name: wall_in
+        type: wall
+    -   intent: IN
+        name: ece_in
+        type: ece
+    -   intent: OUT
+        name: ece_out
+        type: ece
+    documentation: ''
+    implementation:
+        code_parameters:
+            parameters: ../input/code_params.xml
+            schema: ../input/code_params.xsd
+        code_path: ../bin/libECRadIMASdb.a
+        data_dictionary_compliant: 3.38.1
+        data_type: legacy
+        include_path: ../bin/modINTELIMAS/mod_ecrad_actor_imas.mod
+        programming_language: fortran
+        root_dir: .
+        subroutines:
+            finalize: ''
+            get_state: ''
+            get_timestamp: ''
+            init: ''
+            main: ECRad_actor_IMAS
+            set_state: ''
+    settings:
+        compiler_cmd: ifort
+        extra_libraries:
+            path_defined:
+            - ../fitpack/libFITPack.a
+            - ../odepack/libODEPack.a
+            - /work/imas/opt/EasyBuild/software/imkl/2020.4.304-iimpi-2020b/mkl/lib/intel64/libmkl_intel_lp64.a
+            - /work/imas/opt/EasyBuild/software/imkl/2020.4.304-iimpi-2020b/mkl/lib/intel64_lin/libmkl_sequential.a
+            - /work/imas/opt/EasyBuild/software/imkl/2020.4.304-iimpi-2020b/mkl/lib/intel64_lin/libmkl_core.a
+            pkg_config_defined:
+            - xmllib
+        mpi_compiler_cmd: null
+        open_mp_switch: -fopenmp
+...

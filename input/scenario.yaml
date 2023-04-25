@@ -1,0 +1,63 @@
+# ---------------------------------
+# PARAMETERS OF THE INPUT SCENARIO
+# ---------------------------------
+shot_scenario: 130012
+run_scenario:  4
+user_scenario: public
+db_scenario:   ITER
+
+shot_wall: 116000
+run_wall:  2
+user_wall: public
+db_wall:   ITER_MD
+
+shot_ece: 150601
+run_ece:  1
+user_ece: schneim
+db_ece:   ITER_MD
+
+# -----------------------------------
+# PARAMETERS TO SAVE THE OUTPUT DATA
+# -----------------------------------
+output_user_or_path: default
+output_database:     ITER
+run_out:             10
+
+# -----------------------------------
+# PARAMETERS FOR OPTIONAL TIME LOOP
+# -----------------------------------
+
+# Time slice to simulate
+# - if <0: use IDS first time slice (with ntimes specified by the user)
+# - if =0: use IDS whole time vector (ntimes not used)
+# - if >0: use the specified time slice (with ntimes specified by the user)
+time_slice: 200.0
+
+# Number of time steps to simulate
+# (effective only when time_slice is not equal to zero)
+ntimes: 1
+
+# Time step in case a generic time array is defined
+# (effective only when ntimes > length of the input time array)
+dt_required: 0.2
+
+# --------------
+# MISCELLANEOUS
+# --------------
+
+# Run (1) or not (0)
+run_chease: 0
+run_ecrad: 1
+
+# Parameter to remove Access Layer warnings when reading/writing obsolete data
+warnoff: 1
+
+# Debug (1) or not (0)
+debug_chease: 0
+debug_ecrad: 0
+
+
+
+
+
+
