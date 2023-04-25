@@ -1,8 +1,8 @@
 # ---------------------------------
 # PARAMETERS OF THE INPUT SCENARIO
 # ---------------------------------
-shot_scenario: 130012
-run_scenario:  4
+shot_scenario: 104103
+run_scenario:  13
 user_scenario: public
 db_scenario:   ITER
 
@@ -12,7 +12,7 @@ user_wall: public
 db_wall:   ITER_MD
 
 shot_ece: 150601
-run_ece:  1
+run_ece:  4
 user_ece: schneim
 db_ece:   ITER_MD
 
@@ -31,7 +31,7 @@ run_out:             10
 # - if <0: use IDS first time slice (with ntimes specified by the user)
 # - if =0: use IDS whole time vector (ntimes not used)
 # - if >0: use the specified time slice (with ntimes specified by the user)
-time_slice: 200.0
+time_slice: 280.0
 
 # Number of time steps to simulate
 # (effective only when time_slice is not equal to zero)
