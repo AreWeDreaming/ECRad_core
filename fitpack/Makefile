@@ -12,7 +12,7 @@ endif
 ifeq ($(FC),gfortran)
 	FFLAGS = -O2 -mavx -fopenmp -fpic
 else
-	FFLAGS = -O2 -fpic -traceback -shared-intel -qopenmp
+	FFLAGS = -O2 -fpic -fopenmp
 endif
 OBJ=$(patsubst %.f,%.o,$(shell ls *.f))
 ifdef PREFIX
