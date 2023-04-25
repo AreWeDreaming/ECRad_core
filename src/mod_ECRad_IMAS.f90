@@ -91,8 +91,8 @@ subroutine set_ece_ECRad_IMAS(ece, itime, error_flag, error_message)
     phi_tor(N_ch), theta_pol(N_ch), dist_focus(N_ch), width(N_ch), pol_coeff(N_ch), &
               x1_vec(2), x2_vec(2))
     do i = 1, N_ch
-      f = ece%channel(i)%frequency%data(itime)
-      df =  ece%channel(i)%if_bandwidth
+      f(i) = ece%channel(i)%frequency%data(itime)
+      df(i) =  ece%channel(i)%if_bandwidth
       R(i) = ece%line_of_sight%first_point%r
       phi(i) = ece%line_of_sight%first_point%phi
       z(i) = ece%line_of_sight%first_point%z
@@ -100,8 +100,8 @@ subroutine set_ece_ECRad_IMAS(ece, itime, error_flag, error_message)
       x1_vec(2) = ece%line_of_sight%first_point%r * sin(ece%line_of_sight%first_point%phi)
       x2_vec(1) = ece%line_of_sight%second_point%r * cos(ece%line_of_sight%first_point%phi)
       x2_vec(2) = ece%line_of_sight%second_point%r * sin(ece%line_of_sight%first_point%phi)
-      theta_pol(i) = atan2((ece%line_of_sight%first_point%r - ece%line_of_sight%second_point%r), &
-                           (ece%line_of_sight%first_point%z - ece%line_of_sight%second_point%z))
+      theta_pol(i) = atan2((ece%line_of_sight%second_point%z - ece%line_of_sight%first_point%z), &
+                           -(ece%line_of_sight%second_point%r - ece%line_of_sight%first_point%r))
       phi_tor(i) = -acos((-x1_vec(1) * (x2_vec(1) - x1_vec(1)) - x1_vec(2) * (x2_vec(2) - x1_vec(2))) / &
                          (R(i) * sqrt(sum((x2_vec - x1_vec)**2))))
       width(i) = (ece%channel(i)%beam%spot%size%data(1,itime) + &
@@ -182,16 +182,35 @@ integer(kind=4) :: i, m, n
   endif               
 end subroutine initialize_ECRad_IMAS
 
+subroutine get_rho_pol(N, psi, rho_pol)
+  implicit None
+  integer(kind=4), intent(in) ::  N
+  real(kind=8), dimension(:), intent(in) :: psi
+  real(kind=8), dimension(:), intent(out) :: rho_pol
+  rho_pol = sqrt((psi - psi(1))/ &
+                 (psi(N) - psi(1)))
+end subroutine
+
 subroutine make_rays_ECRad_IMAS(core_profiles, itime)
 use ids_schemas, only: ids_core_profiles
 use mod_ECRad,        only: make_rays_ECRad_f2py
 implicit none
 type(ids_core_profiles), intent(in) :: core_profiles
 integer(kind=4), intent(in) :: itime
-call make_rays_ECRad_f2py(rhop_knots_ne=core_profiles%profiles_1d(itime)%grid%rho_pol_norm, &
+integer                      :: N_psi
+real(kind=8), dimension(:), allocatable :: rho_pol
+N_psi = size(core_profiles%profiles_1d(itime)%grid%psi)
+allocate(rho_pol(N_psi))
+if(size(core_profiles%profiles_1d(itime)%grid%rho_pol_norm) == 0) then
+  call get_rho_pol(N_psi, core_profiles%profiles_1d(itime)%grid%psi, rho_pol)
+else
+  rho_pol = core_profiles%profiles_1d(itime)%grid%rho_pol_norm
+end if
+call make_rays_ECRad_f2py(rhop_knots_ne=rho_pol, &
                           n_e=core_profiles%profiles_1d(itime)%electrons%density, &
-                          rhop_knots_Te=core_profiles%profiles_1d(itime)%grid%rho_pol_norm, &
+                          rhop_knots_Te=rho_pol, &
                           T_e=core_profiles%profiles_1d(itime)%electrons%temperature)
+deallocate(rho_pol)
 end subroutine make_rays_ECRad_IMAS
 
 
@@ -202,15 +221,22 @@ implicit none
 type(ids_core_profiles), intent(in) :: core_profiles
 type(ids_ece), intent(inout) :: ece
 integer(kind=4), intent(in) :: itime
-integer                      :: N_ch, ich
-real(kind=8), dimension(:), allocatable :: dat_model_ece
+integer                      :: N_ch, ich, N_psi
+real(kind=8), dimension(:), allocatable :: dat_model_ece, rho_pol
 logical, dimension(:), allocatable :: ece_fm_flag_ch
 N_ch = get_N_ch()
 allocate(dat_model_ece(N_ch), ece_fm_flag_ch(N_ch))
 ece_fm_flag_ch(:) = .true.
-call make_dat_model_ece_ECRad_f2py(rhop_knots_ne=core_profiles%profiles_1d(itime)%grid%rho_pol_norm, &
+N_psi = size(core_profiles%profiles_1d(itime)%grid%psi)
+allocate(rho_pol(N_psi))
+if(size(core_profiles%profiles_1d(itime)%grid%rho_pol_norm) == 0) then
+  call get_rho_pol(N_psi, core_profiles%profiles_1d(itime)%grid%psi, rho_pol)
+else
+  rho_pol = core_profiles%profiles_1d(itime)%grid%rho_pol_norm
+end if
+call make_dat_model_ece_ECRad_f2py(rhop_knots_ne=rho_pol, &
                                    n_e=core_profiles%profiles_1d(itime)%electrons%density, &
-                                   rhop_knots_Te=core_profiles%profiles_1d(itime)%grid%rho_pol_norm, &
+                                   rhop_knots_Te=rho_pol, &
                                    T_e=core_profiles%profiles_1d(itime)%electrons%temperature, &
                                    ne_rhop_scal=1.d0, reflec_X_new=-1.d0, & ! in
                                    reflec_O_new=-1.d0, ece_fm_flag_ch=ece_fm_flag_ch, &
@@ -220,7 +246,7 @@ call make_dat_model_ece_ECRad_f2py(rhop_knots_ne=core_profiles%profiles_1d(itime
 do ich = 1, N_ch
   ece%channel(ich)%T_e%data(itime) = dat_model_ece(ich)
 end do
-deallocate(dat_model_ece, ece_fm_flag_ch)
+deallocate(dat_model_ece, ece_fm_flag_ch, rho_pol)
 end subroutine make_dat_model_ECRad
 end module mod_ECRad_IMAS
 

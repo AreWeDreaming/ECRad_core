@@ -949,8 +949,8 @@ subroutine update_svecs(rad, rhop_knots_ne, n_e, n_e_dx2, rhop_knots_Te, T_e, T_
   end if
   ! If no second derivatives for Te and ne provided -> univariate spline
 
-! Updates the values of the splines: Te, ne
-from_spline_coeffs = .false.
+  ! Updates the values of the splines: Te, ne
+  from_spline_coeffs = .false.
   if(present(use_spline_coeffs)) from_spline_coeffs = use_spline_coeffs
   if(from_spline_coeffs) then
     call update_Te_ne_from_coeffs(rhop_knots_ne, n_e, rhop_knots_Te, T_e)
@@ -969,6 +969,7 @@ from_spline_coeffs = .false.
       do imode = 1, mode_cnt
         do ir = 1, N_ray
           do ifreq = 1, N_freq
+            if(rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%total_LOS_points == 0) cycle
             ! The two temporaray arrays are necessary to assure that rhop, ne and Te are well aligned in the memory
             x_temp(:rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%total_LOS_points) = &
                 rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%svec(:rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%total_LOS_points)%rhop
