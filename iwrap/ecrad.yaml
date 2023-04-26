@@ -25,10 +25,10 @@ code_description:
         code_parameters:
             parameters: ../input/code_params.xml
             schema: ../input/code_params.xsd
-        code_path: ../bin/libECRadIMASdb.a
+        code_path: ../bin/libECRadOMPIMAS.a
         data_dictionary_compliant: 3.38.1
         data_type: legacy
-        include_path: ../bin/modINTELIMAS/mod_ecrad_actor_imas.mod
+        include_path: ../bin/modINTELOMPIMAS/mod_ecrad_actor_imas.mod
         programming_language: fortran
         root_dir: .
         subroutines:
