@@ -243,7 +243,13 @@ call make_dat_model_ece_ECRad_f2py(rhop_knots_ne=rho_pol, &
                                    rp_min=minval(core_profiles%profiles_1d(itime)%grid%rho_pol_norm), &
                                    dat_model_ece=dat_model_ece, set_grid_dynamic=.false., &
                                    verbose=.false.)
+if(.not. associated(ece%channel)) then
+  allocate(ece%channel(N_ch))
+end if
 do ich = 1, N_ch
+  if(.not. associated(ece%channel(ich)%T_e%data)) then
+    allocate(ece%channel(ich)%T_e%data(1))
+  end if
   ece%channel(ich)%T_e%data(itime) = dat_model_ece(ich)
 end do
 deallocate(dat_model_ece, ece_fm_flag_ch, rho_pol)
