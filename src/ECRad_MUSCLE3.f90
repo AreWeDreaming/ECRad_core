@@ -26,7 +26,6 @@ subroutine send_error(instance, error_message)
    implicit None
    type(LIBMUSCLE_Instance), intent(inout) :: instance
    character(*), intent(in) :: error_message
-   type(LIBMUSCLE_Message) :: msg
    type(LIBMUSCLE_Data) :: data_intent_out
    real(kind=8)  :: real_time
    data_intent_out = LIBMUSCLE_Data_create_nils(2_LIBMUSCLE_size)
@@ -34,8 +33,6 @@ subroutine send_error(instance, error_message)
    flush(96)
    call LIBMUSCLE_Data_set_item(data_intent_out, int(1, LIBMUSCLE_size), error_message)
    call send_message(instance, data_intent_out)
-   call LIBMUSCLE_Message_free(msg)
-   call LIBMUSCLE_Data_free(data_intent_out)
 end subroutine send_error
 
 subroutine send_message(instance, send_data)
@@ -199,9 +196,9 @@ ports = LIBMUSCLE_PortsDescription_create()
 
 ! We need initial state, and I/O for intermediate states
 ! Task, i.e. switch time points, do raytracing, or radiationt ransport
-call LIBMUSCLE_PortsDescription_add(ports, YMMSL_Operator_O_I, 'ECRad_task')
+call LIBMUSCLE_PortsDescription_add(ports, YMMSL_Operator_F_INIT, 'ECRad_task')
 ! Result of the task, i.e. sucess, or success + output ece IDS
-call LIBMUSCLE_PortsDescription_add(ports, YMMSL_Operator_S, 'ECRad_report')
+call LIBMUSCLE_PortsDescription_add(ports, YMMSL_Operator_O_F, 'ECRad_report')
 write(96,*), "Setting up instance"
 flush(96)
 ! Set up the ports
@@ -216,6 +213,8 @@ time_point_set = .false.
 write(96,*), "Starting loop"
 flush(96)
 do while (LIBMUSCLE_Instance_reuse_instance(instance))
+   write(96,*), "Iterating loop"
+   flush(96)
    if(.not. init_success) then
       write(96,*), "Getting XML path data"
       flush(96)
@@ -262,6 +261,8 @@ do while (LIBMUSCLE_Instance_reuse_instance(instance))
          call send_error(instance, error_message)
       else
          data_intent_out = LIBMUSCLE_Data_create_nils(2_LIBMUSCLE_size)
+         write(96,*), "Finished INIT successfully"
+         flush(96)
          call LIBMUSCLE_Data_set_item(data_intent_out, int(1, LIBMUSCLE_size), "Init success")
          call send_message(instance, data_intent_out)
          init_success = .true.
@@ -276,9 +277,9 @@ do while (LIBMUSCLE_Instance_reuse_instance(instance))
    if(task == "Timepoint") then
       write(96,*), "Starting work on timepoint"
       flush(96)
-      call reset_ECRad()
-      call set_ece_ECRad_IMAS(ece_in, 1, error_flag, error_message)
-      if(LIBMUSCLE_DataConstRef_size(data_intent_in) /= 5) then
+      ! call reset_ECRad()
+      ! call set_ece_ECRad_IMAS(ece_in, 1, error_flag, error_message)
+      if(LIBMUSCLE_DataConstRef_size(data_intent_in) /= 4) then
          call send_error(instance, "Wrong amount of arguments for Timepoint")
             cycle
       end if
@@ -296,6 +297,7 @@ do while (LIBMUSCLE_Instance_reuse_instance(instance))
       flush(96)
       call LIBMUSCLE_Data_set_item(data_intent_out, int(1, LIBMUSCLE_size), "Timepoint success")
       call send_message(instance, data_intent_out)
+      time_point_set = .true.
    else if(.not. time_point_set) then
       call send_error(instance, "Need to set time point first before further execution")
          cycle
