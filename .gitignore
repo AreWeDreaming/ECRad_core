@@ -7,3 +7,4 @@ __pycache__/
 bin/
 id
 MANIFEST.in
+run_ECRad_MUSCLE3_test_*

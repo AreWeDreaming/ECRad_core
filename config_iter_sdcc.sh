@@ -1,6 +1,6 @@
 # Start from clean environment
 module purge
-
+export PYTHONPATH=
 # IMAS and iWrap
 module load IMAS iWrap
 
@@ -26,4 +26,6 @@ module load MUSCLE3
 # EXTEND PYTHON PATH AND AVOID DOUBLONS
 export PYTHONPATH=$ACTOR_FOLDER:$PYTHONPATH
 export PYTHONPATH="$(perl -e 'print join(":", grep { not $seen{$_}++ } split(/:/, $ENV{PYTHONPATH}))')"
+
+alias muscle3="rm -r run_ECRad_MUSCLE3_test_*; muscle_manager --start-all src/ecrad_muscle.ymmsl"
 
