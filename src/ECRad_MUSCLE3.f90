@@ -30,7 +30,8 @@ subroutine send_error(instance, error_message)
    type(LIBMUSCLE_Data) :: data_intent_out
    real(kind=8)  :: real_time
    data_intent_out = LIBMUSCLE_Data_create_nils(2_LIBMUSCLE_size)
-   call LIBMUSCLE_Data_set_item(data_intent_out, 1, error_message)
+   print*, "Encountered an Error: " // error_message
+   call LIBMUSCLE_Data_set_item(data_intent_out, int(1, LIBMUSCLE_size), error_message)
    call send_message(instance, data_intent_out)
    call LIBMUSCLE_Message_free(msg)
    call LIBMUSCLE_Data_free(data_intent_out)
@@ -59,20 +60,21 @@ function get_task(instance, data_intent_in)
    type(LIBMUSCLE_DataConstRef), intent(in)   :: data_intent_in
    type(LIBMUSCLE_DataConstRef)               :: arg_intent_in
    character(len=:), allocatable  :: get_task
-   arg_intent_in = LIBMUSCLE_DataConstRef_get_item(data_intent_in, 1)
+   arg_intent_in = LIBMUSCLE_DataConstRef_get_item(data_intent_in, int(1, LIBMUSCLE_size))
    if (.not. LIBMUSCLE_DataConstRef_is_a_character(arg_intent_in)) then
       call send_error(instance, "First argument must always be a string")
       get_task = "Error"
       return
    end if
-   get_task = LIBMUSCLE_DataConstRef_as_string(arg_intent_in)
+   get_task = LIBMUSCLE_DataConstRef_as_character(arg_intent_in)
+   print*, "Received task " // get_task
 end function get_task
 
 subroutine get_wall_ids(data_to_decode, wall)
    use ymmsl
    use libmuscle
    use ids_schemas, only: ids_wall
-   use ids_routines, only: ids_deallocate
+   use ids_routines, only: ids_deallocate, ids_deserialize
    implicit None
    type(LIBMUSCLE_DataConstRef), intent(in) :: data_to_decode
    type(ids_wall), intent(inout) :: wall
@@ -89,7 +91,7 @@ subroutine get_equilibrium_ids(data_to_decode, equilibrium)
    use ymmsl
    use libmuscle
    use ids_schemas, only: ids_equilibrium
-   use ids_routines, only: ids_deallocate
+   use ids_routines, only: ids_deallocate, ids_deserialize
    implicit None
    type(LIBMUSCLE_DataConstRef), intent(in) :: data_to_decode
    type(ids_equilibrium), intent(inout) :: equilibrium
@@ -106,7 +108,7 @@ subroutine get_core_profiles_ids(data_to_decode, core_profiles)
    use ymmsl
    use libmuscle
    use ids_schemas, only: ids_core_profiles
-   use ids_routines, only: ids_deallocate
+   use ids_routines, only: ids_deallocate, ids_deserialize
    implicit None
    type(LIBMUSCLE_DataConstRef), intent(in) :: data_to_decode
    type(ids_core_profiles), intent(inout) :: core_profiles
@@ -123,7 +125,7 @@ subroutine get_ece_ids(data_to_decode, ece)
    use ymmsl
    use libmuscle
    use ids_schemas, only: ids_ece
-   use ids_routines, only: ids_deallocate
+   use ids_routines, only: ids_deallocate, ids_deserialize
    implicit None
    type(LIBMUSCLE_DataConstRef), intent(in) :: data_to_decode
    type(ids_ece), intent(inout) :: ece
@@ -151,7 +153,7 @@ program ECRad_MUSCLE3
 #endif
   use ids_schemas, only: ids_equilibrium, ids_core_profiles, &
                          ids_ece, ids_wall, ids_parameters_input
-  use ids_routines, only: ids_deallocate
+  use ids_routines, only: ids_deallocate, ids_serialize
   use f90_file_reader, only: file2buffer
   use mod_MUSCLE3_helper, only: get_ids, send_error, &
                                 send_message, get_task
@@ -178,9 +180,10 @@ type(LIBMUSCLE_Instance) :: instance
 type(LIBMUSCLE_Message) :: msg_in, msg_out
 type(LIBMUSCLE_DataConstRef) :: data_intent_in, arg_intent_in
 type(LIBMUSCLE_Data) :: data_intent_out
+type(ids_parameters_input):: codeparam_ecrad
 character(len=1), dimension(:), allocatable :: serialized_ids
 logical                                     :: init_success, time_point_set
-integer:: error_flag,iounit, itime_equilibrium, itime_core_profiles, error_state_out
+integer:: io_unit = 1, error_flag,iounit, itime_equilibrium, itime_core_profiles, error_state_out
 character(len=:), pointer:: error_message
 character(len=200):: xml_path
 character(len=132), pointer :: codeparam_string
@@ -201,13 +204,14 @@ call LIBMUSCLE_PortsDescription_free(ports)
 
 ! Set up code parameters here. This is managed by IDA itself
 xml_path = LIBMUSCLE_Instance_get_setting_as_character(instance, 'xml_path')
-call file2buffer(xml_path, iounit, codeparam_string)
+call file2buffer(xml_path, io_unit, codeparam_ecrad%parameters_value)
 ! Unless we critically fail to initialize we might be able to recover
 init_success = .false.
 time_point_set = .false.
 do while (LIBMUSCLE_Instance_reuse_instance(instance))
    if(.not. init_success) then
       msg_in = LIBMUSCLE_Instance_receive(instance, 'ECRad_init')
+      print*, "Received message on init port"
       data_intent_in = LIBMUSCLE_Message_get_data(msg_in)
       if(LIBMUSCLE_DataConstRef_size(data_intent_in) /= 4) then
          call send_error(instance, "Wrong amount of arguments for INIT")
@@ -219,17 +223,18 @@ do while (LIBMUSCLE_Instance_reuse_instance(instance))
          call send_error(instance, "First task must be INIT not " // trim(task))
          cycle
       end if
+      print*, "Got call for INIT"
       ! This has to be the wall ids
-      arg_intent_in = LIBMUSCLE_DataConstRef_get_item(data_intent_in, 2)
+      arg_intent_in = LIBMUSCLE_DataConstRef_get_item(data_intent_in, int(2, LIBMUSCLE_size))
       call get_ids(arg_intent_in, wall)
       ! This has to be the equilibrium ids
-      arg_intent_in = LIBMUSCLE_DataConstRef_get_item(data_intent_in, 3)
+      arg_intent_in = LIBMUSCLE_DataConstRef_get_item(data_intent_in, int(3, LIBMUSCLE_size))
       call get_ids(arg_intent_in, equilibrium)
       ! This has to be the ece ids 
-      arg_intent_in = LIBMUSCLE_DataConstRef_get_item(data_intent_in, 4)
+      arg_intent_in = LIBMUSCLE_DataConstRef_get_item(data_intent_in, int(4, LIBMUSCLE_size))
       call get_ids(arg_intent_in, ece_in)
       ! Finally we have all the information to init ECRad and move beyond the initialization phase
-      call pre_initialize_ECRad_IMAS(codeparam_string, wall, &
+      call pre_initialize_ECRad_IMAS(codeparam_ecrad%parameters_value, wall, &
                                      error_flag, error_message)
       if(error_flag /= 0) then
          call send_error(instance, error_message)
@@ -240,7 +245,7 @@ do while (LIBMUSCLE_Instance_reuse_instance(instance))
          call send_error(instance, error_message)
       else
          data_intent_out = LIBMUSCLE_Data_create_nils(2_LIBMUSCLE_size)
-         call LIBMUSCLE_Data_set_item(data_intent_out, 1, "Init success")
+         call LIBMUSCLE_Data_set_item(data_intent_out, int(1, LIBMUSCLE_size), "Init success")
          call send_message(instance, data_intent_out)
          call LIBMUSCLE_Data_free(data_intent_out)
          init_success = .true.
@@ -257,30 +262,30 @@ do while (LIBMUSCLE_Instance_reuse_instance(instance))
          call send_error(instance, "Wrong amount of arguments for Timepoint")
             cycle
       end if
-      arg_intent_in = LIBMUSCLE_DataConstRef_get_item(data_intent_in, 2)
-      itime_equilibrium = int(LIBMUSCLE_as_int8(arg_intent_in),4)
-      call initialize_ECRad_IMAS(equilibrium, itime, output_flag, output_message)
-      arg_intent_in = LIBMUSCLE_DataConstRef_get_item(data_intent_in, 3)
-      if(associated(core_profiles)) call ids_deallocate(core_profiles)
+      arg_intent_in = LIBMUSCLE_DataConstRef_get_item(data_intent_in, int(2, LIBMUSCLE_size))
+      itime_equilibrium = int(LIBMUSCLE_DataConstRef_as_int(arg_intent_in),4)
+      call initialize_ECRad_IMAS(equilibrium, itime_equilibrium, error_flag, error_message)
+      arg_intent_in = LIBMUSCLE_DataConstRef_get_item(data_intent_in, int(3, LIBMUSCLE_size))
+      call ids_deallocate(core_profiles)
       call get_ids(arg_intent_in, core_profiles)
-      arg_intent_in = LIBMUSCLE_DataConstRef_get_item(data_intent_in, 4)
-      itime_core_profiles = int(LIBMUSCLE_as_int8(arg_intent_in),4)
-      call make_rays_ECRad_IMAS(core_profiles, itime)
+      arg_intent_in = LIBMUSCLE_DataConstRef_get_item(data_intent_in, int(4, LIBMUSCLE_size))
+      itime_core_profiles = int(LIBMUSCLE_DataConstRef_as_int(arg_intent_in),4)
+      call make_rays_ECRad_IMAS(core_profiles, itime_core_profiles)
       data_intent_out = LIBMUSCLE_Data_create_nils(2_LIBMUSCLE_size)
-      call LIBMUSCLE_Data_set_item(data_intent_out, 1, "Timepoint success")
+      call LIBMUSCLE_Data_set_item(data_intent_out, int(1, LIBMUSCLE_size), "Timepoint success")
       call send_message(instance, data_intent_out)
       call LIBMUSCLE_Data_free(data_intent_out)
    else if(.not. time_point_set) then
       call send_error(instance, "Need to set time point first before further execution")
          cycle
    else if(task == "Run") then
-      arg_intent_in = LIBMUSCLE_DataConstRef_get_item(data_intent_in, 2)
+      arg_intent_in = LIBMUSCLE_DataConstRef_get_item(data_intent_in, int(2, LIBMUSCLE_size))
       call get_ids(arg_intent_in, core_profiles)
       call make_dat_model_ECRad(core_profiles, itime_core_profiles, ece_out)
       data_intent_out = LIBMUSCLE_Data_create_nils(2_LIBMUSCLE_size)
-      call LIBMUSCLE_Data_set_item(data_intent_out, 1, "Run success")
+      call LIBMUSCLE_Data_set_item(data_intent_out, int(1, LIBMUSCLE_size), "Run success")
       call ids_serialize(ece_out, serialized_ids)
-      call LIBMUSCLE_Data_set_item(data_intent_out, 2, serialized_ids)
+      call LIBMUSCLE_Data_set_item(data_intent_out, int(2, LIBMUSCLE_size), 1)
       call send_message(instance, data_intent_out)
       call LIBMUSCLE_Data_free(data_intent_out)
    else

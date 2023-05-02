@@ -1,66 +1,67 @@
-from libmuscle import Instance, Grid, Message
+from libmuscle import Instance, Message
 from ymmsl import Operator
-import random,copy
 import logging
 import imas
+import os
+import yaml
+import time
 
-def fake_integrator() -> None:
-    """Muscled fake integrator
+def ECRad_MUSCLE3_test():
+    """
+    Regression test for MUSLCE3 ECRad
     """
 
     instance = Instance({
-            Operator.F_INIT: ['core_profiles_in'],
-            Operator.O_I:    ['core_profiles_out'],
-            Operator.S:      ['dynamic_interferometer_in'],
-            Operator.O_F:    ['final_core_profiles_out','final_interferometer_out']})
-
-    FirstRun = True
+            Operator.F_INIT: ['ECRad_init'],
+            Operator.O_I:    ['ECRad_task'],
+            Operator.S:      ['ECRad_report']})
     
     while instance.reuse_instance():
-        
-        # begin F_INIT
-        msg_core_profiles = instance.receive("core_profiles_in")
-        core_profiles = imas.core_profiles()
-        core_profiles.deserialize(msg_core_profiles.data)
-        t_core_profiles = msg_core_profiles.timestamp
-        # end F_INIT
-        
-        n_iterations = 10
-        for i_iteration in range(n_iterations):
+        scenario_path = instance.get_setting('scenario_info', 'str')
+        scenario = os.path.join(os.path.dirname(__file__), scenario_path)
+        with open(scenario, 'r') as scenario_file:
+            config = yaml.load(scenario_file,Loader=yaml.CLoader)
+        ids = {}
+        for ids_id in ["equilibrium", "core_profiles", "ece", "wall"]:
+            print(f"Loading: {ids_id} ids")
+            input = imas.DBEntry(imas.imasdef.MDSPLUS_BACKEND, config['db_' + ids_id],
+                              config['shot_' + ids_id], config['run_' + ids_id], 
+                              config['user_' + ids_id])
+            input.open()
+            if ids_id in ["equilibrium", "core_profiles"]:
+                ids[ids_id] = input.get_slice(ids_id,config['time_slice_'+ ids_id],1)
+            else:
+                ids[ids_id] = input.get(ids_id)
+            input.close()
+        print("Test sending INIT task")
+        msg = Message(time.time(), data=["INIT", ids["wall"], ids["equilibrium"], ids["ece"]])
+        instance.send("ECRad_init", msg)
+        msg = instance.receive("ECRad_report")
+        print("Test received report from ECRad")
+        if msg.data[0] != "Init success":
+            raise ValueError(f"ECRad reports: {msg.data[0]}")
+        print("Test sending timepoint task")
+        msg = Message(time.time(), data=["Timepoint", 1])
+        instance.send("ECRad_task", msg)
+        msg = instance.receive("ECRad_report")
+        print("Test received report from ECRad")
+        if msg.data[0] != "Timepoint success":
+            raise ValueError(f"ECRad reports: {msg.data[0]}")
+        msg = Message(time.time(), data=["Run", ids["core_profiles"]])
+        print("Test sending run task")
+        instance.send("ECRad_task", msg)
+        msg = instance.receive("ECRad_report")
+        print("Sending run task")
+        if msg.data[0] != "Run success":
+            raise ValueError(f"ECRad reports: {msg.data[0]}")
+        break
     
-            # begin O_I
-            core_profiles_out = copy.deepcopy(core_profiles)
-            core_profiles_out.profiles_1d[0].electrons.density = \
-                copy.deepcopy(core_profiles.profiles_1d[0].electrons.density*random.random())
-            t_cur = core_profiles_out.time[-1]
-            msg = Message(t_cur, data=core_profiles_out.serialize())
-            instance.send("core_profiles_out", msg)
-            # end O_I
 
-            # begin S
-            msg_dynamic_interferometer_in = instance.receive("dynamic_interferometer_in")
-            dynamic_interferometer_in = imas.interferometer()
-            dynamic_interferometer_in.deserialize(msg_dynamic_interferometer_in.data)
-            t_dynamic_interferometer_in = msg_dynamic_interferometer_in.timestamp
-            # end S
-
-        t_cur = core_profiles_out.time[-1]
-        msg = Message(t_cur)
-        instance.send("core_profiles_out", msg)
-                    
-        # begin O_F
-        t_cur = core_profiles_out.time[-1]
-        msg = Message(t_cur, data=core_profiles_out.serialize())
-        instance.send("final_core_profiles_out", msg)
-        t_cur = dynamic_interferometer_in.time[-1]
-        msg = Message(t_cur, data=dynamic_interferometer_in.serialize())
-        instance.send("final_interferometer_out", msg)
-        # end O_F
-    
 if __name__ == '__main__':
     logging.basicConfig()
     logging.getLogger().setLevel(logging.INFO)
-    fake_integrator()
+    ECRad_MUSCLE3_test()
+    
     
 
     

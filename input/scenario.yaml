@@ -1,10 +1,15 @@
 # ---------------------------------
 # PARAMETERS OF THE INPUT SCENARIO
 # ---------------------------------
-shot_scenario: 104103
-run_scenario:  13
-user_scenario: public
-db_scenario:   ITER
+shot_equilibrium: 104103
+run_equilibrium:  13
+user_equilibrium: public
+db_equilibrium:   ITER
+
+shot_core_profiles: 104103
+run_core_profiles:  13
+user_core_profiles: public
+db_core_profiles:   ITER
 
 shot_wall: 116000
 run_wall:  2
@@ -31,8 +36,8 @@ run_out:             10
 # - if <0: use IDS first time slice (with ntimes specified by the user)
 # - if =0: use IDS whole time vector (ntimes not used)
 # - if >0: use the specified time slice (with ntimes specified by the user)
-time_slice: 280.0
-
+time_slice_equilibrium: 280.0
+time_slice_core_profiles: 280.0
 # Number of time steps to simulate
 # (effective only when time_slice is not equal to zero)
 ntimes: 1

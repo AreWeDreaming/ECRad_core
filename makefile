@@ -25,6 +25,7 @@ else
 endif
 obj=
 F2PYEXT_SUFFIX = $(shell python3-config --extension-suffix)
+MODULEFLAG =
 ifeq ($(COMPILER),GNU)
 	F90OPTFLAGS = -O2 -mavx -ffree-form -ffree-line-length-none -fPIC
 	F90DBGFLAGS = -g -ffree-form -ffree-line-length-none -fPIC -fbacktrace
@@ -33,7 +34,6 @@ ifeq ($(COMPILER),GNU)
 	F90PARFLAGS = -fopenmp
 	F90PARLIBFLAGS = -lgomp
 	FFPFLAGS = -cpp
-	MODULEFLAG = 	
 	LIBFLAG = -L$(CONDALIBS) -static-libgcc -lopenblas 
 	F2PYLIBFLAGS = -L$(CONDALIBS) -lopenblas
 	LDFLAGS = -Wl,-rpath=$(CONDALIBS)/lib
@@ -50,7 +50,6 @@ else
 	F2PYDBGFLAGS = -g -traceback -DTBB_USE_DEBUG
 	F90PARFLAGS = -qopenmp
 	F90PARLIBFLAGS = 
-	MODULEFLAG = -module
 	LIBFLAG =  -Wl,--start-group ${MKLROOT}/lib/intel64/libmkl_intel_lp64.a ${MKLROOT}/lib/intel64/libmkl_intel_thread.a ${MKLROOT}/lib/intel64/libmkl_core.a -Wl,--end-group -liomp5 -lpthread -lm -ldl
 	INCLUDEFLAGS = -I"${MKLROOT}/include"
 	F2PYLIBFLAGS = -L${MKLROOT}/lib/intel64 -lmkl_intel_lp64 -lmkl_intel_thread -lmkl_core -liomp5 -lpthread -lm -ldl
@@ -92,7 +91,8 @@ ifeq ($(IMAS),True)
 	MODULEFLAG += $(shell pkg-config xmllib --cflags)
 endif
 ifeq ($(MUSCLE3),True)
-	MODULEFLAG += $(shell pkg-config ymmsl_fortran libmuscle_fortran ymmsl libmuscle --cflags)
+	MODULEFLAG += -I/work/imas/opt/EasyBuild/software/MUSCLE3/0.6.0-intel-2020b/include
+# $(shell pkg-config ymmsl_fortran libmuscle_fortran ymmsl libmuscle --cflags)
 	LIBFLAG += $(shell pkg-config ymmsl_fortran libmuscle_fortran ymmsl libmuscle --libs)
 endif
 FLAVORFLAG = $(OMPFLAG)$(USE3DFLAG)$(IMASFLAG)

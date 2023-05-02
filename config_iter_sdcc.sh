@@ -21,6 +21,8 @@ ulimit -Ss unlimited
 # Libraries needed for code parameters
 module load XMLlib/3.3.1-intel-2020b
 
+module load MUSCLE3
+
 # EXTEND PYTHON PATH AND AVOID DOUBLONS
 export PYTHONPATH=$ACTOR_FOLDER:$PYTHONPATH
 export PYTHONPATH="$(perl -e 'print join(":", grep { not $seen{$_}++ } split(/:/, $ENV{PYTHONPATH}))')"
