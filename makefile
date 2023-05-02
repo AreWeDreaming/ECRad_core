@@ -147,7 +147,7 @@ F2PYLIBS += $(F2PYLIBFLAGS)
 ifeq ($(COMPILER),GNU)
 	MODULES = $(MODULEFLAG) -J$(MODECRad)
 else
-	MODULES = $(MODULEFLAG) $(MODECRad) $(INCLUDEFLAGS)
+	MODULES = $(MODULEFLAG) -module $(MODECRad) $(INCLUDEFLAGS)
 endif
 ifeq ($(IDA),True)
 	ifneq ($(USE_3D),True)

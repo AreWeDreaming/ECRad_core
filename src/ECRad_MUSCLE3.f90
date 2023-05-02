@@ -30,7 +30,8 @@ subroutine send_error(instance, error_message)
    type(LIBMUSCLE_Data) :: data_intent_out
    real(kind=8)  :: real_time
    data_intent_out = LIBMUSCLE_Data_create_nils(2_LIBMUSCLE_size)
-   print*, "Encountered an Error: " // error_message
+   write(96,*), "Encountered an Error: " // error_message
+   flush(96)
    call LIBMUSCLE_Data_set_item(data_intent_out, int(1, LIBMUSCLE_size), error_message)
    call send_message(instance, data_intent_out)
    call LIBMUSCLE_Message_free(msg)
@@ -67,7 +68,8 @@ function get_task(instance, data_intent_in)
       return
    end if
    get_task = LIBMUSCLE_DataConstRef_as_character(arg_intent_in)
-   print*, "Received task " // get_task
+   write(96,*), "Received task " // get_task
+   flush(96)
 end function get_task
 
 subroutine get_wall_ids(data_to_decode, wall)
@@ -187,31 +189,47 @@ integer:: io_unit = 1, error_flag,iounit, itime_equilibrium, itime_core_profiles
 character(len=:), pointer:: error_message
 character(len=200):: xml_path
 character(len=132), pointer :: codeparam_string
+open(96, file = "ECRad_worker.log")
+write(96,*), "Starting ECRad"
+flush(96)
 ! Create ports for connection to the outside world
+write(96,*), "Setting up ports"
+flush(96)
 ports = LIBMUSCLE_PortsDescription_create()
 
 ! We need initial state, and I/O for intermediate states
 ! Initial state (wall, equilibrium, ece hardware)
 call LIBMUSCLE_PortsDescription_add(ports, YMMSL_Operator_F_INIT,'ECRad_init')
 ! Task, i.e. switch time points, do raytracing, or radiationt ransport
-call LIBMUSCLE_PortsDescription_add(ports, YMMSL_Operator_S, 'ECRad_task')
+call LIBMUSCLE_PortsDescription_add(ports, YMMSL_Operator_O_I, 'ECRad_task')
 ! Result of the task, i.e. sucess, or success + output ece IDS
-call LIBMUSCLE_PortsDescription_add(ports, YMMSL_Operator_O_I, 'ECRad_report')
+call LIBMUSCLE_PortsDescription_add(ports, YMMSL_Operator_S, 'ECRad_report')
+write(96,*), "Setting up instance"
+flush(96)
 ! Set up the ports
 instance = LIBMUSCLE_Instance_create(ports)
 ! Deallocate port description
 call LIBMUSCLE_PortsDescription_free(ports)
 
 ! Set up code parameters here. This is managed by IDA itself
-xml_path = LIBMUSCLE_Instance_get_setting_as_character(instance, 'xml_path')
-call file2buffer(xml_path, io_unit, codeparam_ecrad%parameters_value)
 ! Unless we critically fail to initialize we might be able to recover
 init_success = .false.
 time_point_set = .false.
+write(96,*), "Starting loop"
+flush(96)
 do while (LIBMUSCLE_Instance_reuse_instance(instance))
    if(.not. init_success) then
+      write(96,*), "Getting XML path data"
+      flush(96)
+      xml_path = LIBMUSCLE_Instance_get_setting_as_character(instance, 'xml_path')
+      write(96,*), "Loading xml at" // xml_path
+      flush(96)
+      call file2buffer(xml_path, io_unit, codeparam_ecrad%parameters_value)
+      write(96,*), "Waiting for init message"
+      flush(96)
       msg_in = LIBMUSCLE_Instance_receive(instance, 'ECRad_init')
-      print*, "Received message on init port"
+      write(96,*), "Received message on init port"
+      flush(96)
       data_intent_in = LIBMUSCLE_Message_get_data(msg_in)
       if(LIBMUSCLE_DataConstRef_size(data_intent_in) /= 4) then
          call send_error(instance, "Wrong amount of arguments for INIT")
@@ -223,7 +241,8 @@ do while (LIBMUSCLE_Instance_reuse_instance(instance))
          call send_error(instance, "First task must be INIT not " // trim(task))
          cycle
       end if
-      print*, "Got call for INIT"
+      write(96,*), "Got call for INIT"
+      flush(96)
       ! This has to be the wall ids
       arg_intent_in = LIBMUSCLE_DataConstRef_get_item(data_intent_in, int(2, LIBMUSCLE_size))
       call get_ids(arg_intent_in, wall)
