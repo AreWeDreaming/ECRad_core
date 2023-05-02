@@ -7,14 +7,12 @@ model:
     macro:
       implementation: ECRad_MUSCLE3_test
       ports:
-        f_init: ECRad_init
-        o_i: ECRad_task
-        s: ECRad_report
+        o_i: ECRad_report
+        s: ECRad_task
 
     micro:
       implementation: ECRad_MUSCLE3
       ports:
-        f_init: ECRad_init
         o_i: ECRad_task
         s: ECRad_report
 

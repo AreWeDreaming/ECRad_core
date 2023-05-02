@@ -27,5 +27,5 @@ module load MUSCLE3
 export PYTHONPATH=$ACTOR_FOLDER:$PYTHONPATH
 export PYTHONPATH="$(perl -e 'print join(":", grep { not $seen{$_}++ } split(/:/, $ENV{PYTHONPATH}))')"
 
-alias muscle3="rm -r run_ECRad_MUSCLE3_test_*; muscle_manager --start-all src/ecrad_muscle.ymmsl"
+alias muscle3="rm -r run_ECRad_MUSCLE3_test_*; muscle_manager --start-all --log-level=DEBUG src/ecrad_muscle.ymmsl"
 

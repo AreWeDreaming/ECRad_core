@@ -198,8 +198,6 @@ flush(96)
 ports = LIBMUSCLE_PortsDescription_create()
 
 ! We need initial state, and I/O for intermediate states
-! Initial state (wall, equilibrium, ece hardware)
-call LIBMUSCLE_PortsDescription_add(ports, YMMSL_Operator_F_INIT,'ECRad_init')
 ! Task, i.e. switch time points, do raytracing, or radiationt ransport
 call LIBMUSCLE_PortsDescription_add(ports, YMMSL_Operator_O_I, 'ECRad_task')
 ! Result of the task, i.e. sucess, or success + output ece IDS
@@ -227,8 +225,8 @@ do while (LIBMUSCLE_Instance_reuse_instance(instance))
       call file2buffer(xml_path, io_unit, codeparam_ecrad%parameters_value)
       write(96,*), "Waiting for init message"
       flush(96)
-      msg_in = LIBMUSCLE_Instance_receive(instance, 'ECRad_init')
-      write(96,*), "Received message on init port"
+      msg_in = LIBMUSCLE_Instance_receive(instance, 'ECRad_task')
+      write(96,*), "Received task"
       flush(96)
       data_intent_in = LIBMUSCLE_Message_get_data(msg_in)
       if(LIBMUSCLE_DataConstRef_size(data_intent_in) /= 4) then
@@ -266,15 +264,18 @@ do while (LIBMUSCLE_Instance_reuse_instance(instance))
          data_intent_out = LIBMUSCLE_Data_create_nils(2_LIBMUSCLE_size)
          call LIBMUSCLE_Data_set_item(data_intent_out, int(1, LIBMUSCLE_size), "Init success")
          call send_message(instance, data_intent_out)
-         call LIBMUSCLE_Data_free(data_intent_out)
          init_success = .true.
       end if
       cycle
    end if
+   write(96,*), "Waiting for new task after INIT"
+   flush(96)
    msg_in = LIBMUSCLE_Instance_receive(instance, 'ECRad_task')
    data_intent_in = LIBMUSCLE_Message_get_data(msg_in)
    task = get_task(instance, data_intent_in)
    if(task == "Timepoint") then
+      write(96,*), "Starting work on timepoint"
+      flush(96)
       call reset_ECRad()
       call set_ece_ECRad_IMAS(ece_in, 1, error_flag, error_message)
       if(LIBMUSCLE_DataConstRef_size(data_intent_in) /= 5) then
@@ -291,13 +292,16 @@ do while (LIBMUSCLE_Instance_reuse_instance(instance))
       itime_core_profiles = int(LIBMUSCLE_DataConstRef_as_int(arg_intent_in),4)
       call make_rays_ECRad_IMAS(core_profiles, itime_core_profiles)
       data_intent_out = LIBMUSCLE_Data_create_nils(2_LIBMUSCLE_size)
+      write(96,*), "Finished work on timepoint"
+      flush(96)
       call LIBMUSCLE_Data_set_item(data_intent_out, int(1, LIBMUSCLE_size), "Timepoint success")
       call send_message(instance, data_intent_out)
-      call LIBMUSCLE_Data_free(data_intent_out)
    else if(.not. time_point_set) then
       call send_error(instance, "Need to set time point first before further execution")
          cycle
    else if(task == "Run") then
+      write(96,*), "Started work on run"
+      flush(96)
       arg_intent_in = LIBMUSCLE_DataConstRef_get_item(data_intent_in, int(2, LIBMUSCLE_size))
       call get_ids(arg_intent_in, core_profiles)
       call make_dat_model_ECRad(core_profiles, itime_core_profiles, ece_out)
@@ -305,8 +309,9 @@ do while (LIBMUSCLE_Instance_reuse_instance(instance))
       call LIBMUSCLE_Data_set_item(data_intent_out, int(1, LIBMUSCLE_size), "Run success")
       call ids_serialize(ece_out, serialized_ids)
       call LIBMUSCLE_Data_set_item(data_intent_out, int(2, LIBMUSCLE_size), 1)
+      write(96,*), "Finished work on run"
+      flush(96)
       call send_message(instance, data_intent_out)
-      call LIBMUSCLE_Data_free(data_intent_out)
    else
       call send_error(instance, "Follow-up tasks must be either 'Timepoint' or 'Run' not " // trim(task))
    end if

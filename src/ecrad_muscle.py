@@ -13,10 +13,8 @@ def ECRad_MUSCLE3_test():
     """
     logging.info("ECRad MUSCLE3 test start!")
     instance = Instance({
-            Operator.F_INIT: ['ECRad_init'],
-            Operator.O_I:    ['ECRad_task'],
-            Operator.S:      ['ECRad_report']})
-    
+            Operator.O_I:    ['ECRad_report'],
+            Operator.S:      ['ECRad_task']})
     while instance.reuse_instance():
         scenario_path = instance.get_setting('scenario_info', 'str')
         scenario = os.path.join(os.path.dirname(__file__), scenario_path)
@@ -35,8 +33,9 @@ def ECRad_MUSCLE3_test():
                 ids[ids_id] = input.get(ids_id)
             input.close()
         logging.info("Test sending INIT task")
-        msg = Message(time.time(), data=["INIT", ids["wall"], ids["equilibrium"], ids["ece"]])
-        instance.send("ECRad_init", msg)
+
+        msg = Message(time.time(), data=["INIT", ids["wall"].serialize(), ids["equilibrium"].serialize(), ids["ece"].serialize()])
+        instance.send("ECRad_task", msg)
         msg = instance.receive("ECRad_report")
         logging.info("Test received report from ECRad")
         if msg.data[0] != "Init success":
