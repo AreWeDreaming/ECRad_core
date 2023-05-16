@@ -72,7 +72,7 @@ ifeq ($(MUSCLE3),True)
 		LIBFLAG += $(shell pkg-config ymmsl_fortran libmuscle_fortran ymmsl libmuscle --libs)
 	else
 		MODULEFLAG += -I$(MUSCLE3_DIR)/include -pthread 
-		LIBFLAG += -L$(MUSCLE3_DIR)/lib -lmuscle_fortran -lymmsl_fortran -lmuscle -lymmsl 
+		LIBFLAG += -L$(MUSCLE3_DIR)/lib -lmuscle_fortran -lymmsl_fortran -lmuscle -lymmsl  -Wl,-rpath=$(MUSCLE3_DIR)/lib
 	endif
 endif
 APP = $(APPLICATION)
