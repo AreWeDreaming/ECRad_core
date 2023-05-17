@@ -2,9 +2,11 @@
 *.a
 *.o
 *~
+*.so
 a.out
 __pycache__/
 bin/
 id
 MANIFEST.in
 run_ECRad_MUSCLE3_test_*
+conda_build_test

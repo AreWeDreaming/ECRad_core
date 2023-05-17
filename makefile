@@ -23,6 +23,8 @@ ifeq ($(IDA),True)
 else
 	STDPLIB = $(SRCP)/std_lib.f90
 endif
+
+
 obj=
 F2PYEXT_SUFFIX = $(shell python3-config --extension-suffix)
 MODULEFLAG =
@@ -57,12 +59,21 @@ else
 	F2PYCOMPILER = intelem
 	CC = icc
 	ifeq ($(IMAS),True)
-		MODULEFLAG += $(shell pkg-config imas-ifort --cflags)
+		ifeq ($(USE_PKGC),True)
+			MODULEFLAG += $(shell pkg-config imas-ifort --cflags)
+		else
+			MODULEFLAG += -I$(IMAS_PREFIX)/include/ifort -I$(IMAS_PREFIX)/include	
+		endif
 	endif
 endif
 ifeq ($(MUSCLE3),True)
-	MODULEFLAG += $(shell pkg-config ymmsl_fortran libmuscle_fortran ymmsl libmuscle --cflags)
-	LIBFLAG += $(shell pkg-config ymmsl_fortran libmuscle_fortran ymmsl libmuscle --libs)
+	ifeq ($(USE_PKGC),True)
+		MODULEFLAG += $(shell pkg-config ymmsl_fortran libmuscle_fortran ymmsl libmuscle --cflags)
+		LIBFLAG += $(shell pkg-config ymmsl_fortran libmuscle_fortran ymmsl libmuscle --libs)
+	else
+		MODULEFLAG += -I$(MUSCLE3_DIR)/include -pthread 
+		LIBFLAG += -L$(MUSCLE3_DIR)/lib -lmuscle_fortran -lymmsl_fortran -lmuscle -lymmsl  -Wl,-rpath=$(MUSCLE3_DIR)/lib
+	endif
 endif
 APP = $(APPLICATION)
 ifeq ($(MUSCLE3),True)
@@ -70,7 +81,7 @@ ifeq ($(MUSCLE3),True)
 else ifeq ($(IMAS),True)
 	APP = $(APPLICATION)_IMAS
 endif
-
+ 
 MKDIR_P = mkdir -p
 ifeq ($(IDA),True)
 	FFPFLAGS += -DIDA
@@ -86,14 +97,15 @@ endif
 ifeq ($(IMAS),True)
 	FFPFLAGS += -DIMAS
 	IMASFLAG = IMAS
-	LIBFLAG += $(shell pkg-config imas-ifort --libs)
-	LIBFLAG += $(shell pkg-config xmllib --libs)
-	MODULEFLAG += $(shell pkg-config xmllib --cflags)
-endif
-ifeq ($(MUSCLE3),True)
-	MODULEFLAG += -I/work/imas/opt/EasyBuild/software/MUSCLE3/0.6.0-intel-2020b/include
-# $(shell pkg-config ymmsl_fortran libmuscle_fortran ymmsl libmuscle --cflags)
-	LIBFLAG += $(shell pkg-config ymmsl_fortran libmuscle_fortran ymmsl libmuscle --libs)
+	ifeq ($(USE_PKGC),True)
+		LIBFLAG += $(shell pkg-config imas-ifort --libs)
+		LIBFLAG += $(shell pkg-config xmllib --libs)
+		MODULEFLAG += $(shell pkg-config xmllib --cflags)
+	else
+		LIBFLAG += -L$(XMLLIB_DIR)/lib -lxmllib -lxml2 
+		LIBFLAG += -L$(IMAS_PREFIX)/lib -limas-ifort-3.38.1 -Wl,--defsym,AL_VER_4.11.3=0 -Wl,--defsym,DD_VER_3.38.1=0 -limas -Wl,--defsym,AL_VER_4.11.3=0 
+		MODULEFLAG += -I$(XMLLIB_DIR)/include/xmllib
+	endif
 endif
 FLAVORFLAG = $(OMPFLAG)$(USE3DFLAG)$(IMASFLAG)
 #ifeq ($(IDA)$(USE_3D),TrueFalse)
