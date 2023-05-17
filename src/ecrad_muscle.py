@@ -54,6 +54,12 @@ def ECRad_MUSCLE3_test():
         logging.info("Sending run task")
         if msg.data[0] != "Run success":
             raise ValueError(f"ECRad reports: {msg.data[0]}")
+        logging.info("Run finished")
+        msg = Message(time.time(), data=["Exit"])
+        logging.info("Test sending run task")
+        instance.send("ECRad_task", msg)
+        msg = instance.receive("ECRad_report")
+        logging.info("Sending run task")
         break
     
 

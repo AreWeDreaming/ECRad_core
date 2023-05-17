@@ -233,8 +233,8 @@ do while (LIBMUSCLE_Instance_reuse_instance(instance))
          cycle
       end if
       task = get_task(instance, data_intent_in)
-      if(task == "Error") cycle
-      if(task /= "INIT") then
+      if(trim(task) == "Error") cycle
+      if(trim(task) /= "INIT") then
          call send_error(instance, "First task must be INIT not " // trim(task))
          cycle
       end if
@@ -274,7 +274,7 @@ do while (LIBMUSCLE_Instance_reuse_instance(instance))
    msg_in = LIBMUSCLE_Instance_receive(instance, 'ECRad_task')
    data_intent_in = LIBMUSCLE_Message_get_data(msg_in)
    task = get_task(instance, data_intent_in)
-   if(task == "Timepoint") then
+   if(trim(task) == "Timepoint") then
       write(96,*), "Starting work on timepoint"
       flush(96)
       ! call reset_ECRad()
@@ -301,7 +301,7 @@ do while (LIBMUSCLE_Instance_reuse_instance(instance))
    else if(.not. time_point_set) then
       call send_error(instance, "Need to set time point first before further execution")
          cycle
-   else if(task == "Run") then
+   else if(trim(task) == "Run") then
       write(96,*), "Started work on run"
       flush(96)
       arg_intent_in = LIBMUSCLE_DataConstRef_get_item(data_intent_in, int(2, LIBMUSCLE_size))
@@ -314,6 +314,13 @@ do while (LIBMUSCLE_Instance_reuse_instance(instance))
       write(96,*), "Finished work on run"
       flush(96)
       call send_message(instance, data_intent_out)
+   else if(trim(task) == "Exit") then
+      data_intent_out = LIBMUSCLE_Data_create_nils(2_LIBMUSCLE_size)
+      call LIBMUSCLE_Data_set_item(data_intent_out, int(1, LIBMUSCLE_size), "Exiting")
+      write(96,*), "Exiting as requested"
+      flush(96)
+      call send_message(instance, data_intent_out)
+      exit
    else
       call send_error(instance, "Follow-up tasks must be either 'Timepoint' or 'Run' not " // trim(task))
    end if
