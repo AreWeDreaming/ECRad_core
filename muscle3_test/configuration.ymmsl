@@ -1,0 +1,36 @@
+ymmsl_version: v0.1
+model:
+  name: ECRad_MUSCLE3_test
+  components:
+    macro:
+      ports:
+        o_i:
+        - ECRad_task
+        s:
+        - ECRad_report
+      implementation: ECRad_MUSCLE3_test
+    micro:
+      ports:
+        f_init:
+        - ECRad_task
+        o_f:
+        - ECRad_report
+      implementation: ECRad_MUSCLE3
+  conduits:
+    macro.ECRad_task: micro.ECRad_task
+    macro.ECRad_report: micro.ECRad_report
+settings:
+  scenario_info: /home/denks/git/ECRad_core/input/scenario.yaml
+  xml_path: /home/denks/git/ECRad_core/input/code_params.xml
+implementations:
+  ECRad_MUSCLE3_test:
+    executable: /fusion/projects/codes/conda/omega/dev_envs/denks/IMAS_env/bin/python
+    args:
+    - /home/denks/git/ECRad_core/src/ecrad_muscle.py
+  ECRad_MUSCLE3:
+    executable: /home/denks/git/ECRad_core/bin/ECRad_MUSCLE3IMASdb
+resources:
+  macro:
+    threads: 1
+  micro:
+    threads: 1

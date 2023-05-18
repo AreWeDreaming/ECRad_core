@@ -1,3 +1,4 @@
+
 from libmuscle import Instance, Message
 from ymmsl import Operator
 import logging
@@ -23,7 +24,7 @@ def ECRad_MUSCLE3_test():
         ids = {}
         for ids_id in ["equilibrium", "core_profiles", "ece", "wall"]:
             logging.info(f"Loading: {ids_id} ids")
-            input = imas.DBEntry(imas.imasdef.MDSPLUS_BACKEND, config['db_' + ids_id],
+            input = imas.DBEntry(imas.imasdef.HDF5_BACKEND, config['db_' + ids_id],
                               config['shot_' + ids_id], config['run_' + ids_id], 
                               config['user_' + ids_id])
             input.open()

@@ -3,22 +3,22 @@
 # ---------------------------------
 shot_equilibrium: 104103
 run_equilibrium:  13
-user_equilibrium: public
+user_equilibrium: denks
 db_equilibrium:   ITER
 
 shot_core_profiles: 104103
 run_core_profiles:  13
-user_core_profiles: public
+user_core_profiles: denks
 db_core_profiles:   ITER
 
 shot_wall: 116000
 run_wall:  2
-user_wall: public
+user_wall: denks
 db_wall:   ITER_MD
 
 shot_ece: 150601
-run_ece:  4
-user_ece: schneim
+run_ece:  1
+user_ece: denks
 db_ece:   ITER_MD
 
 # -----------------------------------

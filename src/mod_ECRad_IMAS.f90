@@ -104,10 +104,12 @@ subroutine set_ece_ECRad_IMAS(ece, itime, error_flag, error_message)
                            -(ece%line_of_sight%second_point%r - ece%line_of_sight%first_point%r))
       phi_tor(i) = -acos((-x1_vec(1) * (x2_vec(1) - x1_vec(1)) - x1_vec(2) * (x2_vec(2) - x1_vec(2))) / &
                          (R(i) * sqrt(sum((x2_vec - x1_vec)**2))))
-      width(i) = (ece%channel(i)%beam%spot%size%data(1,itime) + &
-                  ece%channel(i)%beam%spot%size%data(1,itime)) / 2.d0 ! Average the ellipse to a circle
-      dist_focus(i) = -(ece%channel(i)%beam%phase%curvature%data(1, itime) + &
-                        ece%channel(i)%beam%phase%curvature%data(1, itime)) / 2.d0  ! Average the ellipse to a circle
+      width(i) = 0.1d0
+                !  (ece%channel(i)%beam%spot%size%data(1,itime) + &
+                !   ece%channel(i)%beam%spot%size%data(1,itime)) / 2.d0 ! Average the ellipse to a circle
+      dist_focus(i) = 1.d0
+                      ! -(ece%channel(i)%beam%phase%curvature%data(1, itime) + &
+                      !   ece%channel(i)%beam%phase%curvature%data(1, itime)) / 2.d0  ! Average the ellipse to a circle
       pol_coeff(i) = -1
       error_flag = 0
     end do
