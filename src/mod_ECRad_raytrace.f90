@@ -2045,7 +2045,7 @@ function func_dA_dY(X, Y)
     real(rkind),                 intent(inout):: h
     real(rkind), dimension(:),   intent(out)  :: x_vec_out, N_vec_out, B_vec_out
     real(rkind),                 intent(out)  :: theta_out, Hamil_out, N_s_out, n_e_out, omega_c_out, T_e_out, rhop_out, v_g_perp
-    real(rkind), dimension(:),   intent(in)   :: work_lsoda
+    real(rkind), dimension(:),   intent(inout)   :: work_lsoda
     integer(ikind), dimension(:), intent(in)  :: iwork_lsoda
     integer(ikind),              intent(inout):: istate
     real(rkind)                               :: X, Y, A, B, C, N_par, dX1, dX2, sigma0
@@ -2064,6 +2064,14 @@ function func_dA_dY(X, Y)
                   1, rtol, atol,4,istate,1, &
                   work_lsoda,size(work_lsoda),iwork_lsoda,size(iwork_lsoda),\
                   Jac,2) !22
+      if(istate == -3 .and. work_lsoda(13) > work_lsoda(1)) then
+        work_lsoda(1) = work_lsoda(13) + 2.d0 * h
+        print*, "Overshot", work_lsoda(1), work_lsoda(13)
+        call lsoda(f_Lambda, neq,y_vec,sigma,sigma + h,       &
+                  1, rtol, atol,4,istate,1, &
+                  work_lsoda,size(work_lsoda),iwork_lsoda,size(iwork_lsoda),\
+                  Jac,2)
+      end if
       if(Lambda_star) then
         call sub_grad_Lambda_star(glob_plasma_params, glob_omega, glob_mode, y_vec_init, dy_vec_dummy)
         dX1 = sqrt(dy_vec_dummy(1)**2 + dy_vec_dummy(2)**2 + dy_vec_dummy(3)**2 + &
@@ -2083,6 +2091,13 @@ function func_dA_dY(X, Y)
       call lsoda(f_H,neq,y_vec,sigma,sigma + h, &
                   1, rtol, atol,4,istate,1, &
                   work_lsoda,size(work_lsoda),iwork_lsoda,size(iwork_lsoda),Jac,10) !22
+      if(istate == -3 .and. work_lsoda(13) > work_lsoda(1)) then
+        work_lsoda(1) = work_lsoda(13) + 2.d0 * h
+        call lsoda(f_Lambda, neq,y_vec,sigma,sigma + h,       &
+                  1, rtol, atol,4,istate,1, &
+                  work_lsoda,size(work_lsoda),iwork_lsoda,size(iwork_lsoda),\
+                  Jac,2)
+      end if
       call sub_grad_H(glob_plasma_params, glob_omega, glob_mode, y_vec_init, dy_vec_dummy)
       dX1 = sqrt(dy_vec_dummy(1)**2 + dy_vec_dummy(2)**2 + dy_vec_dummy(3)**2 + &
                  dy_vec_dummy(4)**2 + dy_vec_dummy(5)**2 + dy_vec_dummy(6)**2)
@@ -2872,7 +2887,7 @@ function func_dA_dY(X, Y)
             !print*, "x, R", ray_segment(N + 1)%x_vec, ray_segment(N + 1)%R_vec
         else
           ray_segment(N + 1)%sigma = ray_segment(N)%sigma
-          work_lsoda(1) = ray_segment(N + 1)%sigma  + 4.d0 * ray_segment(N)%h
+          work_lsoda(1) =  max(ray_segment(N + 1)%sigma + 4.d0 * ray_segment(N)%h, work_lsoda(13) + 4.d0 * ray_segment(N)%h)
           call sub_single_step_lsoda(ray_segment(N + 1)%sigma, ray_segment(N)%x_vec, ray_segment(N)%N_vec, &
                                ray_segment(N)%h, ray_segment(N + 1)%x_vec, ray_segment(N + 1)%N_vec, &
                                ray_segment(N + 1)%B_vec, ray_segment(N + 1)%theta, ray_segment(N + 1)%Hamil, ray_segment(N + 1)%N_s, &
