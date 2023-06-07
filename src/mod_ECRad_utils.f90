@@ -1073,8 +1073,7 @@ implicit none
   ! Computes the distance of a point to the curve spanned by poly
   ! Uses interpolation -> quite expensive
   use f90_kind
-  use mod_ECRad_interpol, only : make_1d_spline, spline_1d, spline_1d_get_roots, deallocate_1d_spline
-  use mod_ECRad_types, only : spl_type_1d
+  use mod_ECRad_interpol, only : make_1d_spline, spline_1d, spline_1d_get_roots, deallocate_1d_spline, spl_type_1d
   implicit none
   real(rkind), dimension(:), intent(in)      :: x_poly, y_poly
   real(rkind), intent(in)                    :: x, y
@@ -1744,8 +1743,8 @@ implicit none
 
 subroutine bin_ray_BPD_to_common_rhop(plasma_params, rad_mode, center_freq, weights, rhop, BPD, BPD_secondary)
 use f90_kind
-use mod_ECRad_types,       only: plasma_params_type, rad_diag_ch_mode_type, N_ray, spl_type_1d, max_points_svec, max_rhop_BPD
-use mod_ECRad_interpol,   only: make_1d_spline,  spline_1d, spline_1d, spline_1d_get_roots, deallocate_1d_spline, spline_1d_integrate
+use mod_ECRad_types,       only: plasma_params_type, rad_diag_ch_mode_type, N_ray, max_points_svec, max_rhop_BPD
+use mod_ECRad_interpol,   only: make_1d_spline,  spline_1d, spline_1d, spline_1d_get_roots, deallocate_1d_spline, spline_1d_integrate, spl_type_1d
 use constants,                 only: pi, mass_e, e0, c0
 implicit none
 type(plasma_params_type), intent(in)  :: plasma_params
@@ -1984,9 +1983,9 @@ subroutine bin_freq_to_ray(ray_extra_output, freq_weight, rad_freq, total_LOS_po
 use f90_kind
 use mod_ECRad_types,       only: rad_diag_ch_mode_ray_extra_output_type, &
                                      rad_diag_ch_mode_ray_freq_type, &
-                                     N_freq, spl_type_1d, &
+                                     N_freq, &
                                      output_level
-use mod_ECRad_interpol,   only: make_1d_spline, spline_1d, deallocate_1d_spline, spline_1d_integrate
+use mod_ECRad_interpol,   only: make_1d_spline, spline_1d, deallocate_1d_spline, spline_1d_integrate, spl_type_1d
 use constants,                only: c0, e0
 implicit none
 type(rad_diag_ch_mode_ray_extra_output_type), intent(inout)  :: ray_extra_output

@@ -178,14 +178,13 @@ type(LIBMUSCLE_PortsDescription) :: ports
 type(LIBMUSCLE_Instance) :: instance
 type(LIBMUSCLE_Message) :: msg_in, msg_out
 type(LIBMUSCLE_DataConstRef) :: data_intent_in, arg_intent_in
-type(LIBMUSCLE_Data) :: data_intent_out
+type(LIBMUSCLE_Data) :: data_intent_out, data_segment_intent_out
 type(ids_parameters_input):: codeparam_ecrad
 character(len=1), dimension(:), allocatable :: serialized_ids
 logical                                     :: init_success, time_point_set
 integer:: io_unit = 1, error_flag,iounit, itime_equilibrium, itime_core_profiles, error_state_out
 character(len=:), pointer:: error_message
 character(len=200):: xml_path
-character(len=132), pointer :: codeparam_string
 open(96, file = "ECRad_worker.log")
 write(96,*), "Starting ECRad"
 flush(96)
@@ -310,7 +309,8 @@ do while (LIBMUSCLE_Instance_reuse_instance(instance))
       data_intent_out = LIBMUSCLE_Data_create_nils(2_LIBMUSCLE_size)
       call LIBMUSCLE_Data_set_item(data_intent_out, int(1, LIBMUSCLE_size), "Run success")
       call ids_serialize(ece_out, serialized_ids)
-      call LIBMUSCLE_Data_set_item(data_intent_out, int(2, LIBMUSCLE_size), 1)
+      data_segment_intent_out = LIBMUSCLE_Data_create_byte_array(serialized_ids)
+      call LIBMUSCLE_Data_set_item(data_intent_out, int(2, LIBMUSCLE_size), data_segment_intent_out)
       write(96,*), "Finished work on run"
       flush(96)
       call send_message(instance, data_intent_out)

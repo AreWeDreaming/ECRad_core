@@ -2952,9 +2952,9 @@ function func_dA_dY(X, Y)
 
   subroutine make_s_res(plasma_params, omega, mode, ray, N_plasma_pnts, first_N_plasma, last_N_plasma, rad_ray_freq)
   use mod_ECRad_types,        only: rad_diag_ch_mode_ray_freq_type, plasma_params_type, &
-                                    spl_type_1d, ray_element_full_type, max_points_svec
+                                    ray_element_full_type, max_points_svec
   use f90_kind
-  use mod_ECRad_interpol,     only: make_1d_spline, deallocate_1d_spline, spline_1d_get_roots
+  use mod_ECRad_interpol,     only: make_1d_spline, deallocate_1d_spline, spline_1d_get_roots, spl_type_1d
   implicit none
   type(plasma_params_type), intent(in)                                       :: plasma_params
   real(rkind), intent(in)                                                    :: omega
@@ -2992,9 +2992,9 @@ function func_dA_dY(X, Y)
 
   subroutine interpolate_resonance(omega, total_LOS_points, rad_ray_freq)
   use mod_ECRad_types,        only: rad_diag_ch_mode_ray_freq_type, plasma_params_type, &
-                                    spl_type_1d, ray_element_full_type, max_points_svec
+                                    ray_element_full_type, max_points_svec
   use f90_kind
-  use mod_ECRad_interpol,     only: make_1d_spline, deallocate_1d_spline, spline_1d
+  use mod_ECRad_interpol,     only: make_1d_spline, deallocate_1d_spline, spline_1d, spl_type_1d
   implicit none
   real(rkind), intent(in)                                                    :: omega
   integer(ikind), intent(in)                                                 :: total_LOS_points
@@ -3033,10 +3033,10 @@ function func_dA_dY(X, Y)
   ! This routine also controls the step size.
   use mod_ECRad_types,        only: rad_diag_ch_mode_ray_freq_svec_type, plasma_params_type, &
                                         ray_element_full_type, max_points_svec, &
-                                        spl_type_1d, eps_svec_max_length, rad_diag_ch_mode_ray_freq_type
+                                        eps_svec_max_length, rad_diag_ch_mode_ray_freq_type
   use mod_ECRad_utils,        only: binary_search
   use f90_kind
-  use mod_ECRad_interpol,     only: make_1d_spline, deallocate_1d_spline, spline_1d_get_roots
+  use mod_ECRad_interpol,     only: make_1d_spline, deallocate_1d_spline, spline_1d_get_roots, spl_type_1d
   implicit none
   type(plasma_params_type), intent(in)                                       :: plasma_params
   real(rkind), intent(in)                                                    :: omega
@@ -3211,9 +3211,9 @@ function func_dA_dY(X, Y)
   subroutine interpolate_svec(plasma_params, svec, ray, omega, total_LOS_points, N, N_plasma_pnts, first_N_plasma, last_N_plasma, rad_ray_freq, svec_extra_output)
   use mod_ECRad_types,        only: rad_diag_ch_mode_ray_freq_svec_type, plasma_params_type, &
                                         ray_element_full_type, max_points_svec, &
-                                        SOL_ne, SOL_Te, spl_type_1d, rad_diag_ch_mode_ray_freq_type, &
+                                        SOL_ne, SOL_Te, rad_diag_ch_mode_ray_freq_type, &
                                         rad_diag_ch_mode_ray_freq_svec_extra_output_type
-  use mod_ECRad_interpol,     only: make_1d_spline, deallocate_1d_spline, spline_1d
+  use mod_ECRad_interpol,     only: make_1d_spline, deallocate_1d_spline, spline_1d, spl_type_1d
   use constants,                  only: pi, e0, mass_e, eps0, c0
   use mod_ECRad_utils,        only: sub_remap_coords, binary_search
   use f90_kind

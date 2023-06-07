@@ -1,5 +1,6 @@
 module mod_ECRad_interpol
     implicit none
+    logical  :: double_check_splines = .false.
 #ifdef IDA
   public ::   spline_1d, & ! overloaded function
               make_rect_spline, &
@@ -27,7 +28,7 @@ module mod_ECRad_interpol
               spline_1d_get_roots, &
               spline_1d_integrate
 #endif
-  private :: print_2d_spline_params
+  private :: print_2d_spline_params, double_check_splines
 
     interface spline_1d
 #ifdef IDA
@@ -37,25 +38,50 @@ module mod_ECRad_interpol
 #endif
     end interface spline_1d
 
+  type spl_type_2d
+    !integer*4, dimension(3)               :: iopt
+    integer*4                             :: nu, nv, nuest, nvest, lwrk, &
+                                             kwrk, lwrk_in_spl, kwrk_in_spl
+                                              ! spline knot count, length of real and integer work array
+    real*8, dimension(:), allocatable     :: tu, tv ! spline knot positions
+    real*8, dimension(:,:), allocatable   :: c !spline
+    real*8, dimension(:), allocatable     :: wrk ! work array for the spline routine
+    integer*4, dimension(:), allocatable  :: iwrk ! integer work array for fitpack
+    integer*4                             :: iopt_int = 0! needed for rectangular grid
+    real*8                               :: x_start, x_end
+    real*8                               :: y_start, y_end
+  end type spl_type_2d
+  
+  type spl_type_1d
+    !integer*4, dimension(3)               :: iopt, ider
+    integer*4                             :: n, nest, lwrk, &
+                                             kwrk, k
+                                              ! spline knot count, length of real and integer work array
+    real*8, dimension(:), allocatable     :: t ! spline knot positions
+    real*8, dimension(:), allocatable   :: c !spline
+    real*8, dimension(:), allocatable     :: wrk ! work array for the spline routine
+    integer*4, dimension(:), allocatable  :: iwrk ! integer work array for fitpack
+    integer*4                             :: iopt_int = 0 ! needed for profile interpolation
+    real*8                               :: x_start, x_end
+  end type spl_type_1d
+
     contains
 
   subroutine make_rect_spline(spl, m, n, x, y, mat, iopt, m_max)
-    use f90_kind
-    use mod_ECRad_types,        only: spl_type_2d
 #ifdef INTEL
     use ifcore,                     only: tracebackqq
 #endif
     implicit none
     type(spl_type_2d), intent(inout)   :: spl
     integer*4, intent(in)            :: m, n
-    real(rkind), dimension(:), intent(in) :: x,y
-    real(rkind), dimension(:,:), intent(in) :: mat
+    real(kind=8), dimension(:), intent(in) :: x,y
+    real(kind=8), dimension(:,:), intent(in) :: mat
     integer*4, intent(in), optional :: iopt
     integer*4, intent(in), optional :: m_max
     integer*4                                :: q, ier, kx, ky
     real*8                                   :: fp
     real*8, dimension(m*n)                   :: temp_mat
-    integer(ikind)                           :: i, j
+    integer(kind=4)                           :: i, j
     kx = 3 ! this is hardcoded in the interpolation -> cubic splines
     ky = 3 ! this is hardcoded in the interpolation -> cubic splines
     if(.not. all(x(1:m - 1) < x(2:m))) then
@@ -135,15 +161,13 @@ module mod_ECRad_interpol
   end subroutine make_rect_spline
 
   subroutine make_1d_spline(spl, m, x, y, iopt, k)
-    use f90_kind
-    use mod_ECRad_types,        only: spl_type_1d
 #ifdef INTEL
     use ifcore,                     only: tracebackqq
 #endif
     implicit none
     type(spl_type_1d), intent(inout)   :: spl
     integer*4, intent(in)            :: m
-    real(rkind), dimension(:), intent(in) :: x, y
+    real(kind=8), dimension(:), intent(in) :: x, y
     integer*4,   intent(in), optional     :: iopt
     integer*4,   intent(in), optional     :: k
     integer*4                                :: ier
@@ -221,15 +245,13 @@ module mod_ECRad_interpol
   end subroutine make_1d_spline
 
   subroutine set_spline_from_knots_and_coeffs(spl, m, knots, coeffs, k)
-      use f90_kind
-      use mod_ECRad_types,        only: spl_type_1d
 #ifdef INTEL
 use ifcore,                     only: tracebackqq
 #endif
       implicit none
       type(spl_type_1d), intent(inout)      :: spl
       integer*4, intent(in)                 :: m!=size(knots)
-      real(rkind), dimension(:), intent(in) :: knots, coeffs
+      real(kind=8), dimension(:), intent(in) :: knots, coeffs
       integer*4,   intent(in)               :: k
       real*8                                :: fp
       real*8, dimension(m)                  :: w
@@ -251,8 +273,7 @@ use ifcore,                     only: tracebackqq
   end subroutine
 
   subroutine deallocate_rect_spline(spl)
-    use f90_kind
-    use mod_ECRad_types,        only: spl_type_2d
+    implicit None
     type(spl_type_2d), intent(inout)   :: spl
     if(allocated(spl%tu)) deallocate(spl%tu, spl%tv, spl%c, &
                                       spl%wrk, spl%iwrk)
@@ -260,8 +281,7 @@ use ifcore,                     only: tracebackqq
   end subroutine
 
   subroutine deallocate_1d_spline(spl)
-    use f90_kind
-    use mod_ECRad_types,        only: spl_type_1d
+    implicit None
     type(spl_type_1d), intent(inout)   :: spl
     if(allocated(spl%t)) deallocate(spl%t, spl%c, spl%wrk, spl%iwrk)
     spl%iopt_int = 0
@@ -274,12 +294,6 @@ use ifcore,                     only: tracebackqq
 #endif
   ! Spline evaluation routine for B and Te/ne in 2D mode
   ! WARNING: This routine does not check bounds - out of bounds interpolations are prone to very large errors
-    use f90_kind
-#ifdef NAG
-    USE mod_ECRad_types , only : plasma_params_type, spl_type_2d, double_check_splines
-#else
-    USE mod_ECRad_types , only : plasma_params_type, spl_type_2d
-#endif
 #ifdef NAG
     USE nag_spline_2d             , only: nag_spline_2d_eval, &
                                           nag_spline_2d_comm_wp => nag_spline_2d_comm_dp
@@ -290,13 +304,13 @@ use ifcore,                     only: tracebackqq
 #endif
     implicit none
     type(spl_type_2d), intent(in)                :: spl
-    real(rkind),                      intent(in)  :: x, y
-    real(rkind),                      intent(out) :: f
-    real(rkind),            intent(out), optional :: dfdx,dfdy
+    real(kind=8),                      intent(in)  :: x, y
+    real(kind=8),                      intent(out) :: f
+    real(kind=8),            intent(out), optional :: dfdx,dfdy
 #ifdef NAG
     type(nag_spline_2d_comm_wp),    intent(in), optional :: nag_spline
     type(nag_error)                        :: error
-    real(rkind)                             :: h_x, nag_val
+    real(kind=8)                             :: h_x, nag_val
 #endif
     integer*4                               :: nux, nuy, kx, ky, m, ier
     real*8, dimension(spl%lwrk_in_spl)      :: real_work
@@ -398,8 +412,6 @@ use ifcore,                     only: tracebackqq
   end subroutine rect_spline
 
   subroutine print_2d_spline_params(spl,m)
-    use f90_kind
-    USE mod_ECRad_types , only : spl_type_2d
     implicit None
     type(spl_type_2d), intent(in) :: spl
     integer*4, intent(in)         :: m
@@ -416,7 +428,6 @@ use ifcore,                     only: tracebackqq
   subroutine rect_spline_vec(spl,x_vec,y_vec,f,dfdx,dfdy)
 #endif
   ! Spline evaluation routine
-    use f90_kind
 #ifdef INTEL
     use ifcore,                     only: tracebackqq
 #endif
@@ -424,15 +435,12 @@ use ifcore,                     only: tracebackqq
     USE nag_spline_2d             , only: nag_spline_2d_eval, &
                                           nag_spline_2d_comm_wp => nag_spline_2d_comm_dp
     USE nag_error_handling
-    USE mod_ECRad_types , only : plasma_params_type, spl_type_2d, double_check_splines, output_level
-#else
-    USE mod_ECRad_types , only : plasma_params_type, spl_type_2d
 #endif
     implicit none
     type(spl_type_2d), intent(in)                 :: spl
-    real(rkind), dimension(:),        intent(in)  :: x_vec, y_vec
-    real(rkind), dimension(:),        intent(out) :: f
-    real(rkind), dimension(:), intent(out), optional :: dfdx,dfdy
+    real(kind=8), dimension(:),        intent(in)  :: x_vec, y_vec
+    real(kind=8), dimension(:),        intent(out) :: f
+    real(kind=8), dimension(:), intent(out), optional :: dfdx,dfdy
 #ifdef NAG
     type(nag_spline_2d_comm_wp),    intent(in), optional :: nag_spline
     type(nag_error)                        :: error
@@ -441,7 +449,7 @@ use ifcore,                     only: tracebackqq
     real*8, dimension(spl%lwrk_in_spl)      :: real_work
     integer*4, dimension(spl%kwrk_in_spl)   :: integer_work
 #ifdef NAG
-    real(rkind), dimension(size(f))          :: nag_vals
+    real(kind=8), dimension(size(f))          :: nag_vals
 #endif
     if(SIZE(x_vec) /= SIZE(f) .or. SIZE(y_vec) /= SIZE(f)) then
       print*,"INPUT for rect_spline_vec is incorrectly shaped"
@@ -576,13 +584,12 @@ use ifcore,                     only: tracebackqq
   subroutine splint_1d(knot_pos, val, deriv2, x, y, dydx)
   ! Spline evaluation routine for B and Te/ne in 2D mode
   ! WARNING: This routine does not check bounds - out of bounds interpolations are prone to very large errors
-    use f90_kind
     USE nr_spline, only  : splint, splintg
     implicit none
-    real(rkind), dimension(:),        intent(in)  :: knot_pos, val, deriv2
-    real(rkind),                      intent(in)  :: x
-    real(rkind),                      intent(out) :: y
-    real(rkind),            intent(out), optional :: dydx
+    real(kind=8), dimension(:),        intent(in)  :: knot_pos, val, deriv2
+    real(kind=8),                      intent(in)  :: x
+    real(kind=8),                      intent(out) :: y
+    real(kind=8),            intent(out), optional :: dydx
     if(present(dydx)) then
       call splintg(knot_pos, val, deriv2, x, y, dydx)
     else
@@ -593,12 +600,11 @@ use ifcore,                     only: tracebackqq
   subroutine splint_1d_vec(knot_pos, val, deriv2, x, y, dydx)
   ! Spline evaluation routine for B and Te/ne in 2D mode
   ! WARNING: This routine does not check bounds - out of bounds interpolations are prone to very large errors
-    use f90_kind
     implicit none
-    real(rkind), dimension(:),        intent(in)  :: knot_pos, val, deriv2
-    real(rkind), dimension(:),        intent(in)  :: x
-    real(rkind), dimension(:),        intent(out) :: y
-    real(rkind), dimension(:), intent(out), optional :: dydx
+    real(kind=8), dimension(:),        intent(in)  :: knot_pos, val, deriv2
+    real(kind=8), dimension(:),        intent(in)  :: x
+    real(kind=8), dimension(:),        intent(out) :: y
+    real(kind=8), dimension(:), intent(out), optional :: dydx
     integer(ikind)                                   :: i
     do i= 1, size(x)
       if(present(dydx)) then
@@ -617,12 +623,6 @@ use ifcore,                     only: tracebackqq
 #endif
   ! Spline evaluation routine for B and Te/ne in 2D mode
   ! WARNING: This routine does not check bounds - out of bounds interpolations are prone to very large errors
-    use f90_kind
-#ifdef NAG
-    USE mod_ECRad_types , only : spl_type_1d, double_check_splines
-#else
-    USE mod_ECRad_types , only : spl_type_1d
-#endif
 #ifdef NAG
     USE nag_spline_1d        , only : nag_spline_1d_eval, &
                                       nag_spline_1d_comm_wp => nag_spline_1d_comm_dp
@@ -633,13 +633,13 @@ use ifcore,                     only: tracebackqq
 #endif
     implicit none
     type(spl_type_1d), intent(in)         :: spl
-    real(rkind),                      intent(in)  :: x
-    real(rkind),                      intent(out) :: f
-    real(rkind),            intent(out), optional :: dfdx
+    real(kind=8),                      intent(in)  :: x
+    real(kind=8),                      intent(out) :: f
+    real(kind=8),            intent(out), optional :: dfdx
 #ifdef NAG
     type(nag_spline_1d_comm_wp),    intent(in), optional :: nag_spline
     type(nag_error)                        :: error
-    real(rkind)                             :: nag_val
+    real(kind=8)                             :: nag_val
 #endif
     real*8, dimension(spl%n)                :: real_work
     integer*4                               :: nx, m, ier
@@ -720,27 +720,23 @@ use ifcore,                     only: tracebackqq
 #endif
   ! Spline evaluation routine for B and Te/ne in 2D mode
   ! WARNING: This routine does not check bounds - out of bounds interpolations are prone to very large errors
-    use f90_kind
 #ifdef NAG
     USE nag_spline_1d        , only : nag_spline_1d_eval, &
                                       nag_spline_1d_comm_wp => nag_spline_1d_comm_dp
     USE nag_error_handling
-    USE mod_ECRad_types , only  : plasma_params_type, spl_type_1d, double_check_splines
-#else
-    USE mod_ECRad_types , only  : plasma_params_type, spl_type_1d
 #endif
 #ifdef INTEL
     use ifcore,                     only: tracebackqq
 #endif
     implicit none
     type(spl_type_1d), intent(in)         :: spl
-    real(rkind), dimension(:),        intent(in)     :: x
-    real(rkind), dimension(:),        intent(out)    :: f
-    real(rkind), dimension(:), intent(out), optional :: dfdx
+    real(kind=8), dimension(:),        intent(in)     :: x
+    real(kind=8), dimension(:),        intent(out)    :: f
+    real(kind=8), dimension(:), intent(out), optional :: dfdx
 #ifdef NAG
     type(nag_spline_1d_comm_wp),    intent(in), optional :: nag_spline
     type(nag_error)                        :: error
-    real(rkind), dimension(size(x))         :: nag_val
+    real(kind=8), dimension(size(x))         :: nag_val
 #endif
     real*8, dimension(spl%n)                :: real_work
 
@@ -821,15 +817,13 @@ use ifcore,                     only: tracebackqq
 
   subroutine spline_1d_get_roots(spl, roots, root_cnt)
   ! Finds the root of a 1D spline
-    use f90_kind
-    USE mod_ECRad_types , only  : spl_type_1d
 #ifdef INTEL
     use ifcore,                     only: tracebackqq
 #endif
     implicit none
     type(spl_type_1d)                     :: spl
-    real(rkind), dimension(:),        intent(out)    :: roots
-    integer(ikind),                   intent(out)    :: root_cnt
+    real(kind=8), dimension(:),        intent(out)    :: roots
+    integer(kind=4),                   intent(out)    :: root_cnt
     integer*4                                        :: m_root, ier
     if(spl%k /= 3) then
       print*, "The root search only works for cubic splines"
@@ -860,14 +854,12 @@ use ifcore,                     only: tracebackqq
 
   subroutine spline_1d_integrate(spl, a, b, int_val)
   ! Definite integral a, b of spline
-    use f90_kind
-    USE mod_ECRad_types , only  : spl_type_1d
     implicit none
     type(spl_type_1d)                     :: spl
-    real(rkind),           intent(in)     :: a, b
-    real(rkind),           intent(out)    :: int_val
-    real(rkind), dimension(spl%n)         :: wrk
-    real(rkind), external :: splint_fitpack
+    real(kind=8),           intent(in)     :: a, b
+    real(kind=8),           intent(out)    :: int_val
+    real(kind=8), dimension(spl%n)         :: wrk
+    real(kind=8), external :: splint_fitpack
     int_val = splint_fitpack(spl%t,spl%n,spl%c, spl%k, a, b, wrk)
   end subroutine spline_1d_integrate
 end module mod_ECRad_interpol

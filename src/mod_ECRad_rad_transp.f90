@@ -108,7 +108,8 @@ subroutine calculate_Trad(rad_ray_freq, freq, x_vec_launch, mode, Trad, Trad_sec
 
 use mod_ECRad_types,        only: rad_diag_ch_mode_ray_freq_type, output_level, &
                                       dstf, ffp, mode_cnt, tau_thick, ignore_Te, &
-                                      static_grid, plasma_vac_boundary, spl_type_1d
+                                      static_grid, plasma_vac_boundary
+use mod_ECRad_interpol,    only: spl_type_1d                                    
 use constants,                  only: pi, e0, mass_e, eps0, c0
 use mod_ECRad_abs_Al,       only: func_N_cold, func_rel_N
 use mod_ECRad_interpol,     only: make_1d_spline, spline_1d_integrate, deallocate_1d_spline
@@ -424,7 +425,8 @@ end subroutine calculate_Trad
 
 
 subroutine get_em_T_fast(rad_ray_freq, freq, x_vec_launch, mode)
-use mod_ECRad_types,        only: rad_diag_ch_mode_ray_freq_type, spl_type_1d
+use mod_ECRad_types,        only: rad_diag_ch_mode_ray_freq_type
+use mod_ECRad_interpol,    only: spl_type_1d
 use constants,                  only: pi, e0, mass_e, eps0, c0
 use mod_ECRad_abs_Al,       only: func_N_cold, func_rel_N
 use mod_ECRad_interpol,     only: make_1d_spline, spline_1d_integrate, deallocate_1d_spline

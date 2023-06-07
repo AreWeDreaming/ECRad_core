@@ -140,12 +140,12 @@ end subroutine setup_f_rhop_splines
 
 subroutine make_B_min_and_f_inter(svec, f_spl, B_min)
 #ifdef NAG
-  use mod_ECRad_types,          only: ffp, rad_diag_ch_mode_ray_freq_svec_type, N_absz_large, double_check_splines, spl_type_2d
+  use mod_ECRad_types,          only: ffp, rad_diag_ch_mode_ray_freq_svec_type, N_absz_large, double_check_splines
 #else
-  use mod_ECRad_types,          only: ffp, rad_diag_ch_mode_ray_freq_svec_type, N_absz_large, spl_type_2d
+  use mod_ECRad_types,          only: ffp, rad_diag_ch_mode_ray_freq_svec_type, N_absz_large
 #endif
   use mod_ECRad_types,          only: ffp
-  use mod_ECRad_interpol,       only: make_rect_spline, deallocate_rect_spline, rect_spline, rect_spline_vec, spline_1d
+  use mod_ECRad_interpol,       only: make_rect_spline, deallocate_rect_spline, rect_spline, rect_spline_vec, spline_1d, spl_type_2d
 #ifdef NAG
   USE nag_spline_2d,                only: nag_spline_2d_interp
 #endif
@@ -299,8 +299,9 @@ subroutine cyl_to_pol(u_par, u_perp, svec, B_min, u, pitch)
 end subroutine cyl_to_pol
 
 subroutine make_f_and_f_grad_along_line(u_par, u_perp, svec, f_spl, B_min, f, df_du_par, df_du_perp, debug)
-  use mod_ECRad_types,          only: ffp,rad_diag_ch_mode_ray_freq_svec_type, spl_type_2d
-  use constants,                    only: mass_e, pi, e0, c0
+  use mod_ECRad_types,          only: ffp,rad_diag_ch_mode_ray_freq_svec_type
+  use mod_ECRad_interpol,       only: spl_type_2d
+  use constants,                only: mass_e, pi, e0, c0
   use mod_ECRad_interpol,       only: rect_spline_vec
   implicit none
   real(rkind), dimension(:), intent(in)         :: u_par, u_perp!

@@ -35,8 +35,8 @@ subroutine setup_fgene_rhop_splines(fgene)
 end subroutine setup_fgene_rhop_splines
 
 subroutine make_g_inter(svec, g_spl)
-  use mod_ECRad_types,          only: fgene, rad_diag_ch_mode_ray_freq_svec_type, N_absz_large, spl_type_2d
-  use mod_ECRad_interpol,       only: make_rect_spline, deallocate_rect_spline, rect_spline, rect_spline_vec, spline_1d
+  use mod_ECRad_types,          only: fgene, rad_diag_ch_mode_ray_freq_svec_type, N_absz_large
+  use mod_ECRad_interpol,       only: make_rect_spline, deallocate_rect_spline, rect_spline, rect_spline_vec, spline_1d, spl_type_2d
 #ifdef NAG
   USE nag_spline_2d,                only: nag_spline_2d_interp
 #endif
@@ -80,7 +80,8 @@ subroutine v_par_mu_to_cyl(u_par, u_perp, svec, vpar, mu)
 end subroutine v_par_mu_to_cyl
 
 subroutine make_g_and_g_grad_along_line(u_par, u_perp, svec, g_spl, g, dg_du_par, dg_du_perp, debug)
-  use mod_ECRad_types,          only: fgene, rad_diag_ch_mode_ray_freq_svec_type, spl_type_2d
+  use mod_ECRad_types,          only: fgene, rad_diag_ch_mode_ray_freq_svec_type
+  use mod_ECRad_interpol,       only: spl_type_2d
   use constants,                    only: mass_e, pi, e0, c0
   use mod_ECRad_interpol,       only: rect_spline_vec
   implicit none
@@ -155,7 +156,8 @@ subroutine make_g_and_g_grad_along_line(u_par, u_perp, svec, g_spl, g, dg_du_par
 end subroutine make_g_and_g_grad_along_line
 
 subroutine make_gene_f_and_gene_f_grad_along_line(u_par, u_perp, svec, g_spl, f, df_du_par, df_du_perp, debug)
-  use mod_ECRad_types,          only: fgene, rad_diag_ch_mode_ray_freq_svec_type, spl_type_2d
+  use mod_ECRad_types,          only: fgene, rad_diag_ch_mode_ray_freq_svec_type
+  use mod_ECRad_interpol,       only: spl_type_2d
   use constants,                    only: mass_e, pi, e0, c0
   use mod_ECRad_interpol,       only: rect_spline_vec
   implicit none

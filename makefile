@@ -66,15 +66,6 @@ else
 		endif
 	endif
 endif
-ifeq ($(MUSCLE3),True)
-	ifeq ($(USE_PKGC),True)
-		MODULEFLAG += $(shell pkg-config ymmsl_fortran libmuscle_fortran ymmsl libmuscle --cflags)
-		LIBFLAG += $(shell pkg-config ymmsl_fortran libmuscle_fortran ymmsl libmuscle --libs)
-	else
-		MODULEFLAG += -I$(MUSCLE3_DIR)/include -pthread 
-		LIBFLAG += -L$(MUSCLE3_DIR)/lib -lmuscle_fortran -lymmsl_fortran -lmuscle -lymmsl  -Wl,-rpath=$(MUSCLE3_DIR)/lib
-	endif
-endif
 APP = $(APPLICATION)
 ifeq ($(MUSCLE3),True)
 	APP = $(APPLICATION)_MUSCLE3
@@ -93,6 +84,15 @@ endif
 ifeq ($(USE_3D),True)
 	FFPFLAGS += -DUSE_3D
 	USE3DFLAG = USE3D
+endif
+ifeq ($(MUSCLE3),True)
+	ifeq ($(USE_PKGC),True)
+		MODULEFLAG += $(shell pkg-config ymmsl_fortran libmuscle_fortran ymmsl libmuscle --cflags)
+		LIBFLAG += $(shell pkg-config ymmsl_fortran libmuscle_fortran ymmsl libmuscle --libs)
+	else
+		MODULEFLAG += -I$(MUSCLE3_DIR)/include -pthread 
+		LIBFLAG += -L$(MUSCLE3_DIR)/lib -lmuscle_fortran -lymmsl_fortran -lmuscle -lymmsl -Wl,-rpath=$(MUSCLE3_DIR)/lib
+	endif
 endif
 ifeq ($(IMAS),True)
 	FFPFLAGS += -DIMAS
@@ -183,8 +183,8 @@ OBJECTS += \
 	quadrature$(IDAFLAG)$(FLAVORFLAG)$(DB).o \
 	mod_contour$(IDAFLAG)$(FLAVORFLAG)$(DB).o \
 	magconfig3D$(IDAFLAG)$(FLAVORFLAG)$(DB).o \
-	mod_ECRad_types$(IDAFLAG)$(FLAVORFLAG)$(DB).o \
 	mod_ECRad_interpol$(IDAFLAG)$(FLAVORFLAG)$(DB).o \
+	mod_ECRad_types$(IDAFLAG)$(FLAVORFLAG)$(DB).o \
 	mod_ECRad_abs_Fa$(IDAFLAG)$(FLAVORFLAG)$(DB).o \
 	mod_ECRad_fp_dist_utils$(IDAFLAG)$(FLAVORFLAG)$(DB).o \
 	mod_ECRad_gene_dist_utils$(IDAFLAG)$(FLAVORFLAG)$(DB).o \
@@ -269,11 +269,10 @@ directories:
 
 $(MODECRad)/mod_contour$(IDAFLAG)$(FLAVORFLAG)$(DB).o: $(STDPLIB)
 
-$(MODECRad)/mod_ECRad_types$(IDAFLAG)$(FLAVORFLAG)$(DB).o: $(STDPLIB) \
-	$(SRCP)/magconfig3D.f90
+$(MODECRad)/mod_ECRad_interpol$(IDAFLAG)$(FLAVORFLAG)$(DB).o: $(STDPLIB) 
 
-$(MODECRad)/mod_ECRad_interpol$(IDAFLAG)$(FLAVORFLAG)$(DB).o: $(STDPLIB) \
-	$(SRCP)/mod_ECRad_types.f90
+$(MODECRad)/mod_ECRad_types$(IDAFLAG)$(FLAVORFLAG)$(DB).o: $(STDPLIB) \
+	$(SRCP)/magconfig3D.f90 $(SRCP)/mod_ECRad_interpol.f90
 
 $(MODECRad)/mod_ECRad_abs_Fa$(IDAFLAG)$(FLAVORFLAG)$(DB).o: $(STDPLIB)
 

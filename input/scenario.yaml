@@ -24,9 +24,9 @@ db_ece:   ITER_MD
 # -----------------------------------
 # PARAMETERS TO SAVE THE OUTPUT DATA
 # -----------------------------------
-output_user_or_path: default
+output_user: denks
 output_database:     ITER
-run_out:             10
+run_out:             99
 
 # -----------------------------------
 # PARAMETERS FOR OPTIONAL TIME LOOP

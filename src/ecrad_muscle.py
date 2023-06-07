@@ -56,6 +56,15 @@ def ECRad_MUSCLE3_test():
         if msg.data[0] != "Run success":
             raise ValueError(f"ECRad reports: {msg.data[0]}")
         logging.info("Run finished")
+
+        logging.info("Saving results")
+        output = imas.DBEntry(imas.imasdef.HDF5_BACKEND, 'ITER', config['shot_equilibrium'], config['run_out'], config['output_user'])
+        output.create()
+        ece_out = imas.ece()
+        logging.info("Deserializing ece")
+        ece_out.deserialize(msg.data[1])
+        output.put(ece_out)
+        logging.info("Finished saving results")
         msg = Message(time.time(), data=["Exit"])
         logging.info("Test sending run task")
         instance.send("ECRad_task", msg)

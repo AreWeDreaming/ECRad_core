@@ -412,8 +412,9 @@ contains
     ! Does not support the fundamental
     use mod_ECRad_types,        only: rad_diag_ch_mode_ray_freq_svec_type, dstf, output_level,&
                                           ratio_for_third_harmonic, not_eval, eval, warm_plasma, &
-                                          tau_ignore, spl_type_2d, non_therm_params_type, &
+                                          tau_ignore, non_therm_params_type, &
                                           ignore_Te, ignore_ne
+    use mod_ECRad_interpol,    only: spl_type_2d
     use constants,                  only: pi, e0, mass_e, eps0, c0
     use mod_ECRad_radiation_dist,    only: prepare_dist
     implicit none
@@ -627,7 +628,8 @@ contains
 
 
   subroutine abs_Al_integral_nume(svec, f_spl, dist_params, X, Y, omega_bar, m_0, N_abs, cos_theta, sin_theta, e, mode, m,c_abs, j, c_abs_secondary, j_secondary, debug)
-    Use mod_ECRad_types,        only: rad_diag_ch_mode_ray_freq_svec_type, dstf, ffp, spl_type_2d, non_therm_params_type
+    Use mod_ECRad_types,        only: rad_diag_ch_mode_ray_freq_svec_type, dstf, ffp, non_therm_params_type
+    use mod_ECRad_interpol,    only: spl_type_2d
     use constants,                  only: pi,e0, mass_e ,c0
     use mod_ECRad_radiation_dist,    only: radiation_dist_f_norm, make_f_and_Rf_along_line
     implicit none
