@@ -1,0 +1,40 @@
+<parameters>
+
+    <!-- SCENARIO SHOT NUMBER -->
+    <shot_scenario> 104103 </shot_scenario>
+    <!-- SCENARIORUN NUMBER -->
+    <run_scenario> 13 </run_scenario>
+    <!-- SCENARIO USER -->
+    <user_scenario>public</user_scenario>
+    <!-- SCENARIO DATABASE-->
+    <db_scenario>ITER</db_scenario>
+
+    <!-- WALL MD SHOT NUMBER -->
+    <shot_wall> 116000 </shot_wall>
+    <!-- WALL MD RUN NUMBER -->
+    <run_wall> 2 </run_wall>
+    <!-- WALL MD USER-->
+    <user_wall>public</user_wall>
+    <!-- WALL MD DATABASE-->
+    <db_wall>ITER_MD</db_wall>
+
+    <!-- ECE MD SHOT NUMBER -->
+    <shot_ece> 150601 </shot_ece>
+    <!-- ECE MD RUN NUMBER -->
+    <run_ece> 1 </run_ece>
+    <!-- ECE MD USER-->
+    <user_ece>schneim</user_ece>
+    <!-- ECE MD DATABASE-->
+    <db_ece>ITER_MD</db_ece>
+
+    <!-- OUTPUT RUN NUMBER -->
+    <run_out> 10 </run_out>
+
+    <!-- TIME SLICE -->
+    <time_slice> 100.0 </time_slice>
+
+    <!-- LOCAL MACHINE NAME TO WRITE INTO LOCAL IMAS DATABASE -->
+    <local_db>ITER</local_db>
+
+</parameters>
+

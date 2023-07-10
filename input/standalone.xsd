@@ -1,0 +1,156 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+	   elementFormDefault="qualified">
+   <xs:annotation>
+     <xs:documentation>Code parameters for ECRad standalone fortran program</xs:documentation>
+   </xs:annotation>
+ 
+   <xs:simpleType name="integer_shot">
+     <xs:restriction base="xs:integer">
+       <xs:minInclusive value="1"/>
+       <xs:maxInclusive value="214748"/>
+     </xs:restriction>
+   </xs:simpleType>
+
+   <xs:simpleType name="integer_run">
+     <xs:restriction base="xs:integer">
+       <xs:minInclusive value="0"/>
+       <xs:maxInclusive value="99999"/>
+     </xs:restriction>
+   </xs:simpleType>
+
+   <xs:simpleType name="string_field">
+     <xs:restriction base="xs:string">
+     </xs:restriction>
+   </xs:simpleType>
+
+   <!-- document element -->
+   <xs:element name="parameters">
+     <xs:complexType>
+       <xs:all>
+         <xs:element ref="shot_scenario" minOccurs="0"/>
+         <xs:element ref="shot_wall" minOccurs="0"/>
+         <xs:element ref="shot_ece" minOccurs="0"/>
+         <xs:element ref="run_scenario" minOccurs="0"/>
+         <xs:element ref="run_wall" minOccurs="0"/>
+         <xs:element ref="run_ece" minOccurs="0"/>
+         <xs:element ref="user_scenario" minOccurs="0"/>
+         <xs:element ref="user_wall" minOccurs="0"/>
+         <xs:element ref="user_ece" minOccurs="0"/>
+         <xs:element ref="db_scenario" minOccurs="0"/>
+         <xs:element ref="db_wall" minOccurs="0"/>
+         <xs:element ref="db_ece" minOccurs="0"/>
+         <xs:element ref="run_out" minOccurs="0"/>
+         <xs:element ref="time_slice" minOccurs="0"/>
+         <xs:element ref="local_db" minOccurs="0"/>
+       </xs:all>
+     </xs:complexType>
+   </xs:element>
+ 
+   <!-- Scenario shot number -->
+   <xs:element name="shot_scenario" type="integer_shot">
+      <xs:annotation>
+          <xs:documentation>Scenario shot number</xs:documentation>
+      </xs:annotation>
+   </xs:element>
+
+   <!-- Scenario run number -->
+   <xs:element name="run_scenario" type="integer_run">
+      <xs:annotation>
+          <xs:documentation>Scenario run number</xs:documentation>
+      </xs:annotation>
+   </xs:element>
+
+   <!-- Scenario database name -->
+   <xs:element name="db_scenario" type="string_field">
+      <xs:annotation>
+          <xs:documentation>Scenario database name for input scenario</xs:documentation>
+      </xs:annotation>
+   </xs:element>
+  
+   <!-- Scenario user name -->
+   <xs:element name="user_scenario" type="string_field">
+      <xs:annotation>
+          <xs:documentation>Scenario user name for input scenario</xs:documentation>
+      </xs:annotation>
+   </xs:element>
+ 
+
+   <!-- Wall MD shot number -->
+   <xs:element name="shot_wall" type="integer_shot">
+      <xs:annotation>
+          <xs:documentation>Wall MD shot number</xs:documentation>
+      </xs:annotation>
+   </xs:element>
+
+   <!-- Wall MD run number -->
+   <xs:element name="run_wall" type="integer_run">
+      <xs:annotation>
+          <xs:documentation>Wall MD run number</xs:documentation>
+      </xs:annotation>
+   </xs:element>
+
+   <!-- Wall MD database name -->
+   <xs:element name="db_wall" type="string_field">
+      <xs:annotation>
+          <xs:documentation>Wall MD database name for input wall</xs:documentation>
+      </xs:annotation>
+   </xs:element>
+  
+   <!-- Wall MD user name -->
+   <xs:element name="user_wall" type="string_field">
+      <xs:annotation>
+          <xs:documentation>Wall MD user name for input wall</xs:documentation>
+      </xs:annotation>
+   </xs:element>
+ 
+   <!-- ECE MD shot number -->
+   <xs:element name="shot_ece" type="integer_shot">
+      <xs:annotation>
+          <xs:documentation>ECE MD shot number</xs:documentation>
+      </xs:annotation>
+   </xs:element>
+
+   <!-- ECE MD run number -->
+   <xs:element name="run_ece" type="integer_run">
+      <xs:annotation>
+          <xs:documentation>ECE MD run number</xs:documentation>
+      </xs:annotation>
+   </xs:element>
+
+   <!-- ECE MD database name -->
+   <xs:element name="db_ece" type="string_field">
+      <xs:annotation>
+          <xs:documentation>ECE MD database name for input ece</xs:documentation>
+      </xs:annotation>
+   </xs:element>
+  
+   <!-- ECE MD user name -->
+   <xs:element name="user_ece" type="string_field">
+      <xs:annotation>
+          <xs:documentation>ECE MD user name for input ece</xs:documentation>
+      </xs:annotation>
+   </xs:element>
+   
+   <!-- Number of times the multiplication factor is applied -->
+   <xs:element name="run_out" type="integer_run">
+      <xs:annotation>
+          <xs:documentation>Output run number</xs:documentation>
+      </xs:annotation>
+   </xs:element>
+ 
+   <!-- Local database name to write into local IMAS database -->
+   <xs:element name="local_db" type="string_field">
+      <xs:annotation>
+          <xs:documentation>Local database name</xs:documentation>
+      </xs:annotation>
+   </xs:element>
+  
+   <!-- Time to simulate [s] -->
+   <xs:element name="time_slice" type="xs:float">
+      <xs:annotation>
+          <xs:documentation>Time to simulate [s]</xs:documentation>
+      </xs:annotation>
+   </xs:element>
+  
+</xs:schema>
+ 

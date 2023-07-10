@@ -1,0 +1,68 @@
+# ---------------------------------
+# PARAMETERS OF THE INPUT SCENARIO
+# ---------------------------------
+shot_equilibrium: 104103
+run_equilibrium:  13
+user_equilibrium: denks
+db_equilibrium:   ITER
+
+shot_core_profiles: 104103
+run_core_profiles:  13
+user_core_profiles: denks
+db_core_profiles:   ITER
+
+shot_wall: 116000
+run_wall:  2
+user_wall: denks
+db_wall:   ITER_MD
+
+shot_ece: 150601
+run_ece:  1
+user_ece: denks
+db_ece:   ITER_MD
+
+# -----------------------------------
+# PARAMETERS TO SAVE THE OUTPUT DATA
+# -----------------------------------
+output_user: denks
+output_database:     ITER
+run_out:             99
+
+# -----------------------------------
+# PARAMETERS FOR OPTIONAL TIME LOOP
+# -----------------------------------
+
+# Time slice to simulate
+# - if <0: use IDS first time slice (with ntimes specified by the user)
+# - if =0: use IDS whole time vector (ntimes not used)
+# - if >0: use the specified time slice (with ntimes specified by the user)
+time_slice_equilibrium: 280.0
+time_slice_core_profiles: 280.0
+# Number of time steps to simulate
+# (effective only when time_slice is not equal to zero)
+ntimes: 1
+
+# Time step in case a generic time array is defined
+# (effective only when ntimes > length of the input time array)
+dt_required: 0.2
+
+# --------------
+# MISCELLANEOUS
+# --------------
+
+# Run (1) or not (0)
+run_chease: 0
+run_ecrad: 1
+
+# Parameter to remove Access Layer warnings when reading/writing obsolete data
+warnoff: 1
+
+# Debug (1) or not (0)
+debug_chease: 0
+debug_ecrad: 0
+
+
+
+
+
+

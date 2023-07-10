@@ -20,9 +20,10 @@ module mod_ECRad_radiation_dist
 
 subroutine prepare_dist(svec, Int_absz_many, Int_weights_many, f_spl, dist_params)
     use mod_ECRad_types,            only: dstf, rad_diag_ch_mode_ray_freq_svec_type, min_level_log_ne, &
-                                             bi_max, drift_m, Spitzer, multi_slope, runaway, ffp, fgene, Spitzer, &
-                                             spl_type_2d, non_therm_params_type
-    use constants,                      only: pi, e0, mass_e, eps0, c0
+                                          bi_max, drift_m, Spitzer, multi_slope, runaway, ffp, fgene, Spitzer, &
+                                          non_therm_params_type
+    use mod_ECRad_interpol,         only: spl_type_2d
+    use constants,                  only: pi, e0, mass_e, eps0, c0
     use mod_ECRad_fp_dist_utils,    only: make_B_min_and_f_inter
     use mod_ECRad_gene_dist_utils,  only: make_g_inter
     use mod_ECRad_interpol,         only: spline_1d
@@ -199,7 +200,8 @@ subroutine make_norm_multi_slope(svec, mu, Int_absz_many, Int_weights_many, dist
 
   subroutine make_f_and_Rf_along_line(u_par, u_perp, gamma, m_omega_bar, N_par, mu, svec, f_spl, dist_params, dstf, f, Rf)
     use constants,                   only: pi, e0,c0, mass_e
-    use mod_ECRad_types,         only: spl_type_2d, rad_diag_ch_mode_ray_freq_svec_type, non_therm_params_type, multi_slope
+    use mod_ECRad_types,         only: rad_diag_ch_mode_ray_freq_svec_type, non_therm_params_type, multi_slope
+    use mod_ECRad_interpol,    only: spl_type_2d
     use mod_ECRad_fp_dist_utils, only: make_f_and_f_grad_along_line
     use mod_ECRad_gene_dist_utils, only: make_gene_f_and_gene_f_grad_along_line, &
                                              make_gene_f0_and_gene_f0_grad_along_line

@@ -1,6 +1,6 @@
 module mod_ECRad_raytrace_initialize
     use f90_kind
-    use mod_ECRad_types,       only: spl_type_2d
+    use mod_ECRad_interpol,    only: spl_type_2d
     implicit none
     ! Two interfaces to allow interpolation of Te and ne using both single rhop values and vectors of rhop values
     type(spl_type_2d)                       :: Psi_spline

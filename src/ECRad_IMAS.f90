@@ -1,227 +1,137 @@
-module ECRad_IMAS
-
-contains
-
-subroutine pre_initialize_ECRad_IMAS(codeparam_string, wall, &
-                                     error_flag, error_message)
-  use mod_ECRad, only: pre_initialize_ECRad_f2py
-  use xml2eg_mdl, only: xml2eg_parse_memory, xml2eg_get, &
-                        type_xml2eg_document, xml2eg_free_doc, set_verbose
-  use ids_schemas, only: ids_wall, ids_is_valid
+program ECRad_IMAS
+  use f90_kind
+#ifdef OMP
+  use mod_ECRad_IMAS, only : pre_initialize_ECRad_IMAS, set_ece_ECRad_IMAS, &
+       set_ECRad_thread_count, initialize_ECRad_IMAS, &
+       reset_ECRad, make_rays_ECRad_IMAS, make_dat_model_ECRad
+#else
+  use mod_ECRad_IMAS, only : pre_initialize_ECRad_IMAS, set_ece_ECRad_IMAS, &
+       initialize_ECRad_IMAS, &
+       reset_ECRad, make_rays_ECRad_IMAS, make_dat_model_ECRad
+#endif
+  use mod_ECRad_actor_IMAS
+  use ids_schemas, only: ids_equilibrium, ids_core_profiles, &
+       ids_ece, ids_wall, ids_parameters_input
+  use ids_routines, only: imas_open_env,imas_create_env,imas_close, &
+       ids_get,ids_get_slice,ids_put,ids_deallocate
+  use f90_file_reader, only: file2buffer
+  use mod_codeparam_standalone_IMAS
   implicit none
-  ! Input/Output
-  character(len=132), pointer, intent(in) :: codeparam_string(:)
-  type(ids_wall):: wall
-  integer, intent(out) :: error_flag
-  character(len=:), pointer, intent(out) :: error_message
-  ! Internal
-  type(type_xml2eg_document) :: doc
-  real(kind=8)     :: ratio_for_3rd_harm, tau_ignore, &
-                      reflec_X, reflec_O, mode_conv, &
-                      large_ds, small_ds
-  character(2)     :: dstf
-  integer   :: considered_modes, max_points_svec, N_pts_BPD, N_ray, &
-               N_freq, N_max, N_vessel
-  logical    :: extra_output, ripple, ray_tracing, weak_rel
-  real(kind=8), dimension(:), allocatable :: vessel_R, vessel_z
-  ! Parse the "codeparam_string". This means that the data is put into a document "doc"
-  call xml2eg_parse_memory(codeparam_string,doc)
-  call set_verbose(.TRUE.) ! Only needed if you want to see what's going on in the parsing
-   
-  call xml2eg_get(doc,'extra_output', extra_output)
-  call xml2eg_get(doc,'dstf', dstf)
-  call xml2eg_get(doc,'ray_tracing', ray_tracing)
-  call xml2eg_get(doc,'ripple', ripple)
-  call xml2eg_get(doc,'weak_rel', weak_rel)
-  call xml2eg_get(doc,'ratio_for_3rd_harm', ratio_for_3rd_harm)
-  call xml2eg_get(doc,'N_max', N_max)
-  call xml2eg_get(doc,'tau_ignore', tau_ignore)
-  call xml2eg_get(doc,'considered_modes', considered_modes)
-  call xml2eg_get(doc,'reflec_X', reflec_X)
-  call xml2eg_get(doc,'reflec_O', reflec_O)
-  call xml2eg_get(doc,'max_points_svec', max_points_svec)
-  call xml2eg_get(doc,'N_pts_BPD', N_pts_BPD)
-  call xml2eg_get(doc,'mode_conv', mode_conv)
-  call xml2eg_get(doc,'large_ds', large_ds)
-  call xml2eg_get(doc,'small_ds', small_ds)
-  call xml2eg_get(doc,'N_ray', N_ray)
-  call xml2eg_get(doc,'N_freq', N_freq)
-  call xml2eg_free_doc(doc)
-  if (ids_is_valid(wall%description_2d(1)%limiter%unit(1)%outline%R)) then
-    N_vessel = size(wall%description_2d(1)%limiter%unit(1)%outline%R)
-    allocate(vessel_R(N_vessel), vessel_z(N_vessel))
-    vessel_R = wall%description_2d(1)%limiter%unit(1)%outline%R
-    vessel_z = wall%description_2d(1)%limiter%unit(1)%outline%z
-    error_flag = 0
-  else
-    error_flag = -1
-    allocate(character(50):: error_message)
-    error_message = 'Error in pre_initialize_ECRad_IMAS: input IDS not valid'
-    return
-  end if
-  call pre_initialize_ECRad_f2py(extra_output, dstf, ray_tracing, ripple, &
-                                 1.2d0, weak_rel, &
-                                 ratio_for_3rd_harm, N_max, tau_ignore, &
-                                 considered_modes, reflec_X, reflec_O, 0, &
-                                 max_points_svec, N_pts_BPD ,&
-                                 mode_conv, &
-                                 1.d0, 1.d0, &
-                                 large_ds, small_ds, 0.d0, &
-                                 0.d0, N_ray, N_freq, .true., N_vessel, vessel_R, vessel_z)
-  deallocate(vessel_R, vessel_z)
-end subroutine pre_initialize_ECRad_IMAS
 
-subroutine set_ece_ECRad_IMAS(ece, itime, error_flag, error_message)
-  use mod_ECRad, only: prepare_ECE_diag_f2py
-  use ids_schemas, only: ids_equilibrium, ids_ece, ids_is_valid
-  implicit None
-  ! Input/Output
-  type(ids_ece):: ece
-  integer, intent(in) :: itime
-  integer, intent(out) :: error_flag
-  character(len=:), pointer, intent(out) :: error_message
-  ! Internal
-  real(kind=8), dimension(:), allocatable :: f, df, R, phi, z, phi_tor, theta_pol, &
-                                             dist_focus, width, pol_coeff, x1_vec, x2_vec
-  integer :: i, N_ch
-  ! CHECK IF INPUT IDS IS VALID
-  if (ids_is_valid(ece%line_of_sight%first_point%r)) then
-    N_ch = size(ece%channel)
-    allocate(f(N_ch), df(N_ch), R(N_ch), phi(N_ch), z(N_ch), &
-    phi_tor(N_ch), theta_pol(N_ch), dist_focus(N_ch), width(N_ch), pol_coeff(N_ch), &
-              x1_vec(2), x2_vec(2))
-    do i = 1, N_ch
-      f = ece%channel(i)%frequency%data(itime)
-      df =  ece%channel(i)%if_bandwidth
-      R(i) = ece%line_of_sight%first_point%r
-      phi(i) = ece%line_of_sight%first_point%phi
-      z(i) = ece%line_of_sight%first_point%z
-      x1_vec(1) = ece%line_of_sight%first_point%r * cos(ece%line_of_sight%first_point%phi)
-      x1_vec(2) = ece%line_of_sight%first_point%r * sin(ece%line_of_sight%first_point%phi)
-      x2_vec(1) = ece%line_of_sight%second_point%r * cos(ece%line_of_sight%first_point%phi)
-      x2_vec(2) = ece%line_of_sight%second_point%r * sin(ece%line_of_sight%first_point%phi)
-      theta_pol(i) = atan2((ece%line_of_sight%first_point%r - ece%line_of_sight%second_point%r), &
-                           (ece%line_of_sight%first_point%z - ece%line_of_sight%second_point%z))
-      phi_tor(i) = -acos((-x1_vec(1) * (x2_vec(1) - x1_vec(1)) - x1_vec(2) * (x2_vec(2) - x1_vec(2))) / &
-                         (R(i) * sqrt(sum((x2_vec - x1_vec)**2))))
-      width(i) = (ece%channel(i)%beam%spot%size%data(1,itime) + &
-                  ece%channel(i)%beam%spot%size%data(1,itime)) / 2.d0 ! Average the ellipse to a circle
-      dist_focus(i) = -(ece%channel(i)%beam%phase%curvature%data(1, itime) + &
-                        ece%channel(i)%beam%phase%curvature%data(1, itime)) / 2.d0  ! Average the ellipse to a circle
-      pol_coeff(i) = -1
-      error_flag = 0
-    end do
-    call prepare_ECE_diag_f2py(f, df, R, phi, z, phi_tor, theta_pol, dist_focus, width, pol_coeff)
-    deallocate(f, df, R, phi, z, phi_tor, theta_pol, dist_focus, width, pol_coeff, x1_vec, x2_vec)
+  type(ids_wall):: wall
+  type(ids_equilibrium):: equilibrium
+  type(ids_core_profiles):: core_profiles
+  type(ids_ece):: ece_in, ece_out
+  type(ids_parameters_input):: codeparam_standalone,codeparam_ecrad
+  type(type_codeparam_standalone):: codeparam_standalone_data  
+  integer:: io_unit = 1, idx
+  integer:: shot_scenario,run_scenario,shot_wall,run_wall,shot_ece,run_ece,run_out
+  character(len=200):: user_scenario,db_scenario,user_wall
+  character(len=200):: db_wall,user_ece,db_ece,local_db,local_user
+  double precision:: time_slice
+  character(len=:), pointer:: output_message
+  integer:: output_flag
+
+  ! READ STANDALONE XML INPUT FILE, DEFINED BY SPECIFIC XSD FILE
+  call file2buffer('input/standalone.xml',io_unit, codeparam_standalone%parameters_value)
+  call parse_standalone_codeparam(codeparam_standalone%parameters_value,codeparam_standalone_data)
+  shot_scenario = codeparam_standalone_data%shot_scenario
+  run_scenario  = codeparam_standalone_data%run_scenario
+  user_scenario = codeparam_standalone_data%user_scenario
+  db_scenario   = codeparam_standalone_data%db_scenario
+  shot_wall     = codeparam_standalone_data%shot_wall
+  run_wall      = codeparam_standalone_data%run_wall
+  user_wall     = codeparam_standalone_data%user_wall
+  db_wall       = codeparam_standalone_data%db_wall
+  shot_ece      = codeparam_standalone_data%shot_ece
+  run_ece       = codeparam_standalone_data%run_ece
+  user_ece      = codeparam_standalone_data%user_ece
+  db_ece        = codeparam_standalone_data%db_ece
+  time_slice    = codeparam_standalone_data%time_slice
+  run_out       = codeparam_standalone_data%run_out
+  local_db      = codeparam_standalone_data%local_db
+
+  write(*,*) '------------------------------------'
+  write(*,*) 'Parameters read from input xml file:'
+  write(*,*) '------------------------------------'
+  write(*,*) '- SCENARIO'
+  write(*,'(a21,i7)')  '     shot_scenario = ',codeparam_standalone_data%shot_scenario
+  write(*,'(a21,i7)')  '     run_scenario  = ',codeparam_standalone_data%run_scenario
+  write(*,'(a21,a30)') '     user_scenario = ',codeparam_standalone_data%user_scenario
+  write(*,'(a21,a30)') '     db_scenario   = ',codeparam_standalone_data%db_scenario
+  write(*,*) '- WALL MACHINE DESCRIPTION'
+  write(*,'(a21,i7)')  '     shot_wall     = ',codeparam_standalone_data%shot_wall
+  write(*,'(a21,i7)')  '     run_wall      = ',codeparam_standalone_data%run_wall
+  write(*,'(a21,a30)') '     user_wall     = ',codeparam_standalone_data%user_wall
+  write(*,'(a21,a30)') '     db_wall       = ',codeparam_standalone_data%db_wall
+  write(*,*) '- ECE MACHINE DESCRIPTION'
+  write(*,'(a21,i7)')  '     shot_ece      = ',codeparam_standalone_data%shot_ece
+  write(*,'(a21,i7)')  '     run_ece       = ',codeparam_standalone_data%run_ece
+  write(*,'(a21,a30)') '     user_ece      = ',codeparam_standalone_data%user_ece
+  write(*,'(a21,a30)') '     db_ece        = ',codeparam_standalone_data%db_ece
+  write(*,*) '- OTHER PARAMETERS'
+  write(*,'(a21,f7.3)')'     time_slice    = ',codeparam_standalone_data%time_slice
+  write(*,'(a21,i7)')  '     run_out       = ',codeparam_standalone_data%run_out
+  write(*,'(a21,a30)') '     local_db      = ',codeparam_standalone_data%local_db
+  write(*,*) '------------------------------------'
+
+  ! USERNAME DEFINED BY ENVIRONMENT VARIABLE USERNAME
+  call getenv('USER',local_user)
+
+  ! OPEN INPUT DATAFILE FROM OFFICIAL IMAS SCENARIO DATABASE
+  write(*,*) 'Read input IDSs'
+
+  write(*,*) '  --> equilibrium IDS'
+  call imas_open_env('ids',shot_scenario,run_scenario,idx,user_scenario,db_scenario,'3')
+  call ids_get_slice(idx,'equilibrium', equilibrium,time_slice,1,output_flag)
+  write(*,*) '  --> core_profiles IDS'
+  call ids_get_slice(idx,'core_profiles', core_profiles,time_slice,1,output_flag)
+  call imas_close(idx)
+
+  write(*,*) '  --> wall IDS'
+  call imas_open_env('ids',shot_wall,run_wall,idx,user_wall,db_wall,'3')
+  call ids_get(idx,'wall', wall)
+  call imas_close(idx)
+
+  write(*,*) '  --> ece IDS'
+  call imas_open_env('ids',shot_ece,run_ece,idx,user_ece,db_ece,'3')
+  call ids_get(idx,'ece', ece_in)
+  call imas_close(idx)
+
+  write(*,*) 'Finished reading input IDSs'
+  write(*,*) '------------------------------------'
+
+  ! PREPARE AND RUN ECRAD
+  call file2buffer("input/code_params.xml", io_unit, codeparam_ecrad%parameters_value)
+  call ECRad_actor_IMAS(equilibrium,core_profiles,wall,ece_in,ece_out, &
+       codeparam_ecrad,output_flag,output_message)
+  
+  !call file2buffer("input/code_params.xml", io_unit, buffer)
+  !call pre_initialize_ECRad_IMAS(buffer, wall, error_flag, error_message)
+  !call set_ece_ECRad_IMAS(ece_in, 1, error_flag, error_message)
+  !call initialize_ECRad_IMAS(equilibrium, 1, error_flag, error_message)
+  !call make_rays_ECRad_IMAS(core_profiles, equilibrium, 1)
+  !if(error_flag.eq.0) call make_dat_model_ECRad(core_profiles,1, ece_out)
+     
+  ! EXPORT RESULTS TO LOCAL DATABASE
+  if(output_flag.eq.0) then
+     write(*,*) '=> Export ece IDS to local database'
+     call imas_create_env('ids',shot_scenario,run_scenario,0,0,idx,local_user,local_db,'3')
+     call ids_put(idx,'ece', ece_out)
+     call imas_close(idx)
+     write(*,*) 'Done exporting.'
+     write(*,*) ' '
+     write(*,*) 'End of standalone'
   else
-      ! ERROR IF THE CODE DOES NOT COMPLETE TO THE END
-      error_flag = -1
-      allocate(character(50):: error_message)
-      error_message = 'Error in set_ece_ECRad_IMAS: input IDS not valid'
+     write(*,*) output_message
+     write(*,*) '=> Program stopped.'
 
   endif
 
-end subroutine
+  ! RELEASING THE MEMORY ALLOCATED FOR EACH IDS
+  call ids_deallocate(wall)
+  call ids_deallocate(core_profiles)
+  call ids_deallocate(ece_in)
+  call ids_deallocate(ece_out)
 
-#ifdef OMP
-subroutine set_ECRad_thread_count(num_threads)
-use mod_ECRad, only: set_omp_threads_ECRad_f2py
-implicit None
-  integer, intent(in) :: num_threads
-  call set_omp_threads_ECRad_f2py(num_threads)
-end subroutine set_ECRad_thread_count
-#endif
-
-subroutine reset_ECRad()
-use mod_ECRad,      only: clean_up_ECRad
-implicit none
-  call clean_up_ECRad()
-end subroutine reset_ECRad
-
-subroutine initialize_ECRad_IMAS(equilibrium, itime, error_flag, error_message)
-! Hence, to keep the structure similiar all initizalization is performed here
-! Initializations that depend on time are done here
-use mod_ECRad,  only: initialize_ECRad_f2py
-use ids_schemas, only: ids_equilibrium, ids_ece, ids_is_valid
-  ! Input/Output
-implicit none
-type(ids_equilibrium):: equilibrium
-integer(kind=4), intent(in)                       :: itime
-integer, intent(out) :: error_flag
-character(len=:), pointer, intent(out) :: error_message
-real(kind=8)                            :: R_ax, z_ax, psi_ax, psi_sep
-real(kind=8), dimension(:), allocatable :: R, z
-real(kind=8), dimension(:,:), allocatable :: rhop, Br, Bt, Bz
-integer(kind=4) :: i, m, n
-  if (ids_is_valid(equilibrium%ids_properties%homogeneous_time) .and. &
-      size(equilibrium%time)>0) then
-    m = size(equilibrium%time_slice(itime)%profiles_2d(1)%grid%dim1)
-    n = size(equilibrium%time_slice(itime)%profiles_2d(1)%grid%dim2)
-    allocate(R(m), z(n), rhop(m,n), Br(m,n), Bt(m,n), Bz(m,n))
-    R(:) = equilibrium%time_slice(itime)%profiles_2d(1)%grid%dim1(:)
-    z(:) = equilibrium%time_slice(itime)%profiles_2d(1)%grid%dim2(:)
-    psi_ax = equilibrium%time_slice(itime)%global_quantities%psi_axis
-    psi_sep = equilibrium%time_slice(itime)%global_quantities%psi_boundary
-    R_ax = equilibrium%time_slice(itime)%global_quantities%magnetic_axis%r
-    z_ax = equilibrium%time_slice(itime)%global_quantities%magnetic_axis%z
-    do i = 1,n
-      rhop(:,i) = equilibrium%time_slice(itime)%profiles_2d(1)%psi(:,i)
-      rhop(:,i) = sqrt((rhop(:,i) - psi_ax) / (psi_sep - psi_ax))
-      Br(:,i) = equilibrium%time_slice(itime)%profiles_2d(1)%b_field_r(:,i)
-      Bt(:,i) = equilibrium%time_slice(itime)%profiles_2d(1)%b_field_tor(:,i)
-      Bz(:,i) = equilibrium%time_slice(itime)%profiles_2d(1)%b_field_z(:,i)
-    end do
-    call initialize_ECRad_f2py(0, 0, R, z, rhop, Br, Bt, Bz, R_ax, z_ax)
-    deallocate(R, z, rhop, Br, Bt, Bz)
-    error_flag = 0
-  else
-    ! ERROR IF THE CODE DOES NOT COMPLETE TO THE END
-    error_flag = -1
-    allocate(character(50):: error_message)
-    error_message = 'Error in set_ece_ECRad_IMAS: input IDS not valid'
-  endif               
-end subroutine initialize_ECRad_IMAS
-
-subroutine make_rays_ECRad_IMAS(core_profiles, itime)
-use ids_schemas, only: ids_core_profiles
-use mod_ECRad,        only: make_rays_ECRad_f2py
-implicit none
-type(ids_core_profiles), intent(in) :: core_profiles
-integer(kind=4), intent(in) :: itime
-call make_rays_ECRad_f2py(rhop_knots_ne=core_profiles%profiles_1d(itime)%grid%rho_pol_norm, &
-                          n_e=core_profiles%profiles_1d(itime)%electrons%density, &
-                          rhop_knots_Te=core_profiles%profiles_1d(itime)%grid%rho_pol_norm, &
-                          T_e=core_profiles%profiles_1d(itime)%electrons%temperature)
-end subroutine make_rays_ECRad_IMAS
-
-
-subroutine make_dat_model_ECRad(core_profiles, ece, itime)
-use ids_schemas, only: ids_core_profiles, ids_ece
-use mod_ECRad,        only: get_N_ch, make_dat_model_ece_ECRad_f2py
-implicit none
-type(ids_core_profiles), intent(in) :: core_profiles
-type(ids_ece), intent(inout) :: ece
-integer(kind=4), intent(in) :: itime
-integer                      :: N_ch, ich
-real(kind=8), dimension(:), allocatable :: dat_model_ece
-logical, dimension(:), allocatable :: ece_fm_flag_ch
-N_ch = get_N_ch()
-allocate(dat_model_ece(N_ch), ece_fm_flag_ch(N_ch))
-ece_fm_flag_ch(:) = .true.
-call make_dat_model_ece_ECRad_f2py(rhop_knots_ne=core_profiles%profiles_1d(itime)%grid%rho_pol_norm, &
-                                   n_e=core_profiles%profiles_1d(itime)%electrons%density, &
-                                   rhop_knots_Te=core_profiles%profiles_1d(itime)%grid%rho_pol_norm, &
-                                   T_e=core_profiles%profiles_1d(itime)%electrons%temperature, &
-                                   ne_rhop_scal=1.d0, reflec_X_new=-1.d0, & ! in
-                                   reflec_O_new=-1.d0, ece_fm_flag_ch=ece_fm_flag_ch, &
-                                   rp_min=minval(core_profiles%profiles_1d(itime)%grid%rho_pol_norm), &
-                                   dat_model_ece=dat_model_ece, set_grid_dynamic=.false., &
-                                   verbose=.false.)
-do ich = 1, N_ch
-  ece%channel(ich)%T_e%data(itime) = dat_model_ece(ich)
-end do
-deallocate(dat_model_ece, ece_fm_flag_ch)
-end subroutine make_dat_model_ECRad
-end module ECRad_IMAS
-
-
+end program ECRad_IMAS

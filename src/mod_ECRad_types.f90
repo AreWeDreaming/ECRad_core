@@ -8,6 +8,7 @@ module mod_ECRad_types
 use f90_kind
 use constants,                  only: pi
 use magconfig,                only: Scenario_type
+use mod_ECRad_interpol, only: spl_type_1d, spl_type_2d
 ! #ifdef OMP
 ! use omp_lib
 ! #endif
@@ -19,32 +20,6 @@ implicit none
 integer(ikind), dimension(:), allocatable :: omit_ch
 
 
-type spl_type_2d
-  !integer*4, dimension(3)               :: iopt
-  integer*4                             :: nu, nv, nuest, nvest, lwrk, &
-                                           kwrk, lwrk_in_spl, kwrk_in_spl
-                                            ! spline knot count, length of real and integer work array
-  real*8, dimension(:), allocatable     :: tu, tv ! spline knot positions
-  real*8, dimension(:,:), allocatable   :: c !spline
-  real*8, dimension(:), allocatable     :: wrk ! work array for the spline routine
-  integer*4, dimension(:), allocatable  :: iwrk ! integer work array for fitpack
-  integer*4                             :: iopt_int = 0! needed for rectangular grid
-  real*8                               :: x_start, x_end
-  real*8                               :: y_start, y_end
-end type spl_type_2d
-
-type spl_type_1d
-  !integer*4, dimension(3)               :: iopt, ider
-  integer*4                             :: n, nest, lwrk, &
-                                           kwrk, k
-                                            ! spline knot count, length of real and integer work array
-  real*8, dimension(:), allocatable     :: t ! spline knot positions
-  real*8, dimension(:), allocatable   :: c !spline
-  real*8, dimension(:), allocatable     :: wrk ! work array for the spline routine
-  integer*4, dimension(:), allocatable  :: iwrk ! integer work array for fitpack
-  integer*4                             :: iopt_int = 0 ! needed for profile interpolation
-  real*8                               :: x_start, x_end
-end type spl_type_1d
 ! antenna and LOS parameters (not time-dependent)
 
 type ant_diag_ch_launch_type
@@ -550,7 +525,6 @@ end type plasma_params_type
   logical                            :: ray_init = .false. !* Controlls whether rays were computed once -> only relevant for IDA usage
   logical                            :: static_grid = .false. ! Prevents the grid for radiation transport to be recomputed
                                                               ! in the case of numerical instability
-  logical                            :: double_check_splines = .false. !*
   logical                            :: output_all_ray_data = .true.
   ! The next two options are overwritten if ida is used
   logical                            :: stand_alone = .false. !* Whether the model is used as part of IDA or as a standalone program
