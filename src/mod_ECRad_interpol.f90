@@ -248,28 +248,26 @@ module mod_ECRad_interpol
 #ifdef INTEL
 use ifcore,                     only: tracebackqq
 #endif
-      implicit none
-      type(spl_type_1d), intent(inout)      :: spl
-      integer*4, intent(in)                 :: m!=size(knots)
-      real(kind=8), dimension(:), intent(in) :: knots, coeffs
-      integer*4,   intent(in)               :: k
-      real*8                                :: fp
-      real*8, dimension(m)                  :: w
-      spl%k = k
-      if(.not. allocated(spl%t) .or. size(spl%t) /= m) then !
-        if(allocated(spl%t)) then
-          deallocate(spl%t, spl%c, spl%wrk, spl%iwrk)
-        end if
-        spl%nest= m + spl%k + 2*spl%k+2
-        spl%n = spl%nest
-        spl%lwrk = (spl%k + 1) * m + spl%nest * (7 + 3 * spl%k)
-        allocate(spl%t(spl%nest), &
-                 spl%c(spl%nest), spl%wrk(spl%lwrk), spl%iwrk(spl%nest))
+    implicit none
+    type(spl_type_1d), intent(inout)      :: spl
+    integer*4, intent(in)                 :: m!=size(knots)
+    real(kind=8), dimension(:), intent(in) :: knots, coeffs
+    integer*4,   intent(in)               :: k
+    spl%k = k
+    if(.not. allocated(spl%t) .or. size(spl%t) /= m) then !
+      if(allocated(spl%t)) then
+        deallocate(spl%t, spl%c, spl%wrk, spl%iwrk)
       end if
-      spl%t(:) = knots(:)
-      spl%c(:) = coeffs(:)
-      spl%x_start = knots(1)
-      spl%x_end = knots(m)
+      spl%nest= m + spl%k + 2*spl%k+2
+      spl%n = spl%nest
+      spl%lwrk = (spl%k + 1) * m + spl%nest * (7 + 3 * spl%k)
+      allocate(spl%t(spl%nest), &
+               spl%c(spl%nest), spl%wrk(spl%lwrk), spl%iwrk(spl%nest))
+    end if
+    spl%t(:) = knots(:)
+    spl%c(:) = coeffs(:)
+    spl%x_start = knots(1)
+    spl%x_end = knots(m)
   end subroutine
 
   subroutine deallocate_rect_spline(spl)
