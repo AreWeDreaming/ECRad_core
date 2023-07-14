@@ -75,7 +75,7 @@ subroutine get_wall_ids(data_to_decode, wall)
    use ids_schemas, only: ids_wall
    use ids_routines, only: ids_deallocate, ids_deserialize
    implicit None
-   type(LIBMUSCLE_DataConstRef), intent(in) :: data_to_decode
+   type(LIBMUSCLE_DataConstRef), intent(inout) :: data_to_decode
    type(ids_wall), intent(inout) :: wall
    character(len=1), dimension(:), allocatable :: serialized_ids
    call ids_deallocate(wall)
@@ -92,7 +92,7 @@ subroutine get_equilibrium_ids(data_to_decode, equilibrium)
    use ids_schemas, only: ids_equilibrium
    use ids_routines, only: ids_deallocate, ids_deserialize
    implicit None
-   type(LIBMUSCLE_DataConstRef), intent(in) :: data_to_decode
+   type(LIBMUSCLE_DataConstRef), intent(inout) :: data_to_decode
    type(ids_equilibrium), intent(inout) :: equilibrium
    character(len=1), dimension(:), allocatable :: serialized_ids
    call ids_deallocate(equilibrium)
@@ -109,7 +109,7 @@ subroutine get_core_profiles_ids(data_to_decode, core_profiles)
    use ids_schemas, only: ids_core_profiles
    use ids_routines, only: ids_deallocate, ids_deserialize
    implicit None
-   type(LIBMUSCLE_DataConstRef), intent(in) :: data_to_decode
+   type(LIBMUSCLE_DataConstRef), intent(inout) :: data_to_decode
    type(ids_core_profiles), intent(inout) :: core_profiles
    character(len=1), dimension(:), allocatable :: serialized_ids
    call ids_deallocate(core_profiles)
@@ -126,7 +126,7 @@ subroutine get_ece_ids(data_to_decode, ece)
    use ids_schemas, only: ids_ece
    use ids_routines, only: ids_deallocate, ids_deserialize
    implicit None
-   type(LIBMUSCLE_DataConstRef), intent(in) :: data_to_decode
+   type(LIBMUSCLE_DataConstRef), intent(inout) :: data_to_decode
    type(ids_ece), intent(inout) :: ece
    character(len=1), dimension(:), allocatable :: serialized_ids
    call ids_deallocate(ece)
