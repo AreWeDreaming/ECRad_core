@@ -290,16 +290,32 @@ do while (LIBMUSCLE_Instance_reuse_instance(instance))
       call get_ids(arg_intent_in, core_profiles)
       arg_intent_in = LIBMUSCLE_DataConstRef_get_item(data_intent_in, int(4, LIBMUSCLE_size))
       itime_core_profiles = int(LIBMUSCLE_DataConstRef_as_int(arg_intent_in),4)
-      call make_rays_ECRad_IMAS(core_profiles, itime_core_profiles)
+      call make_rays_ECRad_IMAS(core_profiles, itime_core_profiles, ece_out)
       data_intent_out = LIBMUSCLE_Data_create_nils(2_LIBMUSCLE_size)
       write(96,*), "Finished work on timepoint"
       flush(96)
       call LIBMUSCLE_Data_set_item(data_intent_out, int(1, LIBMUSCLE_size), "Timepoint success")
+      call ids_serialize(ece_out, serialized_ids)
+      data_segment_intent_out = LIBMUSCLE_Data_create_byte_array(serialized_ids)
+      call LIBMUSCLE_Data_set_item(data_intent_out, int(2, LIBMUSCLE_size), data_segment_intent_out)
       call send_message(instance, data_intent_out)
       time_point_set = .true.
    else if(.not. time_point_set) then
       call send_error(instance, "Need to set time point first before further execution")
          cycle
+   else if(trim(task) == "Retrace") then
+      arg_intent_in = LIBMUSCLE_DataConstRef_get_item(data_intent_in, int(3, LIBMUSCLE_size))
+      call ids_deallocate(core_profiles)
+      call get_ids(arg_intent_in, core_profiles)
+      call make_rays_ECRad_IMAS(core_profiles, itime_core_profiles, ece_out)
+      data_intent_out = LIBMUSCLE_Data_create_nils(2_LIBMUSCLE_size)
+      write(96,*), "Finished work on Retrace"
+      flush(96)
+      call LIBMUSCLE_Data_set_item(data_intent_out, int(1, LIBMUSCLE_size), "Retrace success")
+      call ids_serialize(ece_out, serialized_ids)
+      data_segment_intent_out = LIBMUSCLE_Data_create_byte_array(serialized_ids)
+      call LIBMUSCLE_Data_set_item(data_intent_out, int(2, LIBMUSCLE_size), data_segment_intent_out)
+      call send_message(instance, data_intent_out)
    else if(trim(task) == "Run") then
       write(96,*), "Started work on run"
       flush(96)

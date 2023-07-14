@@ -1,0 +1,24 @@
+equilibrium:
+  - time_slice.:.profiles_2d.grid.0.dim1
+  - time_slice.:.profiles_2d.grid.0.dim2
+  - time_slice.:.profiles_2d.grid.0.psi
+  - time_slice.:.profiles_2d.grid.0.Br
+  - time_slice.:.profiles_2d.grid.0.Bt
+  - time_slice.:.profiles_2d.grid.0.Bz
+  - time_slice.:.global_quantities.psi_axis
+  - time_slice.:.global_quantities.psi_boundary
+
+wall:
+  - wall.description_2d.0.limiter.unit.0.outline.R
+  - wall.description_2d.0.limiter.unit.0.outline.z
+
+ece:
+  - ece.channel.:.frequency.time
+  - ece.channel.:.frequency.data
+  - ece.channel.:.if_bandwidth
+  - ece.line_of_sight.first_point.r
+  - ece.line_of_sight.first_point.phi
+  - ece.line_of_sight.first_point.z
+  - ece.line_of_sight.second_point.r
+  - ece.line_of_sight.second_point.phi
+  - ece.line_of_sight.second_point.z

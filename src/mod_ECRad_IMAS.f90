@@ -193,12 +193,13 @@ subroutine get_rho_pol(N, psi, rho_pol)
                  (psi(N) - psi(1)))
 end subroutine
 
-subroutine make_rays_ECRad_IMAS(core_profiles, itime)
-use ids_schemas, only: ids_core_profiles
+subroutine make_rays_ECRad_IMAS(core_profiles, itime, ece)
+use ids_schemas, only: ids_core_profiles, ids_ece
 use mod_ECRad,        only: make_rays_ECRad_f2py
 implicit none
 type(ids_core_profiles), intent(in) :: core_profiles
 integer(kind=4), intent(in) :: itime
+type(ids_ece), intent(inout) :: ece
 integer                      :: N_psi
 real(kind=8), dimension(:), allocatable :: rho_pol
 N_psi = size(core_profiles%profiles_1d(itime)%grid%psi)
@@ -211,7 +212,8 @@ end if
 call make_rays_ECRad_f2py(rhop_knots_ne=rho_pol, &
                           n_e=core_profiles%profiles_1d(itime)%electrons%density, &
                           rhop_knots_Te=rho_pol, &
-                          T_e=core_profiles%profiles_1d(itime)%electrons%temperature)
+                          T_e=core_profiles%profiles_1d(itime)%electrons%temperature,
+                          rhop_res=ece%channel(:)%position%rho_tor_norm)
 deallocate(rho_pol)
 end subroutine make_rays_ECRad_IMAS
 
