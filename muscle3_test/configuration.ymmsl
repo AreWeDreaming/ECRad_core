@@ -18,7 +18,7 @@ model:
       implementation: ECRad_MUSCLE3
   conduits:
     macro.ECRad_task: micro.ECRad_task
-    macro.ECRad_report: micro.ECRad_report
+    micro.ECRad_report: macro.ECRad_report
 settings:
   scenario_info: /home/denks/git/ECRad_core/input/scenario.yaml
   xml_path: /home/denks/git/ECRad_core/input/code_params.xml

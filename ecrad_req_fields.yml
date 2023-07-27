@@ -1,12 +1,12 @@
 equilibrium:
-  - time_slice.:.profiles_2d.grid.0.dim1
-  - time_slice.:.profiles_2d.grid.0.dim2
-  - time_slice.:.profiles_2d.grid.0.psi
-  - time_slice.:.profiles_2d.grid.0.Br
-  - time_slice.:.profiles_2d.grid.0.Bt
-  - time_slice.:.profiles_2d.grid.0.Bz
-  - time_slice.:.global_quantities.psi_axis
-  - time_slice.:.global_quantities.psi_boundary
+  - equilibrium.time_slice.:.profiles_2d.grid.0.dim1
+  - equilibrium.time_slice.:.profiles_2d.grid.0.dim2
+  - equilibrium.time_slice.:.profiles_2d.grid.0.psi
+  - equilibrium.time_slice.:.profiles_2d.grid.0.Br
+  - equilibrium.time_slice.:.profiles_2d.grid.0.Bt
+  - equilibrium.time_slice.:.profiles_2d.grid.0.Bz
+  - equilibrium.time_slice.:.global_quantities.psi_axis
+  - equilibrium.time_slice.:.global_quantities.psi_boundary
 
 wall:
   - wall.description_2d.0.limiter.unit.0.outline.R

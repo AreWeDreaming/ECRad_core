@@ -140,21 +140,25 @@ implicit none
   call clean_up_ECRad()
 end subroutine reset_ECRad
 
-subroutine initialize_ECRad_IMAS(equilibrium, itime, error_flag, error_message)
+subroutine initialize_ECRad_IMAS(equilibrium, itime, error_flag, error_message, reinitialize)
 ! Hence, to keep the structure similiar all initizalization is performed here
 ! Initializations that depend on time are done here
-use mod_ECRad,  only: initialize_ECRad_f2py
+use mod_ECRad,  only: initialize_ECRad_f2py, reset_for_next_timepoint
 use ids_schemas, only: ids_equilibrium, ids_ece, ids_is_valid
   ! Input/Output
 implicit none
 type(ids_equilibrium):: equilibrium
 integer(kind=4), intent(in)                       :: itime
 integer, intent(out) :: error_flag
+logical, intent(in), optional :: reinitialize
 character(len=:), pointer, intent(out) :: error_message
 real(kind=8)                            :: R_ax, z_ax, psi_ax, psi_sep
 real(kind=8), dimension(:), allocatable :: R, z
 real(kind=8), dimension(:,:), allocatable :: rhop, Br, Bt, Bz
 integer(kind=4) :: i, m, n
+  if(present(reinitialize)) then
+    if(reinitialize) call reset_for_next_timepoint()
+  end if
   if (ids_is_valid(equilibrium%ids_properties%homogeneous_time) .and. &
       size(equilibrium%time)>0) then
     m = size(equilibrium%time_slice(itime)%profiles_2d(1)%grid%dim1)
@@ -184,6 +188,25 @@ integer(kind=4) :: i, m, n
   endif               
 end subroutine initialize_ECRad_IMAS
 
+subroutine allocate_ece_ids(N_ch, ece)
+  use ids_schemas, only: ids_ece
+  implicit none
+  integer, intent(in)   :: N_ch
+  type(ids_ece), intent(inout) :: ece
+  integer :: ich
+  if(.not. associated(ece%channel)) then
+    allocate(ece%channel(N_ch))
+  end if
+  ece%ids_properties%homogeneous_time = 1
+  allocate(ece%time(1))
+  do ich = 1, N_ch
+    if(.not. associated(ece%channel(ich)%T_e%data)) then
+      allocate(ece%channel(ich)%T_e%data(1), &
+               ece%channel(ich)%position%rho_tor_norm(1))
+    end if
+  end do
+end subroutine allocate_ece_ids
+
 subroutine get_rho_pol(N, psi, rho_pol)
   implicit None
   integer(kind=4), intent(in) ::  N
@@ -191,31 +214,42 @@ subroutine get_rho_pol(N, psi, rho_pol)
   real(kind=8), dimension(:), intent(out) :: rho_pol
   rho_pol = sqrt((psi - psi(1))/ &
                  (psi(N) - psi(1)))
-end subroutine
+end subroutine get_rho_pol
+
 
 subroutine make_rays_ECRad_IMAS(core_profiles, itime, ece)
-use ids_schemas, only: ids_core_profiles, ids_ece
-use mod_ECRad,        only: make_rays_ECRad_f2py
-implicit none
-type(ids_core_profiles), intent(in) :: core_profiles
-integer(kind=4), intent(in) :: itime
-type(ids_ece), intent(inout) :: ece
-integer                      :: ich, N_psi
-real(kind=8), dimension(:), allocatable :: rho_pol
-N_psi = size(core_profiles%profiles_1d(itime)%grid%psi)
-allocate(rho_pol(N_psi))
-if(size(core_profiles%profiles_1d(itime)%grid%rho_pol_norm) == 0) then
-  call get_rho_pol(N_psi, core_profiles%profiles_1d(itime)%grid%psi, rho_pol)
-else
-  rho_pol = core_profiles%profiles_1d(itime)%grid%rho_pol_norm
-end if
-deallocate(rho_pol)
-call make_rays_ECRad_f2py(rhop_knots_ne=rho_pol, &
-                          n_e=core_profiles%profiles_1d(itime)%electrons%density, &
-                          rhop_knots_Te=rho_pol, &
-                          T_e=core_profiles%profiles_1d(itime)%electrons%temperature, &
-                          rhop_res=ece%channel(:)%position%rho_tor_norm(1))
-
+  use ids_schemas, only: ids_core_profiles, ids_ece
+  use mod_ECRad,        only: make_rays_ECRad_f2py, get_N_ch
+  implicit none
+  type(ids_core_profiles), intent(in) :: core_profiles
+  integer(kind=4), intent(in) :: itime
+  type(ids_ece), intent(inout) :: ece
+  integer                      :: ich, N_psi, N_ch
+  real(kind=8), dimension(:), allocatable :: rho_pol, rho_res
+  N_psi = size(core_profiles%profiles_1d(itime)%grid%psi)
+  N_ch =  get_N_ch()
+  allocate(rho_pol(N_psi), rho_res(N_ch))
+  if(size(core_profiles%profiles_1d(itime)%grid%rho_pol_norm) == 0) then
+    call get_rho_pol(N_psi, core_profiles%profiles_1d(itime)%grid%psi, rho_pol)
+  else
+    rho_pol = core_profiles%profiles_1d(itime)%grid%rho_pol_norm
+  end if
+  ece%time(1) = core_profiles%time(itime)
+  call make_rays_ECRad_f2py(rhop_knots_ne=rho_pol, &
+                            n_e=core_profiles%profiles_1d(itime)%electrons%density, &
+                            rhop_knots_Te=rho_pol, &
+                            T_e=core_profiles%profiles_1d(itime)%electrons%temperature, &
+                            rhop_res=rho_res)
+  if(.not. associated(ece%channel)) then
+    allocate(ece%channel(N_ch))
+  end if
+  do ich = 1, N_ch
+    if(.not. associated(ece%channel(ich)%position%rho_tor_norm)) then
+      allocate(ece%channel(ich)%position%rho_tor_norm(1))
+    end if
+    ece%channel(ich)%position%rho_tor_norm(1) = rho_res(ich)
+  end do
+  deallocate(rho_pol, rho_res)
 end subroutine make_rays_ECRad_IMAS
 
 

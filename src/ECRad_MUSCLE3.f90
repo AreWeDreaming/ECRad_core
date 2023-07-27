@@ -143,12 +143,12 @@ end module mod_MUSCLE3_helper
 program ECRad_MUSCLE3
 #ifdef OMP
   use mod_ECRad_IMAS, only : pre_initialize_ECRad_IMAS, set_ece_ECRad_IMAS, &
-       set_ECRad_thread_count, initialize_ECRad_IMAS, &
-       reset_ECRad, make_rays_ECRad_IMAS, make_dat_model_ECRad
+      allocate_ece_ids, set_ECRad_thread_count, initialize_ECRad_IMAS, &
+      reset_ECRad, make_rays_ECRad_IMAS, make_dat_model_ECRad
 #else
   use mod_ECRad_IMAS, only : pre_initialize_ECRad_IMAS, set_ece_ECRad_IMAS, &
-       initialize_ECRad_IMAS, &
-       reset_ECRad, make_rays_ECRad_IMAS, make_dat_model_ECRad
+      allocate_ece_ids, initialize_ECRad_IMAS, &
+      reset_ECRad, make_rays_ECRad_IMAS, make_dat_model_ECRad
 #endif
   use ids_schemas, only: ids_equilibrium, ids_core_profiles, &
                          ids_ece, ids_wall, ids_parameters_input
@@ -181,16 +181,18 @@ type(LIBMUSCLE_DataConstRef) :: data_intent_in, arg_intent_in
 type(LIBMUSCLE_Data) :: data_intent_out, data_segment_intent_out
 type(ids_parameters_input):: codeparam_ecrad
 character(len=1), dimension(:), allocatable :: serialized_ids
-logical                                     :: init_success, time_point_set
+logical                                     :: init_success, time_point_set, verbose=.false.
 integer:: io_unit = 1, error_flag,iounit, itime_equilibrium, itime_core_profiles, error_state_out
 character(len=:), pointer:: error_message
 character(len=200):: xml_path
-open(96, file = "ECRad_worker.log")
-write(96,*), "Starting ECRad"
-flush(96)
-! Create ports for connection to the outside world
-write(96,*), "Setting up ports"
-flush(96)
+if(verbose) then
+   open(96, file = "ECRad_worker.log")
+   write(96,*), "Starting ECRad"
+   flush(96)
+   ! Create ports for connection to the outside world
+   write(96,*), "Setting up ports"
+   flush(96)
+end if
 ports = LIBMUSCLE_PortsDescription_create()
 
 ! We need initial state, and I/O for intermediate states
@@ -198,8 +200,8 @@ ports = LIBMUSCLE_PortsDescription_create()
 call LIBMUSCLE_PortsDescription_add(ports, YMMSL_Operator_F_INIT, 'ECRad_task')
 ! Result of the task, i.e. sucess, or success + output ece IDS
 call LIBMUSCLE_PortsDescription_add(ports, YMMSL_Operator_O_F, 'ECRad_report')
-write(96,*), "Setting up instance"
-flush(96)
+if(verbose) write(96,*), "Setting up instance"
+if(verbose) flush(96)
 ! Set up the ports
 instance = LIBMUSCLE_Instance_create(ports)
 ! Deallocate port description
@@ -209,23 +211,23 @@ call LIBMUSCLE_PortsDescription_free(ports)
 ! Unless we critically fail to initialize we might be able to recover
 init_success = .false.
 time_point_set = .false.
-write(96,*), "Starting loop"
-flush(96)
+if(verbose) write(96,*), "Starting loop"
+if(verbose) flush(96)
 do while (LIBMUSCLE_Instance_reuse_instance(instance))
-   write(96,*), "Iterating loop"
-   flush(96)
+   if(verbose) write(96,*), "Iterating loop"
+   if(verbose) flush(96)
    if(.not. init_success) then
-      write(96,*), "Getting XML path data"
-      flush(96)
+      if(verbose) write(96,*), "Getting XML path data"
+      if(verbose) flush(96)
       xml_path = LIBMUSCLE_Instance_get_setting_as_character(instance, 'xml_path')
-      write(96,*), "Loading xml at" // xml_path
-      flush(96)
+      if(verbose) write(96,*), "Loading xml at" // xml_path
+      if(verbose) flush(96)
       call file2buffer(xml_path, io_unit, codeparam_ecrad%parameters_value)
-      write(96,*), "Waiting for init message"
-      flush(96)
+      if(verbose) write(96,*), "Waiting for init message"
+      if(verbose) flush(96)
       msg_in = LIBMUSCLE_Instance_receive(instance, 'ECRad_task')
-      write(96,*), "Received task"
-      flush(96)
+      if(verbose) write(96,*), "Received task"
+      if(verbose) flush(96)
       data_intent_in = LIBMUSCLE_Message_get_data(msg_in)
       if(LIBMUSCLE_DataConstRef_size(data_intent_in) /= 4) then
          call send_error(instance, "Wrong amount of arguments for INIT")
@@ -237,8 +239,8 @@ do while (LIBMUSCLE_Instance_reuse_instance(instance))
          call send_error(instance, "First task must be INIT not " // trim(task))
          cycle
       end if
-      write(96,*), "Got call for INIT"
-      flush(96)
+      if(verbose) write(96,*), "Got call for INIT"
+      if(verbose) flush(96)
       ! This has to be the wall ids
       arg_intent_in = LIBMUSCLE_DataConstRef_get_item(data_intent_in, int(2, LIBMUSCLE_size))
       call get_ids(arg_intent_in, wall)
@@ -256,35 +258,34 @@ do while (LIBMUSCLE_Instance_reuse_instance(instance))
          cycle
       end if
       call set_ece_ECRad_IMAS(ece_in, 1, error_flag, error_message)
+      call allocate_ece_ids(size(ece_in%channel), ece_out)
       if(error_flag /= 0) then
          call send_error(instance, error_message)
       else
          data_intent_out = LIBMUSCLE_Data_create_nils(2_LIBMUSCLE_size)
-         write(96,*), "Finished INIT successfully"
-         flush(96)
+         if(verbose) write(96,*), "Finished INIT successfully"
+         if(verbose) flush(96)
          call LIBMUSCLE_Data_set_item(data_intent_out, int(1, LIBMUSCLE_size), "Init success")
          call send_message(instance, data_intent_out)
          init_success = .true.
       end if
       cycle
    end if
-   write(96,*), "Waiting for new task after INIT"
-   flush(96)
+   if(verbose) write(96,*), "Waiting for new task after INIT"
+   if(verbose) flush(96)
    msg_in = LIBMUSCLE_Instance_receive(instance, 'ECRad_task')
    data_intent_in = LIBMUSCLE_Message_get_data(msg_in)
    task = get_task(instance, data_intent_in)
    if(trim(task) == "Timepoint") then
-      write(96,*), "Starting work on timepoint"
-      flush(96)
-      ! call reset_ECRad()
-      ! call set_ece_ECRad_IMAS(ece_in, 1, error_flag, error_message)
+      if(verbose) write(96,*), "Starting work on timepoint"
+      if(verbose) flush(96)
       if(LIBMUSCLE_DataConstRef_size(data_intent_in) /= 4) then
          call send_error(instance, "Wrong amount of arguments for Timepoint")
             cycle
       end if
       arg_intent_in = LIBMUSCLE_DataConstRef_get_item(data_intent_in, int(2, LIBMUSCLE_size))
       itime_equilibrium = int(LIBMUSCLE_DataConstRef_as_int(arg_intent_in),4)
-      call initialize_ECRad_IMAS(equilibrium, itime_equilibrium, error_flag, error_message)
+      call initialize_ECRad_IMAS(equilibrium, itime_equilibrium, error_flag, error_message, reinitialize = time_point_set)
       arg_intent_in = LIBMUSCLE_DataConstRef_get_item(data_intent_in, int(3, LIBMUSCLE_size))
       call ids_deallocate(core_profiles)
       call get_ids(arg_intent_in, core_profiles)
@@ -292,33 +293,37 @@ do while (LIBMUSCLE_Instance_reuse_instance(instance))
       itime_core_profiles = int(LIBMUSCLE_DataConstRef_as_int(arg_intent_in),4)
       call make_rays_ECRad_IMAS(core_profiles, itime_core_profiles, ece_out)
       data_intent_out = LIBMUSCLE_Data_create_nils(2_LIBMUSCLE_size)
-      write(96,*), "Finished work on timepoint"
-      flush(96)
+      if(verbose) write(96,*), "Finished work on timepoint"
+      if(verbose) flush(96)
       call LIBMUSCLE_Data_set_item(data_intent_out, int(1, LIBMUSCLE_size), "Timepoint success")
       call ids_serialize(ece_out, serialized_ids)
       data_segment_intent_out = LIBMUSCLE_Data_create_byte_array(serialized_ids)
       call LIBMUSCLE_Data_set_item(data_intent_out, int(2, LIBMUSCLE_size), data_segment_intent_out)
       call send_message(instance, data_intent_out)
+      deallocate(serialized_ids)
       time_point_set = .true.
    else if(.not. time_point_set) then
       call send_error(instance, "Need to set time point first before further execution")
          cycle
    else if(trim(task) == "Retrace") then
-      arg_intent_in = LIBMUSCLE_DataConstRef_get_item(data_intent_in, int(3, LIBMUSCLE_size))
+      arg_intent_in = LIBMUSCLE_DataConstRef_get_item(data_intent_in, int(2, LIBMUSCLE_size))
       call ids_deallocate(core_profiles)
       call get_ids(arg_intent_in, core_profiles)
+      arg_intent_in = LIBMUSCLE_DataConstRef_get_item(data_intent_in, int(3, LIBMUSCLE_size))
+      itime_core_profiles = int(LIBMUSCLE_DataConstRef_as_int(arg_intent_in),4)
       call make_rays_ECRad_IMAS(core_profiles, itime_core_profiles, ece_out)
       data_intent_out = LIBMUSCLE_Data_create_nils(2_LIBMUSCLE_size)
-      write(96,*), "Finished work on Retrace"
-      flush(96)
+      if(verbose) write(96,*), "Finished work on Retrace"
+      if(verbose) flush(96)
       call LIBMUSCLE_Data_set_item(data_intent_out, int(1, LIBMUSCLE_size), "Retrace success")
       call ids_serialize(ece_out, serialized_ids)
       data_segment_intent_out = LIBMUSCLE_Data_create_byte_array(serialized_ids)
       call LIBMUSCLE_Data_set_item(data_intent_out, int(2, LIBMUSCLE_size), data_segment_intent_out)
       call send_message(instance, data_intent_out)
+      deallocate(serialized_ids)
    else if(trim(task) == "Run") then
-      write(96,*), "Started work on run"
-      flush(96)
+      if(verbose) write(96,*), "Started work on run"
+      if(verbose) flush(96)
       arg_intent_in = LIBMUSCLE_DataConstRef_get_item(data_intent_in, int(2, LIBMUSCLE_size))
       call get_ids(arg_intent_in, core_profiles)
       call make_dat_model_ECRad(core_profiles, itime_core_profiles, ece_out)
@@ -327,14 +332,15 @@ do while (LIBMUSCLE_Instance_reuse_instance(instance))
       call ids_serialize(ece_out, serialized_ids)
       data_segment_intent_out = LIBMUSCLE_Data_create_byte_array(serialized_ids)
       call LIBMUSCLE_Data_set_item(data_intent_out, int(2, LIBMUSCLE_size), data_segment_intent_out)
-      write(96,*), "Finished work on run"
-      flush(96)
+      if(verbose) write(96,*), "Finished work on run"
+      if(verbose) flush(96)
       call send_message(instance, data_intent_out)
+      deallocate(serialized_ids)
    else if(trim(task) == "Exit") then
       data_intent_out = LIBMUSCLE_Data_create_nils(2_LIBMUSCLE_size)
       call LIBMUSCLE_Data_set_item(data_intent_out, int(1, LIBMUSCLE_size), "Exiting")
-      write(96,*), "Exiting as requested"
-      flush(96)
+      if(verbose) write(96,*), "Exiting as requested"
+      if(verbose) flush(96)
       call send_message(instance, data_intent_out)
       exit
    else
@@ -346,4 +352,6 @@ call ids_deallocate(equilibrium)
 call ids_deallocate(core_profiles)
 call ids_deallocate(ece_in)
 call ids_deallocate(ece_out)
+call reset_ECRad()
+if(verbose) close(96)
 end program ECRad_MUSCLE3

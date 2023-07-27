@@ -355,6 +355,14 @@ implicit None
 #endif
 end subroutine clean_up_ECRad
 
+subroutine reset_for_next_timepoint()
+  use mod_ECRad_types,      only: plasma_params
+  use mod_ECRad_raytrace_initialize, only: dealloc_raytrace
+  use mod_ECRad_raytrace,   only: dealloc_rad
+  implicit None
+  call dealloc_raytrace(plasma_params, dealloc_wall = .false.)
+end subroutine reset_for_next_timepoint
+
 subroutine initialize_ECRad_f2py(N_Te_spline_knots, N_ne_spline_knots, &
                                  R, z, rhop, Br, Bt, Bz, R_ax, z_ax, T_e_mat, n_e_mat)
 ! Hence, to keep the structure similiar all initizalization is performed here
