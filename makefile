@@ -54,7 +54,7 @@ else
 	F90PARLIBFLAGS = 
 	LIBFLAG =  -Wl,--start-group ${MKLROOT}/lib/intel64/libmkl_intel_lp64.a ${MKLROOT}/lib/intel64/libmkl_intel_thread.a ${MKLROOT}/lib/intel64/libmkl_core.a -Wl,--end-group -liomp5 -lpthread -lm -ldl
 	INCLUDEFLAGS = -I"${MKLROOT}/include"
-	F2PYLIBFLAGS = -L${MKLROOT}/lib/intel64 -lmkl_def -llibmkl_avx512 -lmkl_intel_lp64 -lmkl_intel_thread -lmkl_core -liomp5 -lpthread -lm -ldl
+	F2PYLIBFLAGS = -L${MKLROOT}/lib/intel64 -lmkl_def -lmkl_avx512 -lmkl_intel_lp64 -lmkl_intel_thread -lmkl_core -liomp5 -lpthread -lm -ldl
 	LDFLAGS = -Wl,-rpath=${MKLROOT}/lib/intel64
 	F2PYCOMPILER = intelem
 	CC = icc
