@@ -577,7 +577,7 @@ module mod_ECRad_raytrace_initialize
     end if
   end subroutine init_raytrace
 
-  subroutine dealloc_raytrace(plasma_params)
+  subroutine dealloc_raytrace(plasma_params, dealloc_wall)
   use f90_kind
 #ifdef NAG
   use mod_ECRad_types,       only: plasma_params_type, stand_alone, double_check_splines, &
@@ -589,9 +589,12 @@ module mod_ECRad_raytrace_initialize
   use mod_ECRad_interpol,       only: deallocate_rect_spline, deallocate_1d_spline
   implicit none
   type(plasma_params_type), intent(inout)                    :: plasma_params
+  logical, intent(in), optional     :: dealloc_wall
   ! Need to do this first since we can have this allocated but not anything else
   if(.not. use_3D) then
-    if(allocated(plasma_params%vessel_poly%x)) deallocate(plasma_params%vessel_poly%x, plasma_params%vessel_poly%y)
+    if(.not. present(dealloc_wall) .or. dealloc_wall) then
+      if(allocated(plasma_params%vessel_poly%x)) deallocate(plasma_params%vessel_poly%x, plasma_params%vessel_poly%y)
+    end if
   end if
     if(.not. (allocated(plasma_params%R) .or. allocated(plasma_params%Use_3D_vessel%vessel_data_R))) return
     if(stand_alone) then

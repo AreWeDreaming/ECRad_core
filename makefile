@@ -54,7 +54,7 @@ else
 	F90PARLIBFLAGS = 
 	LIBFLAG =  -Wl,--start-group ${MKLROOT}/lib/intel64/libmkl_intel_lp64.a ${MKLROOT}/lib/intel64/libmkl_intel_thread.a ${MKLROOT}/lib/intel64/libmkl_core.a -Wl,--end-group -liomp5 -lpthread -lm -ldl
 	INCLUDEFLAGS = -I"${MKLROOT}/include"
-	F2PYLIBFLAGS = -L${MKLROOT}/lib/intel64 -lmkl_intel_lp64 -lmkl_intel_thread -lmkl_core -liomp5 -lpthread -lm -ldl
+	F2PYLIBFLAGS = -L${MKLROOT}/lib/intel64 -lmkl_def -lmkl_avx512 -lmkl_intel_lp64 -lmkl_intel_thread -lmkl_core -liomp5 -lpthread -lm -ldl
 	LDFLAGS = -Wl,-rpath=${MKLROOT}/lib/intel64
 	F2PYCOMPILER = intelem
 	CC = icc
@@ -246,6 +246,7 @@ $(ECRadLIBDir)/ECRad_python$(FLAVORFLAG)$(DB)$(F2PYEXT_SUFFIX): $(ECRadLIBDir)/l
 	python -m numpy.f2py $(F2PYDBG) -c --fcompiler=$(F2PYCOMPILER) $(ROOTDIR)/src/ECRad_python$(FLAVORFLAG).f90 -m ECRad_python$(FLAVORFLAG)$(DB) \
 		-I$(MODECRad) --opt='' --f90flags='$(F2PYFLAGS)' $(F2PYLIBS); \
 	cd -
+	cp $(ECRadLIBDir)/ECRad_python$(FLAVORFLAG)$(DB)$(F2PYEXT_SUFFIX) src/ecrad_core
 
 $(ECRadLIBDir)/mod_ECRad_IMAS$(FLAVORFLAG)$(DB)$.o: $(ECRadLIBDir)/lib$(ECRadLIB)$(IDAFLAG)$(FLAVORFLAG)$(DB).a
 	$(F90) $(MODULES) $(FFPFLAGS) -c $(F90FLAGS) $(SRCP)/mod_ECRad_IMAS.f90 -o $@

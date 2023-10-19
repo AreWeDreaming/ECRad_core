@@ -23,7 +23,7 @@ contains
     call pre_initialize_ECRad_IMAS(codeparam_ecrad%parameters_value, wall, output_flag, output_message)
     call set_ece_ECRad_IMAS(ece_in, 1, output_flag, output_message)
     call initialize_ECRad_IMAS(equilibrium, 1, output_flag, output_message)
-    call make_rays_ECRad_IMAS(core_profiles, 1)
+    call make_rays_ECRad_IMAS(core_profiles, 1, ece_out)
     if(output_flag.eq.0) call make_dat_model_ECRad(core_profiles,1, ece_out)
 
   end subroutine ECRad_actor_IMAS
