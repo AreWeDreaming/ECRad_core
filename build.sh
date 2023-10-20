@@ -11,10 +11,10 @@ cd ../odepack
 make clean
 make
 cd ../
-make lib DEBUG=True COMPILER=GNU
-make lib COMPILER=GNU
-make lib OPEN_MP=True COMPILER=GNU
-make lib OPEN_MP=True DEBUG=True COMPILER=GNU
+make lib F2PY_wrapper DEBUG=True COMPILER=GNU
+make lib F2PY_wrapper COMPILER=GNU
+make lib F2PY_wrapper OPEN_MP=True COMPILER=GNU
+make lib F2PY_wrapper OPEN_MP=True DEBUG=True COMPILER=GNU
 rm -f id
 python3 -m build -n -x
 python3 -m pip install --no-deps .

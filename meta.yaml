@@ -1,9 +1,9 @@
 package: 
   name: ecrad_core
-  version: 1.0.25
+  version: 1.0.26
 
 source:
-  git_rev: 1.0.25
+  git_rev: 1.0.26
   git_url: https://github.com/AreWeDreaming/ECRad_core
 requirements:
     build:
