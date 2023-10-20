@@ -1,0 +1,34 @@
+context: {}
+package:
+
+  name: ecrad_core
+  version: 1.0.25
+
+source:
+  git_rev: 1.0.25
+  git_url: https://github.com/AreWeDreaming/ECRad_core
+
+build:
+    number: 1
+  
+requirements:
+  build:
+    - make
+    - libgcc-ng
+    - libgfortran5
+    - gfortran
+    - libgomp
+    - binutils
+    - libopenblas
+    - openblas
+    - python >=3.7
+    - numpy >=1.21
+    - pip >=21.0
+    - setuptools >=57.4
+    - build >=0.7
+  run:
+    - python >=3.7
+    - numpy >=1.21
+    - openblas
+    - openmp
+
