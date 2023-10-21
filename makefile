@@ -242,7 +242,7 @@ $(MODECRad)/$(APP)$(FLAVORFLAG)$(DB).o : $(SRCP)/$(APP).f90
 	$(F90) $(MODULES) $(FFPFLAGS) -c $(F90FLAGS) $< -o $@
 
 $(ECRadLIBDir)/ECRad_python$(FLAVORFLAG)$(DB)$(F2PYEXT_SUFFIX): $(ECRadLIBDir)/lib$(ECRadLIB)$(IDAFLAG)$(FLAVORFLAG)$(DB).a
-	cd $(ECRad_pythonDir); \
+	cd $(ECRadLIBDir); \
 	python -m numpy.f2py $(F2PYDBG) -c --fcompiler=$(F2PYCOMPILER) $(ROOTDIR)/src/ECRad_python$(FLAVORFLAG).f90 -m ECRad_python$(FLAVORFLAG)$(DB) \
 		-I$(MODECRad) --opt='' --f90flags='$(F2PYFLAGS)' $(F2PYLIBS); \
 	cd -
