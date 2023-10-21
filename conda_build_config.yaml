@@ -1,6 +1,6 @@
- python:
+python:
   - 3.10
   - 3.11
- numpy:
-  - 1.22
-  - 1.241
+
+numpy:
+  - 1.24
