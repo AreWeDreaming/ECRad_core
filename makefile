@@ -36,9 +36,15 @@ ifeq ($(COMPILER),GNU)
 	F90PARFLAGS = -fopenmp
 	F90PARLIBFLAGS = -lgomp
 	FFPFLAGS = -cpp
-	LIBFLAG = -L$(CONDALIBS) -static-libgcc -lopenblas 
+	ifdef CONDALIBS
+		LIBFLAG = -L$(CONDALIBS)
+		LDFLAGS = -Wl,-rpath=$(CONDALIBS)/lib
+	else ifdef BLAS_DIR
+		LIBFLAG = -L$(BLAS_DIR)/lib
+		LDFLAGS = -Wl,-rpath=$(BLAS_DIR)/lib
+	endif
+	LIBFLAG += -static-libgcc -lopenblas 
 	F2PYLIBFLAGS = -L$(CONDALIBS) -lopenblas
-	LDFLAGS = -Wl,-rpath=$(CONDALIBS)/lib
 	F2PYCOMPILER = gnu95
 	ifeq ($(IMAS),True)
 		MODULEFLAG += $(shell pkg-config imas-gfortran --cflags)
@@ -212,9 +218,10 @@ all: INFO directories lib
 else ifeq ($(IMAS),True)
 all: INFO directories lib $(ECRadLIBDir)/$(APP)$(FLAVORFLAG)$(DB)
 else
-all: INFO directories lib \
-	 F2PY_wrapper
+all: INFO directories lib F2PY_wrapper 
 endif
+
+EXE: $(ECRadLIBDir)/$(APP)$(FLAVORFLAG)$(DB)
 
 lib: directories \
 	$(ECRadLIBDir)/lib$(ECRadLIB)$(IDAFLAG)$(FLAVORFLAG)$(DB).a
@@ -233,7 +240,7 @@ INFO:
 	echo "Assuming INTEL toolchain"
 endif
 
-$(ECRadLIBDir)/$(APP)$(FLAVORFLAG)$(DB): \
+$(ECRadLIBDir)/$(APP)$(FLAVORFLAG)$(DB): lib \
 	$(ECRadLIBDir)/lib$(ECRadLIB)$(IDAFLAG)$(FLAVORFLAG)$(DB).a $(MODECRad)/$(APP)$(FLAVORFLAG)$(DB).o
 	$(F90) $(LDFLAGS) $(MODECRad)/$(APP)$(FLAVORFLAG)$(DB).o $(LIBS) \
 	-o $(ECRadLIBDir)/$(APP)$(FLAVORFLAG)$(DB)
