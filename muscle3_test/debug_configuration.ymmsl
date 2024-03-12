@@ -27,8 +27,14 @@ implementations:
     executable: python
     args:
     - "/fusion/projects/codes/ecrad/c8/202328/ECRad_core/src/ecrad_muscle.py"
+    - "debug=True"
   ECRad_MUSCLE3:
-    executable: "/fusion/projects/codes/ecrad/c8/202328/ECRad_core/intel2020/ECRad_MUSCLE3IMASdb"
+    executable: xterm
+    args:
+    - "-e"
+    - "gdbserver"
+    - ":5679"
+    - "/fusion/projects/codes/ecrad/c8/202328/ECRad_core/intel2020/ECRad_MUSCLE3IMASdb"
 resources:
   macro:
     threads: 1
