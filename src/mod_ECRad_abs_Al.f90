@@ -294,8 +294,10 @@ contains
       max_harmonic = 2 ! consider only second harmonic
       if(dstf /= "Th") then
         max_harmonic = 5 ! always also third harmonic for non-thermal discharges
+      else if (N_max > 3) then
+        max_harmonic = N_max
       else
-        if(sqrt(beta) < ratio_for_third_harmonic) max_harmonic = N_max
+        if(sqrt(beta) < ratio_for_third_harmonic) max_harmonic = 3
       end if
       if(present(pol_coeff_secondary) .or. present(pol_vec)) then
         if(.not. present(pol_vec)) then
@@ -413,7 +415,7 @@ contains
     use mod_ECRad_types,        only: rad_diag_ch_mode_ray_freq_svec_type, dstf, output_level,&
                                           ratio_for_third_harmonic, not_eval, eval, warm_plasma, &
                                           tau_ignore, non_therm_params_type, &
-                                          ignore_Te, ignore_ne
+                                          ignore_Te, ignore_ne, N_max
     use mod_ECRad_interpol,    only: spl_type_2d
     use constants,                  only: pi, e0, mass_e, eps0, c0
     use mod_ECRad_radiation_dist,    only: prepare_dist
@@ -460,6 +462,8 @@ contains
     if(dstf /= "Th") then
       call prepare_dist(svec, Int_absz, Int_weights, f_spl, dist_params)
       max_harmonic = 5
+    else if (N_max > 3) then
+      max_harmonic = N_max
     else
       if((Y * w_mass_e / mass_e) < ratio_for_third_harmonic) max_harmonic = 3
       tau_step = get_upper_limit_tau(svec, omega, ds2)
@@ -559,7 +563,7 @@ contains
 
   subroutine abs_Albajar_fast(svec, omega, mode, ds2, c_abs)
     ! Calculates the absorption coefficient -> reduced version of abs_Albajar for faster evaluation
-    use mod_ECRad_types,        only: rad_diag_ch_mode_ray_freq_svec_type, ratio_for_third_harmonic, eval, not_eval, tau_ignore
+    use mod_ECRad_types,        only: rad_diag_ch_mode_ray_freq_svec_type, ratio_for_third_harmonic, eval, not_eval, tau_ignore, N_max
     use constants,                  only: pi, e0, mass_e, eps0, c0
     implicit none
     type(rad_diag_ch_mode_ray_freq_svec_type), intent(in)    :: svec
@@ -579,7 +583,11 @@ contains
     omega_c = svec%freq_2X * Pi
     Y = svec%freq_2X * Pi / omega
     max_harmonic = 2 ! consider only second harmonic
-    if(Y < ratio_for_third_harmonic) max_harmonic = 3
+    if (N_max > 3) then
+      max_harmonic = N_max
+    else if(Y < ratio_for_third_harmonic) then
+      max_harmonic = 3
+    end if
     omega_p = e0 * sqrt( svec%ne / (eps0 * mass_e))
     X = omega_p**2 / omega**2
     omega_bar = omega / omega_c
