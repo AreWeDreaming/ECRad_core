@@ -590,12 +590,15 @@ module mod_ECRad_raytrace_initialize
   implicit none
   type(plasma_params_type), intent(inout)                    :: plasma_params
   logical, intent(in), optional     :: dealloc_wall
-  ! Need to do this first since we can have this allocated but not anything else
-  if(.not. use_3D) then
-    if(.not. present(dealloc_wall) .or. dealloc_wall) then
-      if(allocated(plasma_params%vessel_poly%x)) deallocate(plasma_params%vessel_poly%x, plasma_params%vessel_poly%y)
+  logical                           :: dealloc_wall_default
+    ! Need to do this first since we can have this allocated but not anything else
+    if(.not. use_3D) then
+      dealloc_wall_default = .true.
+      if(present(dealloc_wall)) dealloc_wall_default = dealloc_wall
+      if(dealloc_wall_default) then
+        if(allocated(plasma_params%vessel_poly%x)) deallocate(plasma_params%vessel_poly%x, plasma_params%vessel_poly%y)
+      end if
     end if
-  end if
     if(.not. (allocated(plasma_params%R) .or. allocated(plasma_params%Use_3D_vessel%vessel_data_R))) return
     if(stand_alone) then
       deallocate(plasma_params%n_e_prof, plasma_params%rhop_vec_ne)
