@@ -77,6 +77,11 @@ if __name__ == '__main__':
     logging.basicConfig(filename='ecrad_tester.log', level=logging.INFO)
     logging.getLogger().setLevel(logging.INFO)
     try:
+        if "debug=True" in sys.argv:
+            import debugpy
+            debugpy.listen(5678)
+            print("Waiting for debugger attach")
+            debugpy.wait_for_client()
         ECRad_MUSCLE3_test()
     except Exception as e:
         logging.error(str(e))
