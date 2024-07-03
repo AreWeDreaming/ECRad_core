@@ -16,12 +16,12 @@ requirements:
       - libopenblas
       - openblas
       - python
-      - numpy >=1.21
+      - numpy >=2.0
       - pip >=21.0
       - setuptools >=57.4
       - build >=0.7
     run:
       - python
-      - numpy >=1.21
+      - numpy >=2.0
       - openblas
       - openmp
