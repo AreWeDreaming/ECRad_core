@@ -12,8 +12,7 @@ program ECRad_IMAS
   use mod_ECRad_actor_IMAS
   use ids_schemas, only: ids_equilibrium, ids_core_profiles, &
        ids_ece, ids_wall, ids_parameters_input
-  use ids_routines, only: imas_open_env,imas_create_env,imas_close, &
-       ids_get,ids_get_slice,ids_put,ids_deallocate
+  use ids_routines
   use f90_file_reader, only: file2buffer
   use mod_codeparam_standalone_IMAS
   implicit none
@@ -24,13 +23,15 @@ program ECRad_IMAS
   type(ids_ece):: ece_in, ece_out
   type(ids_parameters_input):: codeparam_standalone,codeparam_ecrad
   type(type_codeparam_standalone):: codeparam_standalone_data  
-  integer:: io_unit = 1, idx
+  integer:: io_unit = 1, idx, status
   integer:: shot_scenario,run_scenario,shot_wall,run_wall,shot_ece,run_ece,run_out
   character(len=200):: user_scenario,db_scenario,user_wall
   character(len=200):: db_wall,user_ece,db_ece,local_db,local_user
+  character(STRMAXLEN):: uri
   double precision:: time_slice
   character(len=:), pointer:: output_message
   integer:: output_flag
+  character(:), allocatable :: errmsg
 
   ! READ STANDALONE XML INPUT FILE, DEFINED BY SPECIFIC XSD FILE
   call file2buffer('input/standalone.xml',io_unit, codeparam_standalone%parameters_value)
@@ -77,24 +78,26 @@ program ECRad_IMAS
 
   ! USERNAME DEFINED BY ENVIRONMENT VARIABLE USERNAME
   call getenv('USER',local_user)
-
   ! OPEN INPUT DATAFILE FROM OFFICIAL IMAS SCENARIO DATABASE
   write(*,*) 'Read input IDSs'
 
   write(*,*) '  --> equilibrium IDS'
-  call imas_open_env('ids',shot_scenario,run_scenario,idx,user_scenario,db_scenario,'3')
+  call al_build_uri_from_legacy_parameters(HDF5_BACKEND, shot_scenario, run_scenario, user_scenario, db_scenario, "3", "", uri, status)
+  call al_begin_dataentry_action(uri,OPEN_PULSE,idx,status,errmsg)
   call ids_get_slice(idx,'equilibrium', equilibrium,time_slice,1,output_flag)
+  call ids_get_slice(idx,'core_profiles', core_profiles, time_slice,1,output_flag)
   write(*,*) '  --> core_profiles IDS'
-  call ids_get_slice(idx,'core_profiles', core_profiles,time_slice,1,output_flag)
   call imas_close(idx)
 
   write(*,*) '  --> wall IDS'
-  call imas_open_env('ids',shot_wall,run_wall,idx,user_wall,db_wall,'3')
+  call al_build_uri_from_legacy_parameters(HDF5_BACKEND, shot_wall, run_wall, user_wall, db_wall, "3", "", uri, status)
+  call al_begin_dataentry_action(uri,OPEN_PULSE,idx,status,errmsg)
   call ids_get(idx,'wall', wall)
   call imas_close(idx)
 
   write(*,*) '  --> ece IDS'
-  call imas_open_env('ids',shot_ece,run_ece,idx,user_ece,db_ece,'3')
+  call al_build_uri_from_legacy_parameters(HDF5_BACKEND, shot_ece, run_ece, user_ece, db_ece, "3", "", uri, status)
+  call al_begin_dataentry_action(uri,OPEN_PULSE,idx,status,errmsg)
   call ids_get(idx,'ece', ece_in)
   call imas_close(idx)
 
@@ -116,7 +119,8 @@ program ECRad_IMAS
   ! EXPORT RESULTS TO LOCAL DATABASE
   if(output_flag.eq.0) then
      write(*,*) '=> Export ece IDS to local database'
-     call imas_create_env('ids',shot_scenario,run_scenario,0,0,idx,local_user,local_db,'3')
+     call al_build_uri_from_legacy_parameters(HDF5_BACKEND, shot_scenario, run_scenario, local_user, local_db, "3", "", uri, status)
+     call al_begin_dataentry_action(uri,OPEN_PULSE,idx,status,errmsg)
      call ids_put(idx,'ece', ece_out)
      call imas_close(idx)
      write(*,*) 'Done exporting.'

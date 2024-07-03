@@ -58,7 +58,9 @@ def ECRad_MUSCLE3_test():
         logging.info("Run finished")
 
         logging.info("Saving results")
-        output = imas.DBEntry(imas.imasdef.HDF5_BACKEND, 'ITER', config['shot_equilibrium'], config['run_out'], config['output_user'])
+        output = imas.DBEntry(imas.imasdef.HDF5_BACKEND, 'ITER', 
+                              config['shot_equilibrium'], config['run_out'], 
+                              config['output_user'])
         output.create()
         ece_out = imas.ece()
         logging.info("Deserializing ece")

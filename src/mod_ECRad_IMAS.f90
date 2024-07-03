@@ -229,7 +229,7 @@ subroutine make_rays_ECRad_IMAS(core_profiles, itime, ece)
   N_psi = size(core_profiles%profiles_1d(itime)%grid%psi)
   N_ch =  get_N_ch()
   allocate(rho_pol(N_psi), rho_res(N_ch))
-  if(size(core_profiles%profiles_1d(itime)%grid%rho_pol_norm) == 0) then
+  if(.not. associated(core_profiles%profiles_1d(itime)%grid%rho_pol_norm) .or. size(core_profiles%profiles_1d(itime)%grid%rho_pol_norm) == 0) then
     call get_rho_pol(N_psi, core_profiles%profiles_1d(itime)%grid%psi, rho_pol)
   else
     rho_pol = core_profiles%profiles_1d(itime)%grid%rho_pol_norm

@@ -41,7 +41,7 @@ ifeq ($(COMPILER),GNU)
 	LDFLAGS = -Wl,-rpath=$(CONDALIBS)/lib
 	F2PYCOMPILER = gnu95
 	ifeq ($(IMAS),True)
-		MODULEFLAG += $(shell pkg-config imas-gfortran --cflags)
+		MODULEFLAG += $(shell pkg-config al-fortran --cflags)
 	endif
 else
 	COMPILER=INTEL
@@ -60,7 +60,7 @@ else
 	CC = icc
 	ifeq ($(IMAS),True)
 		ifeq ($(USE_PKGC),True)
-			MODULEFLAG += $(shell pkg-config imas-ifort --cflags)
+			MODULEFLAG += $(shell pkg-config al-fortran --cflags)
 		else
 			MODULEFLAG += -I$(IMAS_PREFIX)/include/ifort -I$(IMAS_PREFIX)/include	
 		endif
@@ -98,7 +98,7 @@ ifeq ($(IMAS),True)
 	FFPFLAGS += -DIMAS
 	IMASFLAG = IMAS
 	ifeq ($(USE_PKGC),True)
-		LIBFLAG += $(shell pkg-config imas-ifort --libs)
+		LIBFLAG += $(shell pkg-config al-fortran --libs)
 		LIBFLAG += $(shell pkg-config xmllib --libs)
 		MODULEFLAG += $(shell pkg-config xmllib --cflags)
 	else
@@ -216,11 +216,15 @@ all: INFO directories lib \
 	 F2PY_wrapper
 endif
 
+
 lib: directories \
 	$(ECRadLIBDir)/lib$(ECRadLIB)$(IDAFLAG)$(FLAVORFLAG)$(DB).a
 
 F2PY_wrapper: MANIFEST lib \
 	$(ECRadLIBDir)/ECRad_python$(FLAVORFLAG)$(DB)$(F2PYEXT_SUFFIX)
+
+exe: lib \
+	$(ECRadLIBDir)/$(APP)$(FLAVORFLAG)$(DB)
 
 MANIFEST: 
 	echo include src/ecrad_core/ECRad_python$(FLAVORFLAG)$(DB)$(F2PYEXT_SUFFIX) >> MANIFEST.in

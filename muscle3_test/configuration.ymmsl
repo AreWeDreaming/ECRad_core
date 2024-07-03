@@ -20,15 +20,15 @@ model:
     macro.ECRad_task: micro.ECRad_task
     micro.ECRad_report: macro.ECRad_report
 settings:
-  scenario_info: /home/denks/git/ECRad_core/input/scenario.yaml
-  xml_path: /home/denks/git/ECRad_core/input/code_params.xml
+  scenario_info: /home/denks/git/ECRad/ECRad_core/input/scenario.yaml
+  xml_path: /home/denks/git/ECRad/ECRad_core/input/code_params.xml
 implementations:
   ECRad_MUSCLE3_test:
-    executable: /fusion/projects/codes/conda/omega/dev_envs/denks/IMAS_env/bin/python
+    executable: python
     args:
-    - /home/denks/git/ECRad_core/src/ecrad_muscle.py
+    - /home/denks/git/ECRad/ECRad_core/src/ecrad_muscle.py
   ECRad_MUSCLE3:
-    executable: /home/denks/git/ECRad_core/bin/ECRad_MUSCLE3IMASdb
+    executable: /home/denks/git/ECRad/ECRad_core/bin/ECRad_MUSCLE3IMASdb
 resources:
   macro:
     threads: 1
