@@ -403,7 +403,7 @@ type plasma_params_type
   character(4)                                      :: eq_exp
   character(3)                                      :: eq_diag
   real(rkind)                                       :: z_lens
-  integer(ikind)                                    :: mode = 0! mode = -1 -> X,  mode = +1 -> O
+  integer(ikind)                                    :: mode = 0! mode = +1 -> X,  mode = -1 -> O
   logical                                           :: w_ripple = .true. ! Input
                                                     ! .true. -> weakly relativistic. false -> cold disperion for ray tracing
   real(rkind)                                       :: Btf0 = -1.d2, R0 = -1.d0 ! Required for the ripple correction

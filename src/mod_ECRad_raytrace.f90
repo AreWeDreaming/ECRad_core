@@ -2500,7 +2500,7 @@ function func_dA_dY(X, Y)
     real(rkind), dimension(3)                                   :: R_vec
     logical                                                     :: inside_vessel, inside_equilibrium
     integer(ikind)                                              :: j_phi
-    func_within_plasma = .true. ! Start with False and set to True if something is wrong
+    func_within_plasma = .true. ! Start with true and set to false if something is wrong
 #ifdef USE_3D
     if(use_3D) then
       call sub_remap_coords(ray_point%x_vec, R_vec)
@@ -3559,13 +3559,15 @@ function func_dA_dY(X, Y)
             call make_s_grid(plasma_params, omega, Y_res_X, rad%diag(idiag)%ch(ich)%mode(imode)%mode, &
                              rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%svec, &
                              ray_segment, rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%total_LOS_points, &
-                             last_N, N_plasma_pnts, first_N_plasma, last_N_plasma, dist, rad_ray_freq=rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq))
+                             last_N, N_plasma_pnts, first_N_plasma, last_N_plasma, dist, &
+                             rad_ray_freq=rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq))
           else
           ! O-mode -> Only first harmonic has strong absorption
             call make_s_grid(plasma_params, omega, Y_res_O, rad%diag(idiag)%ch(ich)%mode(imode)%mode, &
                              rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%svec, &
                              ray_segment, rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%total_LOS_points, &
-                             last_N, N_plasma_pnts, first_N_plasma, last_N_plasma, dist, rad_ray_freq=rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq))
+                             last_N, N_plasma_pnts, first_N_plasma, last_N_plasma, dist, &
+                             rad_ray_freq=rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq))
           end if
           if(.not. allocated(rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output)) allocate(rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(N_ray))
           if(allocated(rad%diag(idiag)%ch(ich)%mode(imode)%ray_extra_output(ir)%s)) &

@@ -72,10 +72,10 @@ else
         rad_freq%svec(j)%Te / c0**2
 end if
 if(output_level .and. dstf == "Th") then
-  if(rad_freq%svec_extra_output(j)%N_warm <= 0 .or. &
-    rad_freq%svec_extra_output(j)%N_warm /= rad_freq%svec_extra_output(j)%N_warm) then
-    rad_freq%svec_extra_output(j)%N_warm = rad_freq%svec(j)%N_cold ! do not reuse last, but start with cold
-  end if
+  ! if(rad_freq%svec_extra_output(j)%N_warm <= 0 .or. &
+  !   rad_freq%svec_extra_output(j)%N_warm /= rad_freq%svec_extra_output(j)%N_warm) then
+  rad_freq%svec_extra_output(j)%N_warm = rad_freq%svec(j)%N_cold ! do not reuse last, start with cold
+  ! end if
   if(eval_pol_coeff) then
     ! last point within the separatrix
     ab_secondary = abs_Al_Fa_abs(rad_freq%svec(j), omega, mode, rad_freq%svec_extra_output(j)%N_warm, &

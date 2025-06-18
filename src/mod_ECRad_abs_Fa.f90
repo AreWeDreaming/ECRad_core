@@ -1,9 +1,7 @@
 module mod_ECRad_abs_Fa
 ! All credit for these routines goes to Daniela Farina and Lorenzo Figini
 ! Based on Farina, Daniela. "Relativistic dispersion relation of electron cyclotron waves." Fusion science and technology 53.1 (2008): 130-138.
-! #ifdef OMP
-!   use omp_lib
-! #endif
+
   implicit none
 
 
@@ -322,344 +320,344 @@ contains
     end do
   end function ssbi
 
-!  function zetac(xi,yi)!,zr,zi,iflag)
-!! PLASMA DISPERSION FUNCTION Z of complex argument
-!! Z(z) = i sqrt(pi) w(z)
-!! Function w(z) from:
-!! algorithm 680, collected algorithms from acm.
-!! this work published in transactions on mathematical software,
-!! vol. 16, no. 1, pp. 47.
-!!
-!! given a complex number z = (xi,yi), this subroutine computes
-!! the value of the faddeeva-function w(z) = exp(-z**2)*erfc(-i*z),
-!! where erfc is the complex complementary error-function and i
-!! means sqrt(-1).
-!! the accuracy of the algorithm for z in the 1st and 2nd quadrant
-!! is 14 significant digits; in the 3rd and 4th it is 13 significant
-!! digits outside a circular region with radius 0.126 around a zero
-!! of the function.
-!! all real variables in the program are double precision.
-!!
-!!
-!! the code contains a few compiler-dependent parameters :
-!! rmaxreal = the maximum value of rmaxreal equals the root of
-!!            rmax = the largest number which can still be
-!!            implemented on the computer in double precision
-!!            floating-point arithmetic
-!! rmaxexp  = ln(rmax) - ln(2)
-!! rmaxgoni = the largest possible argument of a double precision
-!!            goniometric function (dcos, dsin, ...)
-!! the reason why these parameters are needed as they are defined will
-!! be explained in the code by means of comments
-!!
-!!
-!! parameter list
-!! xi     = real      part of z
-!! yi     = imaginary part of z
-!! u      = real      part of w(z)
-!! v      = imaginary part of w(z)
-!! iflag  = an error flag indicating whether overflow will
-!!          occur or not; type integer;
-!!          the values of this variable have the following
-!!          meaning :
-!!          iflag=0 : no error condition
-!!          iflag=1 : overflow will occur, the routine
-!!                    becomes inactive
-!! xi, yi       are the input-parameters
-!! u, v, iflag  are the output-parameters
-!!
-!! furthermore the parameter factor equals 2/sqrt(pi)
-!!
-!! the routine is not underflow-protected but any variable can be
-!! put to 0 upon underflow;
-!!
-!! reference - gpm poppe, cmj wijers; more efficient computation of
-!! the complex error-function, acm trans. math. software.
-!!
-!  implicit none
-!  complex(r8) :: zetac
-!! arguments
-!  real(r8), intent(in)  :: xi, yi
-!!  real(r8), intent(out) :: zr, zi
-!!  integer      , intent(out) :: iflag
-!! local variables
-!  integer       :: n, j, i, kapn, nu, np1
-!  real(r8) :: u, v, x, y, xabs, yabs, qrho, xabsq, xquad, yquad,   &
-!                   xsum, ysum, xaux, u1, v1, daux, u2, v2, h, h2,       &
-!                   qlambda, rx, ry, sx, sy, tx, ty, c, w1
-!! parameters
-!  real(r8), parameter :: factor = 1.12837916709551257388_r8, &
-!                              rpi    = 2.0_r8/factor!,             &
-!!                              rmaxreal = 0.5e+154_r8,             &
-!!                              rmaxexp = 708.503061461606_r8,      &
-!!                              rmaxgoni = 3.53711887601422e+15_r8
+ function zetac(xi,yi)!,zr,zi,iflag)
+! PLASMA DISPERSION FUNCTION Z of complex argument
+! Z(z) = i sqrt(pi) w(z)
+! Function w(z) from:
+! algorithm 680, collected algorithms from acm.
+! this work published in transactions on mathematical software,
+! vol. 16, no. 1, pp. 47.
 !
-!!    iflag = 0
-!    xabs = abs(xi)
-!    yabs = abs(yi)
-!    x    = xabs/6.3_r8
-!    y    = yabs/4.4_r8
-!!
-!! the following if-statement protects
-!! qrho = (x**2 + y**2) against overflow
-!!
-!!    if ((xabs>rmaxreal).or.(yabs>rmaxreal)) then
-!!      iflag = 1
-!!      return
-!!    end if
-!    qrho = x**2 + y**2
-!    xabsq = xabs**2
-!    xquad = xabsq - yabs**2
-!    yquad = 2*xabs*yabs
-!    if (qrho<0.085264_r8) then
-!!
-!! if (qrho<0.085264_r8) then the faddeeva-function is evaluated
-!! using a power-series (abramowitz/stegun, equation (7.1.5), p.297)
-!! n is the minimum number of terms needed to obtain the required
-!! accuracy
-!!
-!      qrho  = (1-0.85_r8*y)*sqrt(qrho)
-!      n     = nint(6 + 72*qrho)
-!      j     = 2*n+1
-!      xsum  = 1.0_r8/j
-!      ysum  = 0.0_r8
-!      do i=n, 1, -1
-!        j    = j - 2
-!        xaux = (xsum*xquad - ysum*yquad)/i
-!        ysum = (xsum*yquad + ysum*xquad)/i
-!        xsum = xaux + 1.0_r8/j
-!      end do
-!      u1   = -factor*(xsum*yabs + ysum*xabs) + 1.0_r8
-!      v1   =  factor*(xsum*xabs - ysum*yabs)
-!      daux =  exp(-xquad)
-!      u2   =  daux*cos(yquad)
-!      v2   = -daux*sin(yquad)
-!      u    = u1*u2 - v1*v2
-!      v    = u1*v2 + v1*u2
-!    else
-!!
-!! if (qrho>1.0) then w(z) is evaluated using the laplace
-!! continued fraction
-!! nu is the minimum number of terms needed to obtain the required
-!! accuracy
-!!
-!! if ((qrho>0.085264d0).and.(qrho<1.0)) then w(z) is evaluated
-!! by a truncated taylor expansion, where the laplace continued fraction
-!! is used to calculate the derivatives of w(z)
-!! kapn is the minimum number of terms in the taylor expansion needed
-!! to obtain the required accuracy
-!! nu is the minimum number of terms of the continued fraction needed
-!! to calculate the derivatives with the required accuracy
-!!
-!      if (qrho>1.0_r8) then
-!        h    = 0.0_r8
-!        kapn = 0
-!        qrho = sqrt(qrho)
-!        nu   = int(3 + (1442/(26*qrho+77)))
-!      else
-!        qrho = (1-y)*sqrt(1-qrho)
-!        h    = 1.88_r8*qrho
-!        h2   = 2*h
-!        kapn = nint(7  + 34*qrho)
-!        nu   = nint(16 + 26*qrho)
-!      endif
-!      if (h>0.0_r8) qlambda = h2**kapn
-!      rx = 0.0_r8
-!      ry = 0.0_r8
-!      sx = 0.0_r8
-!      sy = 0.0_r8
-!      do n=nu, 0, -1
-!        np1 = n + 1
-!        tx  = yabs + h + np1*rx
-!        ty  = xabs - np1*ry
-!        c   = 0.5_r8/(tx**2 + ty**2)
-!        rx  = c*tx
-!        ry  = c*ty
-!        if ((h>0.0_r8).and.(n<=kapn)) then
-!          tx = qlambda + sx
-!          sx = rx*tx - ry*sy
-!          sy = ry*tx + rx*sy
-!          qlambda = qlambda/h2
-!        endif
-!      end do
-!      if (h==0.0_r8) then
-!        u = factor*rx
-!        v = factor*ry
-!      else
-!        u = factor*sx
-!        v = factor*sy
-!      end if
-!      if (yabs==0.0_r8) u = exp(-xabs**2)
+! given a complex number z = (xi,yi), this subroutine computes
+! the value of the faddeeva-function w(z) = exp(-z**2)*erfc(-i*z),
+! where erfc is the complex complementary error-function and i
+! means sqrt(-1).
+! the accuracy of the algorithm for z in the 1st and 2nd quadrant
+! is 14 significant digits; in the 3rd and 4th it is 13 significant
+! digits outside a circular region with radius 0.126 around a zero
+! of the function.
+! all real variables in the program are double precision.
+!
+!
+! the code contains a few compiler-dependent parameters :
+! rmaxreal = the maximum value of rmaxreal equals the root of
+!            rmax = the largest number which can still be
+!            implemented on the computer in double precision
+!            floating-point arithmetic
+! rmaxexp  = ln(rmax) - ln(2)
+! rmaxgoni = the largest possible argument of a double precision
+!            goniometric function (dcos, dsin, ...)
+! the reason why these parameters are needed as they are defined will
+! be explained in the code by means of comments
+!
+!
+! parameter list
+! xi     = real      part of z
+! yi     = imaginary part of z
+! u      = real      part of w(z)
+! v      = imaginary part of w(z)
+! iflag  = an error flag indicating whether overflow will
+!          occur or not; type integer;
+!          the values of this variable have the following
+!          meaning :
+!          iflag=0 : no error condition
+!          iflag=1 : overflow will occur, the routine
+!                    becomes inactive
+! xi, yi       are the input-parameters
+! u, v, iflag  are the output-parameters
+!
+! furthermore the parameter factor equals 2/sqrt(pi)
+!
+! the routine is not underflow-protected but any variable can be
+! put to 0 upon underflow;
+!
+! reference - gpm poppe, cmj wijers; more efficient computation of
+! the complex error-function, acm trans. math. software.
+!
+ implicit none
+ complex(r8) :: zetac
+! arguments
+ real(r8), intent(in)  :: xi, yi
+!  real(r8), intent(out) :: zr, zi
+!  integer      , intent(out) :: iflag
+! local variables
+ integer       :: n, j, i, kapn, nu, np1
+ real(r8) :: u, v, x, y, xabs, yabs, qrho, xabsq, xquad, yquad,   &
+                  xsum, ysum, xaux, u1, v1, daux, u2, v2, h, h2,       &
+                  qlambda, rx, ry, sx, sy, tx, ty, c, w1
+! parameters
+ real(r8), parameter :: factor = 1.12837916709551257388_r8, &
+                             rpi    = 2.0_r8/factor!,             &
+!                              rmaxreal = 0.5e+154_r8,             &
+!                              rmaxexp = 708.503061461606_r8,      &
+!                              rmaxgoni = 3.53711887601422e+15_r8
+
+!    iflag = 0
+   xabs = abs(xi)
+   yabs = abs(yi)
+   x    = xabs/6.3_r8
+   y    = yabs/4.4_r8
+!
+! the following if-statement protects
+! qrho = (x**2 + y**2) against overflow
+!
+!    if ((xabs>rmaxreal).or.(yabs>rmaxreal)) then
+!      iflag = 1
+!      return
 !    end if
-!!
-!! evaluation of w(z) in the other quadrants
-!!
-!    if (yi<0.0_r8) then
-!      if (qrho<0.085264_r8) then
-!        u2    = 2*u2
-!        v2    = 2*v2
-!      else
-!        xquad =  -xquad
-!!
-!! the following if-statement protects 2*exp(-z**2)
-!! against overflow
-!!
-!!        if ((yquad>rmaxgoni).or.(xquad>rmaxexp)) then
-!!          iflag=1
-!!          return
-!!        end if
-!        w1 =  2.0_r8*exp(xquad)
-!        u2  =  w1*cos(yquad)
-!        v2  = -w1*sin(yquad)
-!      end if
-!      u = u2 - u
-!      v = v2 - v
-!      if (xi>0.0_r8) v = -v
-!    else
-!      if (xi<0.0_r8) v = -v
-!    end if
-!!    zr = -v*rpi
-!!    zi =  u*rpi
-!    zetac = cmplx(-v*rpi,u*rpi,kind=r8)
-!  end function zetac
+   qrho = x**2 + y**2
+   xabsq = xabs**2
+   xquad = xabsq - yabs**2
+   yquad = 2*xabs*yabs
+   if (qrho<0.085264_r8) then
 !
-!  subroutine fsup(yg,anpl,amu,cefp,cefm,lrm)
-!    implicit none
-!    real(r8), intent(in) :: yg,anpl,amu
-!    integer, intent(in) :: lrm
-!    complex(r8), intent(out) :: cefp(0:lrm,0:2),cefm(0:lrm,0:2)
-!    real(r8), parameter :: soglia = 0.7_r8
-!    integer :: l,is,isa,ir
-!    real(r8) :: anpl2hm1,alpha,phi2,phim,psi,apsi
-!    real(r8) :: xp,yp,xm,ym,x0,y0
-!    complex(r8) :: czp,czm,cf12,cf32,cphi,cz0,cdz0,cf0,cf1,cf2
-!  
-!    cefp=(0._r8,0._r8)
-!    cefm=(0._r8,0._r8)
-!    anpl2hm1=anpl**2/2.0_r8-1.0_r8
-!    psi=sqrt(0.5_r8*amu)*anpl
-!    apsi=abs(psi)
-!    do is=-lrm,lrm
-!      alpha=anpl2hm1+is*yg
-!      phi2=amu*alpha
-!      phim=sqrt(abs(phi2))
-!      if (alpha>=0) then
-!        xp=psi-phim
-!        yp=0.0_r8
-!        xm=-psi-phim
-!        ym=0.0_r8
-!        x0=-phim
-!        y0=0.0_r8
-!      else
-!        xp=psi
-!        yp=phim
-!        xm=-psi
-!        ym=phim
-!        x0=0.0_r8
-!        y0=phim
-!      end if
-!      czp=zetac(xp,yp)
-!      czm=zetac(xm,ym)
-!      if (alpha>0) then
-!        cf12=-(czp+czm)/(2.0_r8*phim)
-!      else if (alpha<0) then
-!        cf12=-ui*(czp+czm)/(2.0_r8*phim)
-!      else
-!        cf12=(0.0_r8,0.0_r8)
-!      end if
-!      if(apsi>soglia) then
-!        cf32=-(czp-czm)/(2.0_r8*psi)
-!      else
-!        cphi=phim
-!        if(alpha<0) cphi=-ui*phim
-!        cz0=zetac(x0,y0)
-!        cdz0=2.0_r8*(1.0_r8-cphi*cz0)
-!        cf32=cdz0
-!      end if
-!      cf0=cf12
-!      cf1=cf32
-!      if (is==0) then
-!        cefp(0,0)=cf32
-!        cefm(0,0)=cf32
-!      end if
-!      isa=abs(is)
-!      do l=1,isa+2
-!        if(apsi>soglia) then
-!          cf2=(1.0_r8+phi2*cf0-(l-0.5_r8)*cf1)/psi**2
-!        else
-!          cf2=(1.0_r8+phi2*cf1)/(l+0.5_r8)
-!        end if
-!        ir=l-isa
-!        if(ir>=0) then
-!          cefp(isa,ir)=cefp(isa,ir)+cf2
-!          if(is>0) then
-!            cefm(isa,ir)=cefm(isa,ir)+cf2
-!          else
-!            cefm(isa,ir)=cefm(isa,ir)-cf2
-!          end if
-!        end if
-!        cf0=cf1
-!        cf1=cf2
-!      end do
-!    end do
-!  end subroutine fsup
-!  
-!  subroutine dieltens_maxw_wr(xg,yg,anpl,amu,e330,epsl,lrm)
-!! weakly relativistic dielectric tensor computation
-!! Krivenski and Orefice, JPP 30,125 (1983)
-!    real(r8), intent(in) :: xg,yg,anpl,amu
-!    integer, intent(in) :: lrm
-!    complex(r8), intent(out) :: e330, epsl(3,3,lrm)
-!    integer :: l,lm,is,k
-!    real(r8) :: anpl2,fcl,asl,bsl
-!    complex(r8) :: ca11,ca12,ca13,ca22,ca23,ca33
-!    complex(r8) :: cq0p,cq0m,cq1p,cq1m,cq2p
-!    complex(r8) :: cefp(0:lrm,0:2),cefm(0:lrm,0:2)
+! if (qrho<0.085264_r8) then the faddeeva-function is evaluated
+! using a power-series (abramowitz/stegun, equation (7.1.5), p.297)
+! n is the minimum number of terms needed to obtain the required
+! accuracy
 !
-!    anpl2=anpl**2
-!    call fsup(yg,anpl,amu,cefp,cefm,lrm)
-!    do l=1,lrm
-!      lm=l-1
-!      fcl=0.5_r8**l*((1.0_r8/yg)**2/amu)**lm*fact(2*l)/fact(l)
-!      ca11=(0._r8,0._r8)
-!      ca12=(0._r8,0._r8)
-!      ca13=(0._r8,0._r8)
-!      ca22=(0._r8,0._r8)
-!      ca23=(0._r8,0._r8)
-!      ca33=(0._r8,0._r8)
-!      do is=0,l
-!        k=l-is
-!        asl=real((-1)**k,kind=r8)/(fact(is+l)*fact(l-is))
-!        bsl=asl*(is**2+real(2*k*lm*(l+is),kind=r8)/(2*l-1))
-!        cq0p=amu*cefp(is,0)
-!        cq0m=amu*cefm(is,0)
-!        cq1p=amu*anpl*(cefp(is,0)-cefp(is,1))
-!        cq1m=amu*anpl*(cefm(is,0)-cefm(is,1))
-!        cq2p=cefp(is,1)+amu*anpl2*(cefp(is,2)+cefp(is,0)-2.0_r8*cefp(is,1))
-!        ca11=ca11+is**2*asl*cq0p
-!        ca12=ca12+is*l*asl*cq0m
-!        ca22=ca22+bsl*cq0p
-!        ca13=ca13+is*asl*cq1m/yg
-!        ca23=ca23+l*asl*cq1p/yg
-!        ca33=ca33+asl*cq2p/yg**2
-!      end do
-!      epsl(1,1,l) =  - xg*ca11*fcl
-!      epsl(1,2,l) =  + ui*xg*ca12*fcl
-!      epsl(2,2,l) =  - xg*ca22*fcl
-!      epsl(1,3,l) =  - xg*ca13*fcl
-!      epsl(2,3,l) =  - ui*xg*ca23*fcl
-!      epsl(3,3,l) =  - xg*ca33*fcl
-!    end do
-!    cq2p=cefp(0,1)+amu*anpl2*(cefp(0,2)+cefp(0,0)-2.0_r8*cefp(0,1))
-!    e330=1.0_r8-xg*amu*cq2p
-!    epsl(1,1,1) = 1._r8 + epsl(1,1,1)
-!    epsl(2,2,1) = 1._r8 + epsl(2,2,1)
-!    do l=1,lrm
-!      epsl(2,1,l) = - epsl(1,2,l)
-!      epsl(3,1,l) =   epsl(1,3,l)
-!      epsl(3,2,l) = - epsl(2,3,l)
-!    end do
-!  end subroutine dieltens_maxw_wr
+     qrho  = (1-0.85_r8*y)*sqrt(qrho)
+     n     = nint(6 + 72*qrho)
+     j     = 2*n+1
+     xsum  = 1.0_r8/j
+     ysum  = 0.0_r8
+     do i=n, 1, -1
+       j    = j - 2
+       xaux = (xsum*xquad - ysum*yquad)/i
+       ysum = (xsum*yquad + ysum*xquad)/i
+       xsum = xaux + 1.0_r8/j
+     end do
+     u1   = -factor*(xsum*yabs + ysum*xabs) + 1.0_r8
+     v1   =  factor*(xsum*xabs - ysum*yabs)
+     daux =  exp(-xquad)
+     u2   =  daux*cos(yquad)
+     v2   = -daux*sin(yquad)
+     u    = u1*u2 - v1*v2
+     v    = u1*v2 + v1*u2
+   else
+!
+! if (qrho>1.0) then w(z) is evaluated using the laplace
+! continued fraction
+! nu is the minimum number of terms needed to obtain the required
+! accuracy
+!
+! if ((qrho>0.085264d0).and.(qrho<1.0)) then w(z) is evaluated
+! by a truncated taylor expansion, where the laplace continued fraction
+! is used to calculate the derivatives of w(z)
+! kapn is the minimum number of terms in the taylor expansion needed
+! to obtain the required accuracy
+! nu is the minimum number of terms of the continued fraction needed
+! to calculate the derivatives with the required accuracy
+!
+     if (qrho>1.0_r8) then
+       h    = 0.0_r8
+       kapn = 0
+       qrho = sqrt(qrho)
+       nu   = int(3 + (1442/(26*qrho+77)))
+     else
+       qrho = (1-y)*sqrt(1-qrho)
+       h    = 1.88_r8*qrho
+       h2   = 2*h
+       kapn = nint(7  + 34*qrho)
+       nu   = nint(16 + 26*qrho)
+     endif
+     if (h>0.0_r8) qlambda = h2**kapn
+     rx = 0.0_r8
+     ry = 0.0_r8
+     sx = 0.0_r8
+     sy = 0.0_r8
+     do n=nu, 0, -1
+       np1 = n + 1
+       tx  = yabs + h + np1*rx
+       ty  = xabs - np1*ry
+       c   = 0.5_r8/(tx**2 + ty**2)
+       rx  = c*tx
+       ry  = c*ty
+       if ((h>0.0_r8).and.(n<=kapn)) then
+         tx = qlambda + sx
+         sx = rx*tx - ry*sy
+         sy = ry*tx + rx*sy
+         qlambda = qlambda/h2
+       endif
+     end do
+     if (h==0.0_r8) then
+       u = factor*rx
+       v = factor*ry
+     else
+       u = factor*sx
+       v = factor*sy
+     end if
+     if (yabs==0.0_r8) u = exp(-xabs**2)
+   end if
+!
+! evaluation of w(z) in the other quadrants
+!
+   if (yi<0.0_r8) then
+     if (qrho<0.085264_r8) then
+       u2    = 2*u2
+       v2    = 2*v2
+     else
+       xquad =  -xquad
+!
+! the following if-statement protects 2*exp(-z**2)
+! against overflow
+!
+!        if ((yquad>rmaxgoni).or.(xquad>rmaxexp)) then
+!          iflag=1
+!          return
+!        end if
+       w1 =  2.0_r8*exp(xquad)
+       u2  =  w1*cos(yquad)
+       v2  = -w1*sin(yquad)
+     end if
+     u = u2 - u
+     v = v2 - v
+     if (xi>0.0_r8) v = -v
+   else
+     if (xi<0.0_r8) v = -v
+   end if
+!    zr = -v*rpi
+!    zi =  u*rpi
+   zetac = cmplx(-v*rpi,u*rpi,kind=r8)
+ end function zetac
+
+ subroutine fsup(yg,anpl,amu,cefp,cefm,lrm)
+   implicit none
+   real(r8), intent(in) :: yg,anpl,amu
+   integer, intent(in) :: lrm
+   complex(r8), intent(out) :: cefp(0:lrm,0:2),cefm(0:lrm,0:2)
+   real(r8), parameter :: soglia = 0.7_r8
+   integer :: l,is,isa,ir
+   real(r8) :: anpl2hm1,alpha,phi2,phim,psi,apsi
+   real(r8) :: xp,yp,xm,ym,x0,y0
+   complex(r8) :: czp,czm,cf12,cf32,cphi,cz0,cdz0,cf0,cf1,cf2
+ 
+   cefp=(0._r8,0._r8)
+   cefm=(0._r8,0._r8)
+   anpl2hm1=anpl**2/2.0_r8-1.0_r8
+   psi=sqrt(0.5_r8*amu)*anpl
+   apsi=abs(psi)
+   do is=-lrm,lrm
+     alpha=anpl2hm1+is*yg
+     phi2=amu*alpha
+     phim=sqrt(abs(phi2))
+     if (alpha>=0) then
+       xp=psi-phim
+       yp=0.0_r8
+       xm=-psi-phim
+       ym=0.0_r8
+       x0=-phim
+       y0=0.0_r8
+     else
+       xp=psi
+       yp=phim
+       xm=-psi
+       ym=phim
+       x0=0.0_r8
+       y0=phim
+     end if
+     czp=zetac(xp,yp)
+     czm=zetac(xm,ym)
+     if (alpha>0) then
+       cf12=-(czp+czm)/(2.0_r8*phim)
+     else if (alpha<0) then
+       cf12=-ui*(czp+czm)/(2.0_r8*phim)
+     else
+       cf12=(0.0_r8,0.0_r8)
+     end if
+     if(apsi>soglia) then
+       cf32=-(czp-czm)/(2.0_r8*psi)
+     else
+       cphi=phim
+       if(alpha<0) cphi=-ui*phim
+       cz0=zetac(x0,y0)
+       cdz0=2.0_r8*(1.0_r8-cphi*cz0)
+       cf32=cdz0
+     end if
+     cf0=cf12
+     cf1=cf32
+     if (is==0) then
+       cefp(0,0)=cf32
+       cefm(0,0)=cf32
+     end if
+     isa=abs(is)
+     do l=1,isa+2
+       if(apsi>soglia) then
+         cf2=(1.0_r8+phi2*cf0-(l-0.5_r8)*cf1)/psi**2
+       else
+         cf2=(1.0_r8+phi2*cf1)/(l+0.5_r8)
+       end if
+       ir=l-isa
+       if(ir>=0) then
+         cefp(isa,ir)=cefp(isa,ir)+cf2
+         if(is>0) then
+           cefm(isa,ir)=cefm(isa,ir)+cf2
+         else
+           cefm(isa,ir)=cefm(isa,ir)-cf2
+         end if
+       end if
+       cf0=cf1
+       cf1=cf2
+     end do
+   end do
+ end subroutine fsup
+ 
+ subroutine dieltens_maxw_wr(xg,yg,anpl,amu,e330,epsl,lrm)
+! weakly relativistic dielectric tensor computation
+! Krivenski and Orefice, JPP 30,125 (1983)
+   real(r8), intent(in) :: xg,yg,anpl,amu
+   integer, intent(in) :: lrm
+   complex(r8), intent(out) :: e330, epsl(3,3,lrm)
+   integer :: l,lm,is,k
+   real(r8) :: anpl2,fcl,asl,bsl
+   complex(r8) :: ca11,ca12,ca13,ca22,ca23,ca33
+   complex(r8) :: cq0p,cq0m,cq1p,cq1m,cq2p
+   complex(r8) :: cefp(0:lrm,0:2),cefm(0:lrm,0:2)
+
+   anpl2=anpl**2
+   call fsup(yg,anpl,amu,cefp,cefm,lrm)
+   do l=1,lrm
+     lm=l-1
+     fcl=0.5_r8**l*((1.0_r8/yg)**2/amu)**lm*fact(2*l)/fact(l)
+     ca11=(0._r8,0._r8)
+     ca12=(0._r8,0._r8)
+     ca13=(0._r8,0._r8)
+     ca22=(0._r8,0._r8)
+     ca23=(0._r8,0._r8)
+     ca33=(0._r8,0._r8)
+     do is=0,l
+       k=l-is
+       asl=real((-1)**k,kind=r8)/(fact(is+l)*fact(l-is))
+       bsl=asl*(is**2+real(2*k*lm*(l+is),kind=r8)/(2*l-1))
+       cq0p=amu*cefp(is,0)
+       cq0m=amu*cefm(is,0)
+       cq1p=amu*anpl*(cefp(is,0)-cefp(is,1))
+       cq1m=amu*anpl*(cefm(is,0)-cefm(is,1))
+       cq2p=cefp(is,1)+amu*anpl2*(cefp(is,2)+cefp(is,0)-2.0_r8*cefp(is,1))
+       ca11=ca11+is**2*asl*cq0p
+       ca12=ca12+is*l*asl*cq0m
+       ca22=ca22+bsl*cq0p
+       ca13=ca13+is*asl*cq1m/yg
+       ca23=ca23+l*asl*cq1p/yg
+       ca33=ca33+asl*cq2p/yg**2
+     end do
+     epsl(1,1,l) =  - xg*ca11*fcl
+     epsl(1,2,l) =  + ui*xg*ca12*fcl
+     epsl(2,2,l) =  - xg*ca22*fcl
+     epsl(1,3,l) =  - xg*ca13*fcl
+     epsl(2,3,l) =  - ui*xg*ca23*fcl
+     epsl(3,3,l) =  - xg*ca33*fcl
+   end do
+   cq2p=cefp(0,1)+amu*anpl2*(cefp(0,2)+cefp(0,0)-2.0_r8*cefp(0,1))
+   e330=1.0_r8-xg*amu*cq2p
+   epsl(1,1,1) = 1._r8 + epsl(1,1,1)
+   epsl(2,2,1) = 1._r8 + epsl(2,2,1)
+   do l=1,lrm
+     epsl(2,1,l) = - epsl(1,2,l)
+     epsl(3,1,l) =   epsl(1,3,l)
+     epsl(3,2,l) = - epsl(2,3,l)
+   end do
+ end subroutine dieltens_maxw_wr
   
   subroutine hermitian(yg,anpl,amu,rr,lrm,iwarm)
     implicit none
@@ -1043,11 +1041,11 @@ contains
     anpr2a=anprc**2
     anpl2=anpl*anpl
 
-!    if (iwarm==1) then
-!      call dieltens_maxw_wr(xg,yg,anpl,amu,e330,epsl,lrm)
-!    else
+   if (iwarm==1) then
+     call dieltens_maxw_wr(xg,yg,anpl,amu,e330,epsl,lrm)
+   else
       call dieltens_maxw_fr(xg,yg,anpl,amu,e330,epsl,lrm,iwarm)
-!    end if
+   end if
 
     do i=1,imx
       do j=1,3
@@ -1068,17 +1066,10 @@ contains
       a23=sepsl(2,3)
       a31=a13
       a32=-a23
-!     e33=e330+anpr2a*a33
       e13=anpra*a13
       e23=anpra*a23
-!     e21=-e12
-!     e31=e13
-!     e32=-e23
 
-!omaj - change: reduce the threshold (the first line is the original one)
-!      if(i>2 .and. errnpr<1.0e-3_r8) exit
       if(i>2 .and. errnpr<1.0e-4_r8) exit
-!omaj - end change
 
       cc4=(e11-anpl2)*(1.0_r8-a33)+(a13+anpl)*(a31+anpl)
       cc2=-e12*e12*(1.0_r8-a33) &
@@ -1100,12 +1091,10 @@ contains
     end do
 
     if(real(anpr2)<0.0_r8 .and. aimag(anpr2)<0.0_r8) then
-!      print*,'  X, Y nperp2=',xg,yg,anpr2,'   nperp2 < 0'
       anpr2=0.0_r8
       ierr=99
     end if
     if(i>imx) then
-!      print*,'    i>imx ',yg,errnpr,i
       ierr=100
     end if
 
