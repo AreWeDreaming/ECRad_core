@@ -12,23 +12,7 @@ You can find the corresponding .bib files in the ``references`` folder. There is
 
 ## Installation
 
-Clone the directory.
-
-```bash
-git clone https://github.com/AreWeDreaming/ECRad_core.git
-```
-If you are using bash:
-
-```bash
-cd ECRad
-./build.sh
-```
-If you are using tsch
-
-```bash
-cd ECRad
-./build.tcsh
-```
+ECRad_core is released as a conda package from the [ECRad](https://github.com/AreWeDreaming/ECRad) repository, which also holds the conda recipes and the instructions for a local development install.
 
 ## Dependencies
 Either gfortran or intel ifort and GNU make.

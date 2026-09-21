@@ -1576,7 +1576,7 @@ do idiag = 1, ant%N_diag
       end if
     end if ! output_level
     if(output_level) then
-      write(out_str, ("(A6F7.3A8F7.3A20F7.3A4)")) "rhop: ", rad%diag(idiag)%ch(ich)%rel_rhop_res,", Trad: ", rad%diag(idiag)%ch(ich)%Trad / 1.d3, &
+      write(out_str, "(A6,F7.3,A8,F7.3,A20,F7.3,A4)") "rhop: ", rad%diag(idiag)%ch(ich)%rel_rhop_res,", Trad: ", rad%diag(idiag)%ch(ich)%Trad / 1.d3, &
                                     " keV, Trad (scnd):  ", rad%diag(idiag)%ch(ich)%Trad_secondary / 1.d3, " keV"
       print*,"Channel ", ich, "complete ", trim(out_str)
     end if
@@ -1948,7 +1948,7 @@ if(output_level) then
             open(75, file=cur_filename)
           end if
         else if(output_level) then
-          write(ich_str, "(I3.3A2)") ich_tot
+          write(ich_str, "(I3.3,A2)") ich_tot
           Och_filename = trim(data_folder) // Ich_name // "/IrhoOch" // trim(ich_str) // ".dat"
           open(66, file=trim(Och_filename))
           Och_filename = trim(data_folder) // Ich_name // "/TrhoOch" //  trim(ich_str) // ".dat"

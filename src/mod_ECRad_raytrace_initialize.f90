@@ -72,7 +72,7 @@ module mod_ECRad_raytrace_initialize
       real(rkind) :: radin, radout, pf_sxp, pf_mag
       character(70) :: line
       if(present(itime)) then
-        write(filename, fmt = "(A7I5.5)") "topfile",  itime
+        write(filename, fmt = "(A7,I5.5)") "topfile",  itime
         filename = trim(data_folder) // trim(filename)
       else
         filename =  trim(data_folder) // "topfile"
@@ -246,7 +246,7 @@ module mod_ECRad_raytrace_initialize
     character(250) :: filename
     integer(ikind) :: i,j
     if(present(itime)) then
-      write(filename, fmt = "(A7I5.5)") "topfile",  itime
+      write(filename, fmt = "(A7,I5.5)") "topfile",  itime
       filename = trim(data_folder) // trim(filename)
     else
       filename =  trim(data_folder) // "topfile"
@@ -466,7 +466,7 @@ module mod_ECRad_raytrace_initialize
       read(66, "(I7.7)") plasma_params%m_vessel_bd
       allocate(plasma_params%vessel_poly%x(plasma_params%m_vessel_bd), plasma_params%vessel_poly%y(plasma_params%m_vessel_bd))
       do i = 1, plasma_params%m_vessel_bd
-        read(66,"(E19.12E2A1E19.12E2)") plasma_params%vessel_poly%x(i), sep,  plasma_params%vessel_poly%y(i)
+        read(66,"(E19.12E2,A1,E19.12E2)") plasma_params%vessel_poly%x(i), sep,  plasma_params%vessel_poly%y(i)
       end do
       close(66)
      end if
@@ -490,7 +490,7 @@ module mod_ECRad_raytrace_initialize
                plasma_params%n_e_prof(plasma_params%m_n_e_prof))
       rhop_max_ne = -1.d0
       do i = 1, plasma_params%m_n_e_prof
-        read(66,"(E19.12E2A1E19.12E2)") plasma_params%rhop_vec_ne(i), sep, plasma_params%n_e_prof(i)
+        read(66,"(E19.12E2,A1,E19.12E2)") plasma_params%rhop_vec_ne(i), sep, plasma_params%n_e_prof(i)
         if(i > 1) then
           if(last_rhop > plasma_params%rhop_vec_ne(i)) then
             print*, "Error while reading the density profile from file"
@@ -515,7 +515,7 @@ module mod_ECRad_raytrace_initialize
       allocate(plasma_params%rhop_vec_Te(plasma_params%m_T_e_prof), &
                plasma_params%T_e_prof(plasma_params%m_T_e_prof))
       do i = 1, plasma_params%m_T_e_prof
-        read(66,"(E19.12E2A1E19.12E2)") plasma_params%rhop_vec_Te(i), sep, plasma_params%T_e_prof(i)
+        read(66,"(E19.12E2,A1,E19.12E2)") plasma_params%rhop_vec_Te(i), sep, plasma_params%T_e_prof(i)
         if(i > 1) then
           if(last_rhop > plasma_params%rhop_vec_Te(i)) then
             print*, "Error while reading the temperature profile from file"

@@ -490,7 +490,7 @@ subroutine prepare_ECE_diag_new_IO()
     allocate(ant%diag(idiag)%ch(ich)%ray_launch(N_ray))
   end do
   do ich = 1, ant%diag(idiag)%N_ch
-    read(77, "(E17.10E2A1E17.10E2A1E17.10E2A1E17.10E2A1E17.10E2A1E17.10E2A1E17.10E2A1E17.10E2A1E17.10E2A1E17.10E2)")  &
+    read(77, "(E17.10E2,A1,E17.10E2,A1,E17.10E2,A1,E17.10E2,A1,E17.10E2,A1,E17.10E2,A1,E17.10E2,A1,E17.10E2,A1,E17.10E2,A1,E17.10E2)")  &
               ant%diag(idiag)%ch(ich)%f_ECE, sep, &
               ant%diag(idiag)%ch(ich)%df_ECE, sep, &
               ant%diag(idiag)%ch(ich)%ray_launch(1)%R, sep, &
@@ -574,7 +574,7 @@ subroutine prepare_ECE_diag_IDA(working_dir, f, df, R, phi, z, tor, pol, dist_fo
   end if
   if(present(f)) then
     do ich = 1, ant%diag(idiag)%N_ch
-      write(77, "(E17.10E2A1E17.10E2A1E17.10E2A1E17.10E2A1E17.10E2A1E17.10E2A1E17.10E2A1E17.10E2A1E17.10E2A1E17.10E2)")  &
+      write(77, "(E17.10E2,A1,E17.10E2,A1,E17.10E2,A1,E17.10E2,A1,E17.10E2,A1,E17.10E2,A1,E17.10E2,A1,E17.10E2,A1,E17.10E2,A1,E17.10E2)")  &
                 ant%diag(idiag)%ch(ich)%f_ECE, " ", &
                 ant%diag(idiag)%ch(ich)%df_ECE, " ", &
                 ant%diag(idiag)%ch(ich)%ray_launch(1)%R, " ", &
@@ -588,7 +588,7 @@ subroutine prepare_ECE_diag_IDA(working_dir, f, df, R, phi, z, tor, pol, dist_fo
     end do
   else
     do ich = 1, ant%diag(idiag)%N_ch
-      read(77, "(E17.10E2A1E17.10E2A1E17.10E2A1E17.10E2A1E17.10E2A1E17.10E2A1E17.10E2A1E17.10E2A1E17.10E2A1E17.10E2)")  &
+      read(77, "(E17.10E2,A1,E17.10E2,A1,E17.10E2,A1,E17.10E2,A1,E17.10E2,A1,E17.10E2,A1,E17.10E2,A1,E17.10E2,A1,E17.10E2,A1,E17.10E2)")  &
                 ant%diag(idiag)%ch(ich)%f_ECE, sep, &
                 ant%diag(idiag)%ch(ich)%df_ECE, sep, &
                 ant%diag(idiag)%ch(ich)%ray_launch(1)%R, sep, &
@@ -2364,7 +2364,7 @@ subroutine read_ffp_data()
   integer(ikind)  :: irhop, iu, ipitch
   Character(200)  :: cur_filename,filename
   Character(12)  :: irhop_str
-  Character(16)  :: format
+  Character(17)  :: format
   filename = trim(data_folder) // dst_data_folder // "/u.dat"
   open(66, file = trim(filename))
   read(66,"(I5.5)") ffp%N_u
@@ -2392,7 +2392,7 @@ subroutine read_ffp_data()
   allocate(ffp%rhop(ffp%N_rhop))
   allocate(ffp%f(ffp%N_rhop, ffp%N_u, ffp%N_pitch)) !
   print*,"Loading drift kinetic distribution function"
-  write(format,"(A1I3.3A12)") "(",ffp%N_pitch,"(E15.8E2A1))"
+  write(format,"(A1,I3.3,A13)") "(",ffp%N_pitch,"(E15.8E2,A1))"
   do irhop = 1, ffp%N_rhop
     read(67,"(E19.12E2)") ffp%rhop(irhop)
     write(irhop_str, "(I3.3)") irhop - 1
@@ -2423,7 +2423,7 @@ subroutine read_fgene_data()
   real(rkind), dimension(:,:), allocatable :: f_0
   Character(200)  :: cur_filename,filename
   Character(12)  :: irhop_str
-  Character(16)  :: format
+  Character(17)  :: format
   filename = trim(data_folder) // dst_data_folder // "/vpar.dat"
   open(66, file = trim(filename))
   read(66,"(I5.5)") fgene%N_vpar
@@ -2451,7 +2451,7 @@ subroutine read_fgene_data()
   allocate(fgene%rhop(fgene%N_rhop))
   allocate(fgene%g(fgene%N_rhop, fgene%N_vpar, fgene%N_mu)) !
   print*,"Loading GENE distribution function"
-  write(format,"(A1I3.3A12)") "(",fgene%N_mu,"(E15.8E2A1))"
+  write(format,"(A1,I3.3,A13)") "(",fgene%N_mu,"(E15.8E2,A1))"
   do irhop = 1,fgene%N_rhop
     write(irhop_str, "(I3.3)") irhop - 1
     cur_filename = trim(data_folder) // dst_data_folder // "/gvpar" // trim(irhop_str) // ".dat"
@@ -2501,7 +2501,7 @@ Character(1)    :: blanc
   read(67,"(I5.5)") N_rhop
   allocate(rhop(N_rhop), fgene%Te_perp_vec(N_rhop))
   do irhop = 1, N_rhop
-    read(67,"(E19.12E2A1E19.12E2)") rhop(irhop), blanc, fgene%Te_perp_vec(irhop)
+    read(67,"(E19.12E2,A1,E19.12E2)") rhop(irhop), blanc, fgene%Te_perp_vec(irhop)
   end do
   close(67)
   if(abs(minval(rhop) - fgene%rhop_min) > 1.e-5 .or. &
@@ -2521,7 +2521,7 @@ Character(1)    :: blanc
   deallocate(rhop)
   allocate(rhop(N_rhop), fgene%Te_par_vec(N_rhop))
   do irhop = 1, N_rhop
-    read(67,"(E19.12E2A1E19.12E2)") rhop(irhop), blanc, fgene%Te_par_vec(irhop)
+    read(67,"(E19.12E2,A1,E19.12E2)") rhop(irhop), blanc, fgene%Te_par_vec(irhop)
   end do
   close(67)
   if(abs(minval(rhop) - fgene%rhop_min) > 1.e-5 .or. &
@@ -2554,7 +2554,7 @@ Character(1)    :: blanc
   read(67,"(I5.5)") N_rhop
   allocate(rhop(N_rhop), j(N_rhop))
   do irhop = 1, N_rhop
-    read(67,"(E19.12E2A1E19.12E2)") rhop(irhop), blanc, j
+    read(67,"(E19.12E2,A1,E19.12E2)") rhop(irhop), blanc, j
   end do
   close(67)
   call make_1d_spline(Spitzer%j_spl, int(N_rhop,4), rhop, j)
@@ -2624,7 +2624,7 @@ do idiag = 1, ant%N_diag
       end if
       open(66, file=cur_filename)
       do iint = 1, rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%total_LOS_points
-        write(66,"(9(E18.10E3A1))") rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%svec(iint)%s," ",&
+        write(66,"(9(E18.10E3,A1))") rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%svec(iint)%s," ",&
            rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%svec(iint)%R," ",&
            rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%svec(iint)%z," ",&
            rad%diag(idiag)%ch(ich)%mode(imode)%ray(ir)%freq(ifreq)%svec(iint)%rhop," ",&
@@ -2651,7 +2651,7 @@ if(dstf == "numeric") then
   filename = trim(data_folder) // "B_min.dat"
   open(90, file=filename)
   do iint = 1, size(ffp%rhop_B_min)
-    write(90, fmt="(E18.10E3A1E18.10E3)") ffp%rhop_B_min(iint), " ", ffp%B_min(iint)
+    write(90, fmt="(E18.10E3,A1,E18.10E3)") ffp%rhop_B_min(iint), " ", ffp%B_min(iint)
   end do
   close(90)
 end if
