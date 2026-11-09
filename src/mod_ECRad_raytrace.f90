@@ -3851,7 +3851,7 @@ function func_dA_dY(X, Y)
   first_N_plasma = -1
   do i = 1, last_N
     if(ray_segment(i)%rhop > 0.0 .and. & 
-    ray_segment(i)%rhop > plasma_params%rhop_max - plasma_params%delta_rhop_exit) then
+    ray_segment(i)%rhop < plasma_params%rhop_max - plasma_params%delta_rhop_exit) then
       if(first_N_plasma < 0) first_N_plasma = i
       last_N_plasma = i
     end if
