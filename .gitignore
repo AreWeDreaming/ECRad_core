@@ -11,3 +11,4 @@ MANIFEST.in
 run_ECRad_MUSCLE3_test_*
 conda_build_test
 !muscle3_test/configuration.ymmsl
+build/
