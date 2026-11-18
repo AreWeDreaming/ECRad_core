@@ -503,12 +503,12 @@ subroutine set_ECRad_FFP_dist_f2py(rho, u, pitch, f)
   if(allocated(ffp%u)) deallocate(ffp%u)
   allocate(ffp%u(ffp%N_u))
   ffp%u = u
-  ffp%pitch = pitch
   ffp%u_max_data =  ffp%u(ffp%N_u)
   ffp%u_max = ffp%u_max_data
   ffp%u_min = max(ffp%u(1), ffp%u_min)
   if(allocated(ffp%pitch)) deallocate(ffp%pitch)
   allocate(ffp%pitch(ffp%N_pitch))
+  ffp%pitch = pitch
   ffp%pitch_min =  ffp%pitch(1)
   ffp%pitch_max =  ffp%pitch(ffp%N_pitch)
   if(allocated(ffp%rhop)) deallocate(ffp%rhop)
